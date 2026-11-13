@@ -69,6 +69,36 @@ function prices() {
     }));
 }
 
+function suggestions() {
+  const out = h('div');
+  const picker = form([
+    { name: 'category', label: 'فئة العملاء', type: 'select', options: CATS },
+    { name: 'margin_pct', label: 'نسبة الربح % (فارغ = الافتراضي للفئة)', type: 'number' },
+    { name: 'basis', label: 'أساس التكلفة', type: 'select', options: [{ value: 'last', label: 'آخر تكلفة شراء (بالدينار)' }, { value: 'average', label: 'متوسط تكلفة المخزون الحالي' }] },
+  ], 'احسب الأسعار المقترحة', async (v) => {
+    const r = await get('pricing/suggestions', v);
+    const picks = {};
+    const rows = r.data.map((x) => {
+      const check = h('input', { type: 'checkbox', checked: true }), price = h('input', { dir: 'ltr', value: x.suggested_price.replace(/\.?0+$/, '') });
+      picks[x.product_id] = { check, price };
+      const buy = x.last_purchase ? `${money(x.last_purchase.price)} ${x.last_purchase.currency} × ${x.last_purchase.rate}` : '—';
+      return h('tr', null, h('td', null, check), h('td', null, x.sku + ' — ' + x.name), h('td', { class: 'num' }, buy), h('td', { class: 'num' }, money(x.unit_cost)), h('td', { class: 'num' }, money(x.raw_price)),
+        h('td', null, price), h('td', { class: 'num' }, x.current_price ? money(x.current_price) : '—'), h('td', { class: 'num' }, x.margin_after_rounding_pct ?? ''));
+    });
+    out.replaceChildren(
+      h('p', { class: 'hint' }, `السعر = التكلفة بالدينار × (1 + ${r.margin_pct}%) ثم يُقرَّب للأعلى إلى مضاعف ${qty(r.step)} ${r.currency} (مثال: 353 ← 355، 356 ← 360). يمكنك تعديل أي سعر؛ يُقرَّب مجدداً عند الحفظ.`),
+      r.data.length ? h('div', { class: 'tablewrap' }, h('table', null, h('thead', null, h('tr', null, ['', 'الصنف', 'آخر شراء', 'التكلفة (' + r.currency + ')', 'قبل التقريب', 'السعر المعتمد', 'السعر الحالي', 'الهامش % بعد التقريب'].map((t) => h('th', null, t)))), h('tbody', null, rows)))
+        : h('div', { class: 'card empty' }, 'لا توجد أصناف مشتراة لتسعيرها'),
+      r.data.length ? h('button', { class: 'btn', type: 'button', onclick: async (e) => {
+        const prices = Object.entries(picks).filter(([, p]) => p.check.checked && p.price.value.trim()).map(([id, p]) => ({ product_id: Number(id), price: p.price.value.trim() }));
+        if (!prices.length) return toast('حدد صنفاً واحداً على الأقل', 'error');
+        e.target.disabled = true;
+        try { const res = await post('pricing/apply', { category: v.category, prices }); toast(`تم اعتماد ${res.applied} سعراً في قائمة أسعار الفئة`, 'ok'); } catch (err) { toast(err.message, 'error'); } finally { e.target.disabled = false; }
+      } }, 'اعتماد الأسعار المحددة') : null);
+  });
+  return h('div', null, picker, out);
+}
+
 function receivables() {
   return panel(async (refresh) => {
     const inv = (await get('receivables/invoices')).data;
@@ -106,6 +136,7 @@ export default async function () {
     ...(can('sales.create') ? [{ label: 'طلب بيع جديد', render: async () => newOrder() }] : []),
     { label: 'العملاء', render: async () => customers() },
     ...(can('master_data.manage') ? [{ label: 'الأسعار', render: async () => prices() }] : []),
+    ...(can('master_data.manage') && can('inventory.view_cost') ? [{ label: 'اقتراح الأسعار (مقرَّبة)', render: async () => suggestions() }] : []),
     ...(can('finance.view') ? [{ label: 'الفواتير والتحصيل', render: async () => receivables() }] : []),
     ...(can('reports.view') ? [{ label: 'أعمار ذمم العملاء', render: async () => ageing() }] : []),
   ]);

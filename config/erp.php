@@ -41,6 +41,13 @@ return [
         ['min_qty' => '1000', 'rate' => '0.1000'],
     ],
 
+    // Suggested selling prices: cost (landed, in base currency) + margin, then rounded UP to a multiple of the step
+    // (e.g. step 5: 353 -> 355, 356 -> 360, 355 -> 355). Margins are default percentages per customer category.
+    'pricing' => [
+        'rounding_step' => env('ERP_PRICE_STEP', '5'),
+        'margins' => ['wholesale' => '10', 'retail' => '25', 'direct' => '30'],
+    ],
+
     // Selling below cost x (1 + this margin) flags the quote for approval.
     'min_margin' => env('ERP_MIN_MARGIN', '0.0500'),
 

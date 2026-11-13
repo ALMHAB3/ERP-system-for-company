@@ -15,6 +15,7 @@ use Modules\Procurement\Http\Controllers\PurchaseOrderController;
 use Modules\Reporting\Http\Controllers\ListController;
 use Modules\Reporting\Http\Controllers\ReportController;
 use Modules\Sales\Http\Controllers\CustomerController;
+use Modules\Sales\Http\Controllers\PricingController;
 use Modules\Sales\Http\Controllers\ReceivablesController;
 use Modules\Sales\Http\Controllers\SalesOrderController;
 
@@ -42,6 +43,8 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
         Route::post('warehouses', [MasterDataController::class, 'storeWarehouse'])->name('warehouses.store');
         Route::post('customers', [CustomerController::class, 'store'])->name('customers.store');
         Route::put('prices', [CustomerController::class, 'setPrice'])->name('prices.set');
+        Route::get('pricing/suggestions', [PricingController::class, 'suggestions'])->name('pricing.suggestions');
+        Route::post('pricing/apply', [PricingController::class, 'apply'])->name('pricing.apply');
     });
 
     Route::prefix('inventory')->name('inventory.')->group(function () {
