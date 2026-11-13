@@ -1,0 +1,40 @@
+<?php
+
+return [
+    'base_currency' => env('ERP_BASE_CURRENCY', 'SAR'),
+
+    // VAT / sales tax rate as a 4-decimal string. Set to the rate of your jurisdiction.
+    'vat_rate' => env('ERP_VAT_RATE', '0.1500'),
+
+    // Chart-of-accounts codes used by the automatic posting rules.
+    'accounts' => [
+        'bank' => '1100',
+        'receivables' => '1200',
+        'inventory' => '1300',
+        'goods_received_not_invoiced' => '2100',
+        'vat_payable' => '2200',
+        'revenue' => '4000',
+        'cost_of_goods_sold' => '5000',
+        'inventory_variance' => '5100',
+    ],
+
+    // Purchase-order approval ladder: [upper limit of order total, approval level required].
+    'po_approval_ladder' => [
+        ['limit' => '10000.0000', 'level' => 1],   // purchasing manager
+        ['limit' => '100000.0000', 'level' => 2],  // finance manager
+        ['limit' => null, 'level' => 3],           // general manager
+    ],
+
+    // Wholesale quantity-break discounts: [minimum quantity, discount rate].
+    'quantity_breaks' => [
+        ['min_qty' => '100', 'rate' => '0.0300'],
+        ['min_qty' => '500', 'rate' => '0.0600'],
+        ['min_qty' => '1000', 'rate' => '0.1000'],
+    ],
+
+    // Selling below cost x (1 + this margin) flags the quote for approval.
+    'min_margin' => env('ERP_MIN_MARGIN', '0.0500'),
+
+    // API access token for the thin HTTP layer (replace with Sanctum/OIDC in your environment).
+    'api_token' => env('ERP_API_TOKEN'),
+];

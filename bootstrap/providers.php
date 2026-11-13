@@ -1,0 +1,19 @@
+<?php
+
+use App\Providers\AppServiceProvider;
+use Modules\Finance\FinanceServiceProvider;
+use Modules\Import\ImportServiceProvider;
+use Modules\Inventory\InventoryServiceProvider;
+use Modules\Procurement\ProcurementServiceProvider;
+use Modules\Sales\SalesServiceProvider;
+use Modules\Shared\SharedServiceProvider;
+
+return [
+    AppServiceProvider::class,
+    SharedServiceProvider::class,
+    InventoryServiceProvider::class,
+    FinanceServiceProvider::class,
+    ImportServiceProvider::class,
+    ProcurementServiceProvider::class,
+    SalesServiceProvider::class,
+];
