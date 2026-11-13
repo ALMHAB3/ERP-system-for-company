@@ -16,7 +16,7 @@ final class RoleCatalog
         return [
             'admin' => ['label' => 'System administrator', 'approval_level' => 3, 'permissions' => $all],
             'general_manager' => ['label' => 'General manager', 'approval_level' => 3, 'permissions' => array_values(array_filter(
-                $all, static fn (Permission $p) => $p !== Permission::UsersManage,
+                $all, static fn (Permission $p) => $p !== Permission::UsersManage && $p !== Permission::IntegrationsManage,
             ))],
             'finance_manager' => ['label' => 'Finance manager', 'approval_level' => 2, 'permissions' => [
                 Permission::FinanceView, Permission::AuditView, Permission::SalesInvoice, Permission::PurchaseOrdersApprove,

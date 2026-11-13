@@ -10,4 +10,6 @@ Artisan::command('inspire', function () {
 
 // Nightly proof that stored stock balances equal the immutable ledger (non-zero exit on drift).
 Schedule::command('inventory:reconcile')->dailyAt('02:00')->onOneServer();
+Schedule::command('invoices:verify')->dailyAt('02:20')->onOneServer();
+Schedule::command('webhooks:deliver')->everyMinute()->withoutOverlapping();
 Schedule::command('audit:verify')->dailyAt('02:15')->onOneServer();

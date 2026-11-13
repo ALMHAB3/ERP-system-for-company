@@ -14,6 +14,7 @@ use Modules\Sales\Domain\Exceptions\InvalidOrderState;
 use Modules\Sales\Domain\Exceptions\PricingApprovalRequired;
 use Modules\Sales\Domain\PaymentMethod;
 use Modules\Sales\Domain\PaymentTerms;
+use Modules\Sales\Domain\Ports\SerialTracking;
 use Modules\Sales\Domain\Ports\StockAvailability;
 use Modules\Sales\Domain\Pricing\PricingContext;
 use Modules\Sales\Domain\Pricing\PricingEngineFactory;
@@ -39,6 +40,7 @@ final class SalesOrderService
         private readonly TransactionRunner $tx,
         private readonly EventBus $events,
         private readonly ReceivablesService $receivables,
+        private readonly SerialTracking $serials,
     ) {}
 
     /** @param list<OrderLineRequest> $requests */
@@ -88,6 +90,7 @@ final class SalesOrderService
     {
         return $this->tx->run(function () use ($orderId): SalesOrder {
             $order = $this->load($orderId, 'reserved');
+            $this->serials->sellForOrder($orderId);   // a serial-tracked line must name its units before it leaves
             $issues = [];
             foreach ($order->lines as $line) {
                 $issues[$line->id] = $this->stock->issue($line->reservationId, "sales_order:{$order->number}", "sales_order:{$orderId}:line:{$line->id}:ship");
@@ -125,6 +128,7 @@ final class SalesOrderService
     {
         $this->tx->run(function () use ($orderId): void {
             $order = $this->load($orderId, 'reserved');
+            $this->serials->releaseForOrder($orderId);
             foreach ($order->lines as $line) {
                 $this->stock->release($line->reservationId);
             }

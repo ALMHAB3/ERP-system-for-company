@@ -1,4 +1,5 @@
-import { h, get, post, put, form, table, tabs, panel, act, can, modal, money, qty, pct, badge, toast, state, opts, refItems, reloadLookups, today, wireBank, PAY_METHODS, SALE_METHODS } from '../ui.js';
+import { einvoiceView } from './einvoice.js';
+import { h, get, post, put, download, form, table, tabs, panel, act, can, modal, money, qty, pct, badge, toast, state, opts, refItems, reloadLookups, today, wireBank, PAY_METHODS, SALE_METHODS } from '../ui.js';
 
 const CATS = [['wholesale', 'جملة'], ['retail', 'تجزئة'], ['direct', 'مبيعات مباشرة']].map(([value, label]) => ({ value, label }));
 
@@ -21,12 +22,27 @@ function orders() {
       { label: 'الصافي', num: true, render: (o) => money(o.net) },
       { label: 'البنود', render: (o) => o.lines.map((l) => `${l.sku} × ${qty(l.quantity)} @ ${money(l.unit_price)}${Number(l.discount_rate) ? ' (خصم ' + pct(l.discount_rate) + ')' : ''}`).join('، ') },
       { label: '', render: (o) => h('div', { class: 'row-actions' },
+        o.status === 'reserved' && can('sales.create') && o.lines.some((l) => l.tracks_serials) ? h('button', { class: 'btn secondary small', onclick: () => serialPicker(o, refresh) }, 'الأرقام التسلسلية') : null,
         o.status === 'reserved' && can('sales.ship') ? act('تسليم', () => post(`sales-orders/${o.id}/ship`), refresh, { confirm: 'تسليم الطلب ' + o.number + ' (صرف من المخزون)؟', ok: 'تم التسليم' }) : null,
         o.status === 'shipped' && can('sales.invoice') ? act('إصدار فاتورة', () => post(`sales-orders/${o.id}/invoice`), refresh, { ok: 'تم إصدار الفاتورة' }) : null,
         o.status === 'reserved' && can('sales.cancel') ? act('إلغاء', () => post(`sales-orders/${o.id}/cancel`), refresh, { cls: 'danger', confirm: 'إلغاء الطلب وتحرير الحجز؟', ok: 'تم الإلغاء' }) : null,
         o.status === 'invoiced' && can('sales.return') ? h('button', { class: 'btn secondary small', onclick: () => creditNote(o) }, 'مرتجع / إشعار دائن') : null) },
     ], r.data, 'لا توجد طلبات');
   });
+}
+
+function serialPicker(o, refresh) {
+  const boxes = o.lines.filter((l) => l.tracks_serials).map((l) => ({ l, ta: h('textarea', { rows: 4, dir: 'ltr', placeholder: 'SN-001\nSN-002' }, l.serials.join('\n')) }));
+  const m = modal('الأرقام التسلسلية — ' + o.number, h('div', null,
+    h('p', { class: 'hint' }, 'اكتب رقماً تسلسلياً في كل سطر. يجب أن يساوي عددها كمية البند قبل التسليم، وأن تكون مسجلة في مخزون مستودع الطلب.'),
+    boxes.map(({ l, ta }) => h('div', { class: 'field' }, h('label', null, `${l.sku} — ${l.name} (الكمية ${qty(l.quantity)})`), ta)),
+    h('button', { class: 'btn', onclick: async (e) => {
+      e.target.disabled = true;
+      try {
+        for (const { l, ta } of boxes) await put(`sales-orders/${o.id}/lines/${l.id}/serials`, { serials: ta.value.split('\n').map((x) => x.trim()).filter(Boolean) });
+        toast('تم حفظ الأرقام التسلسلية', 'ok'); m.close(); refresh();
+      } catch (err) { toast(err.message, 'error'); e.target.disabled = false; }
+    } }, 'حفظ')));
 }
 
 function newOrder() {
@@ -70,6 +86,7 @@ function customers() {
     can('master_data.manage') ? h('div', { class: 'card' }, h('h3', null, 'إضافة عميل'), form([
       { name: 'name', label: 'الاسم', type: 'text', required: true }, { name: 'category', label: 'الفئة', type: 'select', options: CATS },
       { name: 'credit_limit', label: 'حد الائتمان (0 = بلا حد)', type: 'number', value: '0' }, { name: 'terms_days', label: 'مدة السداد (يوم)', type: 'number', value: '0' },
+      { name: 'tax_id', label: 'الرقم الضريبي (يظهر في الفاتورة)', type: 'text' }, { name: 'address', label: 'العنوان', type: 'text' },
     ], 'إضافة', async (v) => { await post('customers', { ...v, terms_days: +v.terms_days }); await reloadLookups(); toast('تمت إضافة العميل', 'ok'); refresh(); })) : null,
     table([{ label: 'العميل', render: (c) => h('span', null, c.name, c.is_walk_in ? h('span', { class: 'badge walk' }, 'بدون تسجيل — نقداً/تحويل فقط') : null) }, { label: 'الفئة', render: (c) => CATS.find((x) => x.value === c.category)?.label }, { label: 'حد الائتمان', num: true, render: (c) => (Number(c.credit_limit) ? money(c.credit_limit) : 'بلا حد') }, { label: 'مدة السداد', num: true, key: 'terms_days' },
       { label: '', render: (c) => can('master_data.manage') && !c.is_walk_in ? h('button', { class: 'btn secondary small', onclick: () => {
@@ -142,7 +159,8 @@ function receivables() {
     }) : null;
     return h('div', null, picker, box, h('h3', null, 'الفواتير'),
       table([{ label: 'الفاتورة', key: 'number' }, { label: 'العميل', key: 'customer' }, { label: 'الطلب', key: 'order' }, { label: 'الاستحقاق', render: (i) => i.due_date || '' }, { label: 'الإجمالي', num: true, render: (i) => money(i.gross) },
-        { label: 'محصَّل', num: true, render: (i) => money(i.paid) }, { label: 'إشعارات دائنة', num: true, render: (i) => money(i.credited) }, { label: 'المتبقي', num: true, render: (i) => h('b', { class: Number(i.balance) > 0 ? 'neg' : 'pos' }, money(i.balance)) }], inv, 'لا توجد فواتير'));
+        { label: 'محصَّل', num: true, render: (i) => money(i.paid) }, { label: 'إشعارات دائنة', num: true, render: (i) => money(i.credited) },
+        { label: 'الفاتورة الإلكترونية', render: (i) => h('div', { class: 'row-actions' }, h('button', { class: 'btn secondary small', onclick: () => einvoiceView(i.id) }, 'عرض / طباعة'), h('button', { class: 'btn secondary small', onclick: () => download(`sales-invoices/${i.id}/ubl`, i.number + '.xml').catch((e) => toast(e.message, 'error')) }, 'XML')) }, { label: 'المتبقي', num: true, render: (i) => h('b', { class: Number(i.balance) > 0 ? 'neg' : 'pos' }, money(i.balance)) }], inv, 'لا توجد فواتير'));
   });
 }
 

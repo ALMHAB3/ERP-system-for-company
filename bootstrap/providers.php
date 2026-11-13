@@ -6,6 +6,7 @@ use Modules\Demo\DemoServiceProvider;
 use Modules\Finance\FinanceServiceProvider;
 use Modules\Identity\IdentityServiceProvider;
 use Modules\Import\ImportServiceProvider;
+use Modules\Integrations\IntegrationsServiceProvider;
 use Modules\Inventory\InventoryServiceProvider;
 use Modules\Procurement\ProcurementServiceProvider;
 use Modules\Reporting\ReportingServiceProvider;
@@ -23,5 +24,6 @@ return [
     IdentityServiceProvider::class,
     AuditServiceProvider::class,
     ReportingServiceProvider::class,
+    IntegrationsServiceProvider::class,
     DemoServiceProvider::class,
 ];

@@ -9,14 +9,18 @@ use Modules\Finance\Http\Controllers\FinanceController;
 use Modules\Identity\Http\Controllers\AuthController;
 use Modules\Identity\Http\Controllers\UserAdminController;
 use Modules\Import\Http\Controllers\ShipmentController;
+use Modules\Integrations\Http\Controllers\ExportController;
+use Modules\Integrations\Http\Controllers\WebhookController;
 use Modules\Inventory\Http\Controllers\InventoryController;
 use Modules\Inventory\Http\Controllers\MasterDataController;
+use Modules\Inventory\Http\Controllers\SerialController;
 use Modules\Procurement\Http\Controllers\PayablesController;
 use Modules\Procurement\Http\Controllers\PurchaseOrderController;
 use Modules\Reporting\Http\Controllers\ListController;
 use Modules\Reporting\Http\Controllers\ReportController;
 use Modules\Reporting\Http\Controllers\ShipmentPreviewController;
 use Modules\Sales\Http\Controllers\CustomerController;
+use Modules\Sales\Http\Controllers\EInvoiceController;
 use Modules\Sales\Http\Controllers\PricingController;
 use Modules\Sales\Http\Controllers\ReceivablesController;
 use Modules\Sales\Http\Controllers\SalesOrderController;
@@ -94,11 +98,33 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
         Route::match(['get', 'post'], 'settlement', [PayablesController::class, 'settlement'])->middleware('permission:shipments.settle')->name('settlement');
     });
 
+    Route::prefix('integrations')->name('integrations.')->middleware('permission:integrations.manage')->group(function () {
+        Route::get('webhooks', [WebhookController::class, 'index'])->name('webhooks.index');
+        Route::post('webhooks', [WebhookController::class, 'store'])->name('webhooks.store');
+        Route::put('webhooks/{endpoint}/active', [WebhookController::class, 'toggle'])->whereNumber('endpoint')->name('webhooks.toggle');
+        Route::get('webhooks/{endpoint}/deliveries', [WebhookController::class, 'deliveries'])->whereNumber('endpoint')->name('webhooks.deliveries');
+    });
+    Route::prefix('export')->name('export.')->middleware('permission:reports.view')->group(function () {
+        Route::get('invoices.csv', [ExportController::class, 'invoices'])->name('invoices');
+        Route::get('products.csv', [ExportController::class, 'products'])->name('products');
+        Route::get('customers.csv', [ExportController::class, 'customers'])->name('customers');
+    });
+    Route::prefix('serials')->name('serials.')->group(function () {
+        Route::get('/', [SerialController::class, 'index'])->middleware('permission:inventory.view')->name('index');
+        Route::get('trace/{serial}', [SerialController::class, 'trace'])->where('serial', '[A-Za-z0-9\-_.]+')->middleware('permission:inventory.view')->name('trace');
+        Route::post('/', [SerialController::class, 'register'])->middleware('permission:inventory.adjust')->name('register');
+        Route::post('returned', [SerialController::class, 'returned'])->middleware('permission:sales.return')->name('returned');
+    });
+    Route::put('sales-orders/{order}/lines/{line}/serials', [SerialController::class, 'assign'])->whereNumber(['order', 'line'])->middleware('permission:sales.create')->name('sales_orders.serials');
+
     Route::prefix('receivables')->name('receivables.')->group(function () {
         Route::get('invoices', [ReceivablesController::class, 'invoices'])->middleware('permission:finance.view')->name('invoices.index');
         Route::post('receipts', [ReceivablesController::class, 'receive'])->middleware('permission:receipts.record')->name('receipts.store');
         Route::get('ageing', [ReceivablesController::class, 'ageing'])->middleware('permission:reports.view')->name('ageing');
     });
+    Route::get('sales-invoices/verify-chain', [EInvoiceController::class, 'verify'])->middleware('permission:finance.view')->name('einvoice.verify');
+    Route::get('sales-invoices/{invoice}', [EInvoiceController::class, 'show'])->whereNumber('invoice')->middleware('permission:finance.view|sales.invoice')->name('einvoice.show');
+    Route::get('sales-invoices/{invoice}/ubl', [EInvoiceController::class, 'ubl'])->whereNumber('invoice')->middleware('permission:finance.view|sales.invoice')->name('einvoice.ubl');
     Route::post('sales-orders/{order}/credit-notes', [ReceivablesController::class, 'creditNote'])->whereNumber('order')->middleware('permission:sales.return')->name('sales_orders.credit_note');
 
     Route::prefix('reports')->name('reports.')->middleware('permission:reports.view')->group(function () {

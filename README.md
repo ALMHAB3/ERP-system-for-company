@@ -121,6 +121,8 @@ PHP 8.3 + Laravel 13 · **Modular Monolith** · PostgreSQL 16
 
 ## التشغيل
 
+**الفوترة الإلكترونية والأرقام التسلسلية والتكاملات (ويب هوك، CSV، مفاتيح API):** [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md).
+
 **البدء السريع والتجربة (تثبيت بأمر واحد + بيانات تجريبية + Tailscale):** [`docs/QUICKSTART.md`](docs/QUICKSTART.md).
 
 **الوصول من الإنترنت (والجهاز هو السيرفر):** Tailscale أو نفق Cloudflare أو دومين مباشر، راجع [`docs/INTERNET-ACCESS.md`](docs/INTERNET-ACCESS.md).

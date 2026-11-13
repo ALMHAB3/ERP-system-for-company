@@ -3,6 +3,10 @@
 return [
     // The company's name. It is Arabic in every language of the interface (never translated).
     'company_name' => env('COMPANY_NAME', 'شركة هب الريح لعوازل الأسطح ومواد البناء'),
+    // Printed on every invoice (e-invoice seller block). Fill in the real registration data before real use.
+    'company' => ['tax_id' => env('COMPANY_TAX_ID', ''), 'address' => env('COMPANY_ADDRESS', ''), 'phone' => env('COMPANY_PHONE', '')],
+    // Outgoing webhooks: refuse targets that resolve to link-local/metadata addresses (set true only to allow every private address).
+    'webhooks' => ['allow_private' => env('WEBHOOKS_ALLOW_PRIVATE', true), 'max_attempts' => 6],
 
     // Company (accounting) currency. Everything is booked in it; foreign amounts keep their own currency and rate.
     'base_currency' => env('ERP_BASE_CURRENCY', 'LYD'),

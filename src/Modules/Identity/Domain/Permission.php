@@ -37,6 +37,8 @@ enum Permission: string
     case BanksManage = 'banks.manage';
     case AuditView = 'audit.view';
     case UsersManage = 'users.manage';
+    /** Webhooks and integration tokens: administrator only. */
+    case IntegrationsManage = 'integrations.manage';
     /** Without it a user only works in the warehouses assigned to them. */
     case WarehousesAll = 'warehouses.all';
 }

@@ -2279,5 +2279,285 @@ export const EN_PAIRS = [
 [
 "هذا النظام يحتوي بيانات تجريبية للتجربة فقط. ابدأ من قاعدة بيانات فارغة قبل إدخال البيانات الحقيقية.",
 "This system contains demo data for testing only. Start from an empty database before entering real data."
+],
+[
+"الأرقام التسلسلية — ",
+"Serial numbers — "
+],
+[
+"الأرقام التسلسلية",
+"Serial numbers"
+],
+[
+"اكتب رقماً تسلسلياً في كل سطر. يجب أن يساوي عددها كمية البند قبل التسليم، وأن تكون مسجلة في مخزون مستودع الطلب.",
+"Write one serial number per line. Their count must equal the line quantity before delivery, and they must be registered in the order's warehouse stock."
+],
+[
+"(الكمية ",
+"(Quantity "
+],
+[
+"تم حفظ الأرقام التسلسلية",
+"Serial numbers saved"
+],
+[
+"الرقم الضريبي (يظهر في الفاتورة)",
+"Tax ID (printed on the invoice)"
+],
+[
+"الفاتورة الإلكترونية",
+"E-invoice"
+],
+[
+"عرض / طباعة",
+"View / print"
+],
+[
+"فاتورة ضريبية",
+"Tax invoice"
+],
+[
+"رقم الفاتورة: ",
+"Invoice no.: "
+],
+[
+"التاريخ: ",
+"Date: "
+],
+[
+"الاستحقاق: ",
+"Due: "
+],
+[
+"طريقة الدفع: ",
+"Payment method: "
+],
+[
+"بالأجل",
+"On credit"
+],
+[
+"الرقم الضريبي: ",
+"Tax ID: "
+],
+[
+"البائع",
+"Seller"
+],
+[
+"المشتري",
+"Buyer"
+],
+[
+"الصافي: ",
+"Net: "
+],
+[
+"الضريبة: ",
+"Tax: "
+],
+[
+"الإجمالي: ",
+"Total: "
+],
+[
+"طباعة / حفظ PDF",
+"Print / save as PDF"
+],
+[
+"الفاتورة ",
+"Invoice "
+],
+[
+"في المخزون",
+"In stock"
+],
+[
+"محجوز لطلب",
+"Reserved for an order"
+],
+[
+"مباع",
+"Sold"
+],
+[
+"تسجيل أرقام تسلسلية لوحدات في المخزون",
+"Register serial numbers for units in stock"
+],
+[
+"الصنف (المفعَّل عليه التتبع)",
+"Product (serial tracking on)"
+],
+[
+"الأرقام (رقم في كل سطر)",
+"Serial numbers (one per line)"
+],
+[
+"تسجيل",
+"Register"
+],
+[
+"تم تسجيل ",
+"Registered "
+],
+[
+" رقماً",
+" serial numbers"
+],
+[
+"لا يوجد صنف مفعَّل عليه التتبع. فعّله من «الأصناف والمستودعات».",
+"No product has serial tracking on. Turn it on in “Products & warehouses”."
+],
+[
+"تتبّع رقم تسلسلي",
+"Trace a serial number"
+],
+[
+"الرقم التسلسلي",
+"Serial number"
+],
+[
+"الحالة: ",
+"Status: "
+],
+[
+" — المستودع: ",
+" — Warehouse: "
+],
+[
+"العميل: ",
+"Customer: "
+],
+[
+" — الطلب: ",
+" — Order: "
+],
+[
+" — الفاتورة: ",
+" — Invoice: "
+],
+[
+"الرقم غير مسجَّل",
+"Serial number not registered"
+],
+[
+"لا توجد أرقام تسلسلية مسجَّلة",
+"No serial numbers registered"
+],
+[
+"يُتتبَّع بأرقام تسلسلية (كل وحدة لها رقم)",
+"Tracked by serial numbers (each unit has a number)"
+],
+[
+"يُتتبَّع بأرقام تسلسلية",
+"Tracked by serial numbers"
+],
+[
+"بانتظار الإرسال",
+"Waiting to send"
+],
+[
+"فشل نهائياً",
+"Failed for good"
+],
+[
+"استلام دفعة",
+"Payment received"
+],
+[
+"إشعار دائن",
+"Credit note"
+],
+[
+"آخر عمليات الإرسال — ",
+"Latest deliveries — "
+],
+[
+"الحدث",
+"Event"
+],
+[
+"المحاولات",
+"Attempts"
+],
+[
+"الخطأ",
+"Error"
+],
+[
+"لا توجد عمليات إرسال",
+"No deliveries"
+],
+[
+"ويب هوك جديد (إشعار نظام آخر عند حدوث عملية)",
+"New webhook (notify another system when something happens)"
+],
+[
+"يرسل النظام طلب POST بصيغة JSON موقّعاً (X-ERP-Signature = HMAC-SHA256 للسر) مع إعادة محاولة تلقائية. التفاصيل في docs/INTEGRATIONS.md.",
+"The system sends a signed JSON POST (X-ERP-Signature = HMAC-SHA256 of the secret) with automatic retries. Details in docs/INTEGRATIONS.md."
+],
+[
+"العنوان (URL)",
+"Address (URL)"
+],
+[
+"اختر حدثاً واحداً على الأقل",
+"Choose at least one event"
+],
+[
+"احفظ السر الآن (لن يظهر مرة أخرى)",
+"Save the secret now (it will not be shown again)"
+],
+[
+"استخدمه في الطرف المستقبِل للتحقق من التوقيع.",
+"Use it on the receiving side to verify the signature."
+],
+[
+"الأحداث",
+"Events"
+],
+[
+"قيد الإرسال",
+"Queued"
+],
+[
+"فاشلة",
+"Failed"
+],
+[
+"لا توجد ويب هوك",
+"No webhooks"
+],
+[
+"تصدير للبيانات (CSV يفتح في Excel)",
+"Export data (CSV opens in Excel)"
+],
+[
+"الأصناف والأرصدة",
+"Products and balances"
+],
+[
+"مفتاح API لنظام خارجي: من جهاز الخادم نفّذ  docker compose exec app php artisan erp:integration-token <بريد-مستخدم-مخصص>  (أعطِ المستخدم أضيق دور ممكن).",
+"API key for an external system: on the server run  docker compose exec app php artisan erp:integration-token <dedicated-user-email>  (give that user the narrowest role possible)."
+],
+[
+"التكاملات",
+"Integrations"
+],
+[
+"تعذر تنزيل الملف",
+"Could not download the file"
+],
+[
+"العنوان",
+"Address"
+],
+[
+"إيقاف",
+"Stop"
+],
+[
+"تفعيل",
+"Activate"
 ]
 ];

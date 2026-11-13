@@ -17,7 +17,7 @@ const SECTIONS = [
   { id: 'sales', label: 'المبيعات والعملاء', perms: ['sales.create', 'sales.ship', 'sales.invoice', 'receipts.record', 'finance.view'], view: sales },
   { id: 'finance', label: 'المحاسبة', perms: ['finance.view'], view: finance },
   { id: 'reports', label: 'التقارير والتخطيط', perms: ['reports.view'], view: reports },
-  { id: 'admin', label: 'المستخدمون والتدقيق', perms: ['users.manage', 'audit.view'], view: admin },
+  { id: 'admin', label: 'المستخدمون والتدقيق', perms: ['users.manage', 'audit.view', 'integrations.manage'], view: admin },
 ];
 const root = document.getElementById('app');
 let COMPANY = '';

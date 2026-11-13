@@ -1,4 +1,4 @@
-import { h, get, post, put, form, table, tabs, panel, act, can, modal, badge, toast, state, opts } from '../ui.js';
+import { h, get, post, put, download, form, table, tabs, panel, act, can, modal, badge, toast, state, opts } from '../ui.js';
 
 function users() {
   return panel(async (refresh) => {
@@ -45,6 +45,40 @@ function audit() {
   return h('div', null, verify, f, out);
 }
 
+const DELIVERY = { pending: ['بانتظار الإرسال', 'warn'], delivered: ['تم', 'ok'], failed: ['فشل نهائياً', 'bad'] };
+const EVENT_LABEL = { 'invoice.issued': 'إصدار فاتورة', 'payment.received': 'استلام دفعة', 'credit_note.issued': 'إشعار دائن' };
+
+function integrations() {
+  return panel(async (refresh) => {
+    const r = await get('integrations/webhooks');
+    const deliveries = (ep) => get(`integrations/webhooks/${ep.id}/deliveries`).then((x) => modal('آخر عمليات الإرسال — ' + ep.name, table([
+      { label: 'الحدث', render: (d) => h('span', { class: 'ltr' }, d.event) }, { label: 'الحالة', render: (d) => h('span', { class: 'badge ' + DELIVERY[d.status][1] }, DELIVERY[d.status][0]) },
+      { label: 'المحاولات', num: true, render: (d) => d.attempts }, { label: 'الرمز', render: (d) => d.last_code ?? '—' }, { label: 'الخطأ', render: (d) => d.last_error || '' }, { label: 'الوقت', key: 'created_at' },
+    ], x.data, 'لا توجد عمليات إرسال'))).catch((e) => toast(e.message, 'error'));
+    return h('div', null,
+      h('div', { class: 'card' }, h('h3', null, 'ويب هوك جديد (إشعار نظام آخر عند حدوث عملية)'),
+        h('p', { class: 'hint' }, 'يرسل النظام طلب POST بصيغة JSON موقّعاً (X-ERP-Signature = HMAC-SHA256 للسر) مع إعادة محاولة تلقائية. التفاصيل في docs/INTEGRATIONS.md.'),
+        form([
+          { name: 'name', label: 'الاسم', type: 'text', required: true }, { name: 'url', label: 'العنوان (URL)', type: 'text', required: true, placeholder: 'https://…' },
+          ...r.events.map((e) => ({ name: 'ev_' + e, label: (EVENT_LABEL[e] || e) + ' (' + e + ')', type: 'checkbox', value: true })),
+        ], 'إنشاء', async (v) => {
+          const events = r.events.filter((e) => v['ev_' + e]);
+          if (!events.length) throw new Error('اختر حدثاً واحداً على الأقل');
+          const c = await post('integrations/webhooks', { name: v.name, url: v.url, events });
+          modal('احفظ السر الآن (لن يظهر مرة أخرى)', h('div', null, h('p', { class: 'hint' }, 'استخدمه في الطرف المستقبِل للتحقق من التوقيع.'), h('input', { class: 'ltr', readonly: true, value: c.secret, onfocus: (e) => e.target.select() })));
+          refresh();
+        })),
+      table([{ label: 'الاسم', key: 'name' }, { label: 'العنوان', render: (e) => h('span', { class: 'ltr' }, e.url) }, { label: 'الأحداث', render: (e) => e.events.join(', ') },
+        { label: 'قيد الإرسال', num: true, render: (e) => e.pending }, { label: 'فاشلة', num: true, render: (e) => e.failed },
+        { label: 'الحالة', render: (e) => h('span', { class: 'badge ' + (e.active ? 'ok' : 'bad') }, e.active ? 'فعّال' : 'موقوف') },
+        { label: '', render: (e) => h('div', { class: 'row-actions' }, h('button', { class: 'btn secondary small', onclick: () => deliveries(e) }, 'السجل'),
+          act(e.active ? 'إيقاف' : 'تفعيل', () => put(`integrations/webhooks/${e.id}/active`, { active: !e.active }), refresh, { ok: 'تم' })) }], r.data, 'لا توجد ويب هوك'),
+      h('div', { class: 'card' }, h('h3', null, 'تصدير للبيانات (CSV يفتح في Excel)'), h('div', { class: 'row-actions' },
+        [['invoices', 'الفواتير'], ['products', 'الأصناف والأرصدة'], ['customers', 'العملاء']].map(([k, label]) => h('button', { class: 'btn secondary small', onclick: () => download(`export/${k}.csv`, k + '.csv').catch((e) => toast(e.message, 'error')) }, label)))),
+      h('p', { class: 'hint' }, 'مفتاح API لنظام خارجي: من جهاز الخادم نفّذ  docker compose exec app php artisan erp:integration-token <بريد-مستخدم-مخصص>  (أعطِ المستخدم أضيق دور ممكن).'));
+  });
+}
+
 export default async function () {
-  return tabs([...(can('users.manage') ? [{ label: 'المستخدمون', render: async () => users() }] : []), ...(can('audit.view') ? [{ label: 'سجل التدقيق', render: async () => audit() }] : [])]);
+  return tabs([...(can('users.manage') ? [{ label: 'المستخدمون', render: async () => users() }] : []), ...(can('audit.view') ? [{ label: 'سجل التدقيق', render: async () => audit() }] : []), ...(can('integrations.manage') ? [{ label: 'التكاملات', render: async () => integrations() }] : [])]);
 }

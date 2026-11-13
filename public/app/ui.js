@@ -53,6 +53,14 @@ export async function api(method, path, body) {
   }
   return json;
 }
+// Authenticated file download (the token lives in sessionStorage, so a plain link cannot be used).
+export async function download(path, filename) {
+  const token = sessionStorage.getItem('erp_token');
+  const res = await fetch('/api/' + path, { headers: token ? { Authorization: 'Bearer ' + token } : {} });
+  if (!res.ok) throw new Error('تعذر تنزيل الملف');
+  const a = h('a', { href: URL.createObjectURL(await res.blob()), download: filename });
+  document.body.append(a); a.click(); a.remove();
+}
 export const get = (p, q) => api('GET', p + (q ? '?' + new URLSearchParams(Object.entries(q).filter(([, v]) => v !== '' && v != null)) : ''));
 export const post = (p, b) => api('POST', p, b || {});
 export const put = (p, b) => api('PUT', p, b);

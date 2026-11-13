@@ -21,6 +21,7 @@ final class MasterDataController
             'base_uom' => ['string', 'max:16'],
             'lead_time_days' => ['integer', 'between:0,365'],
             'cover_days' => ['integer', 'between:1,365'],
+            'tracks_serials' => ['boolean'],
         ]);
         $id = DB::transaction(function () use ($d) {
             $id = DB::table('products')->insertGetId($d + ['base_uom' => 'PCS', 'lead_time_days' => 45, 'cover_days' => 30, 'created_at' => now(), 'updated_at' => now()]);
