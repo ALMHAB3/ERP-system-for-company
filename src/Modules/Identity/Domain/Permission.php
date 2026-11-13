@@ -1,0 +1,31 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Modules\Identity\Domain;
+
+/** Every permission the system checks. Using an enum makes a typo a compile-time error, not a silent deny. */
+enum Permission: string
+{
+    case MasterDataManage = 'master_data.manage';
+    case InventoryView = 'inventory.view';
+    case InventoryViewCost = 'inventory.view_cost';
+    case InventoryAdjust = 'inventory.adjust';
+    case InventoryTransfer = 'inventory.transfer';
+    case ShipmentsManage = 'shipments.manage';
+    case ShipmentsCost = 'shipments.cost';
+    case ShipmentsReceive = 'shipments.receive';
+    case PurchaseOrdersCreate = 'purchase_orders.create';
+    case PurchaseOrdersApprove = 'purchase_orders.approve';
+    case PurchaseOrdersReceive = 'purchase_orders.receive';
+    case SalesCreate = 'sales.create';
+    case SalesApproveBelowMargin = 'sales.approve_below_margin';
+    case SalesShip = 'sales.ship';
+    case SalesInvoice = 'sales.invoice';
+    case SalesCancel = 'sales.cancel';
+    case FinanceView = 'finance.view';
+    case AuditView = 'audit.view';
+    case UsersManage = 'users.manage';
+    /** Without it a user only works in the warehouses assigned to them. */
+    case WarehousesAll = 'warehouses.all';
+}
