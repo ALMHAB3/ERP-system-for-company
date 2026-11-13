@@ -11,6 +11,7 @@ use Modules\Inventory\Http\Controllers\InventoryController;
 use Modules\Inventory\Http\Controllers\MasterDataController;
 use Modules\Procurement\Http\Controllers\PayablesController;
 use Modules\Procurement\Http\Controllers\PurchaseOrderController;
+use Modules\Reporting\Http\Controllers\ListController;
 use Modules\Reporting\Http\Controllers\ReportController;
 use Modules\Sales\Http\Controllers\CustomerController;
 use Modules\Sales\Http\Controllers\ReceivablesController;
@@ -20,6 +21,14 @@ Route::post('auth/token', [AuthController::class, 'issueToken'])->middleware('th
 
 Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->group(function () {
     Route::get('me', [AuthController::class, 'me'])->name('me');
+    Route::get('lookups', [ListController::class, 'lookups'])->name('lookups');
+    Route::get('shipments', [ListController::class, 'shipments'])->middleware('permission:shipments.manage|shipments.cost|shipments.receive|finance.view')->name('shipments.index');
+    Route::get('purchase-orders', [ListController::class, 'purchaseOrders'])->middleware('permission:purchase_orders.create|purchase_orders.approve|purchase_orders.receive')->name('purchase_orders.index');
+    Route::get('sales-orders', [ListController::class, 'salesOrders'])->middleware('permission:sales.create|sales.ship|sales.invoice')->name('sales_orders.index');
+    Route::get('inventory/lots', [ListController::class, 'lots'])->middleware('permission:inventory.view')->name('inventory.lots');
+    Route::get('admin/users', [ListController::class, 'users'])->middleware('permission:users.manage')->name('admin.users.index');
+    Route::put('products/{product}', [ListController::class, 'updateProduct'])->whereNumber('product')->middleware('permission:master_data.manage')->name('products.update');
+    Route::put('customers/{customer}', [ListController::class, 'updateCustomer'])->whereNumber('customer')->middleware('permission:master_data.manage')->name('customers.update');
     Route::delete('auth/token', [AuthController::class, 'revokeToken'])->name('auth.revoke');
 
     Route::middleware('permission:users.manage')->prefix('admin')->group(function () {
