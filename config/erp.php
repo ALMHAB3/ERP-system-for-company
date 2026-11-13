@@ -16,6 +16,10 @@ return [
         'revenue' => '4000',
         'cost_of_goods_sold' => '5000',
         'inventory_variance' => '5100',
+        'payables' => '2000',
+        'vat_input' => '1400',
+        'fx_difference' => '5200',
+        'purchase_variance' => '5300',
     ],
 
     // Purchase-order approval ladder: [upper limit of order total, approval level required].

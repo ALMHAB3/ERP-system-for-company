@@ -21,17 +21,20 @@ final class RoleCatalog
             'finance_manager' => ['label' => 'Finance manager', 'approval_level' => 2, 'permissions' => [
                 Permission::FinanceView, Permission::AuditView, Permission::SalesInvoice, Permission::PurchaseOrdersApprove,
                 Permission::ShipmentsCost, Permission::InventoryView, Permission::InventoryViewCost, Permission::WarehousesAll,
+                Permission::SupplierInvoicesRecord, Permission::SupplierPaymentsMake, Permission::GrIrClear, Permission::ReceiptsRecord,
+                Permission::SalesReturn, Permission::SalesOverrideCredit, Permission::ReportsView, Permission::SuppliersManage,
             ]],
             'purchasing_manager' => ['label' => 'Purchasing manager', 'approval_level' => 1, 'permissions' => [
                 Permission::PurchaseOrdersCreate, Permission::PurchaseOrdersApprove, Permission::ShipmentsManage,
                 Permission::MasterDataManage, Permission::InventoryView, Permission::InventoryViewCost, Permission::WarehousesAll,
+                Permission::SuppliersManage, Permission::ReportsView,
             ]],
             'warehouse_clerk' => ['label' => 'Warehouse clerk', 'approval_level' => 0, 'permissions' => [
                 Permission::InventoryView, Permission::InventoryAdjust, Permission::InventoryTransfer,
                 Permission::ShipmentsReceive, Permission::PurchaseOrdersReceive, Permission::SalesShip,
             ]],
             'sales_rep' => ['label' => 'Sales representative', 'approval_level' => 0, 'permissions' => [
-                Permission::SalesCreate, Permission::SalesCancel, Permission::InventoryView,
+                Permission::SalesCreate, Permission::SalesCancel, Permission::InventoryView, Permission::SalesReturn,
             ]],
         ];
     }

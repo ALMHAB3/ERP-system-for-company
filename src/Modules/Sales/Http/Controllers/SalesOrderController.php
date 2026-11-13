@@ -21,6 +21,7 @@ final class SalesOrderController extends ApiController
             'customer_id' => ['required', 'integer', 'exists:customers,id'],
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
             'allow_below_margin' => ['boolean'],
+            'override_credit' => ['boolean'],
             'lines' => ['required', 'array', 'min:1', 'max:300'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.quantity' => ['required', Decimal::RULE],
@@ -31,8 +32,13 @@ final class SalesOrderController extends ApiController
             $this->access->authorize($this->userId($request), Permission::SalesApproveBelowMargin);
         }
 
+        $overrideCredit = (bool) ($d['override_credit'] ?? false);
+        if ($overrideCredit) {
+            $this->access->authorize($this->userId($request), Permission::SalesOverrideCredit);
+        }
+
         $order = $service->place($d['customer_id'], $d['warehouse_id'],
-            array_map(fn ($l) => new OrderLineRequest($l['product_id'], Decimal::of($l['quantity'])), $d['lines']), $belowMargin);
+            array_map(fn ($l) => new OrderLineRequest($l['product_id'], Decimal::of($l['quantity'])), $d['lines']), $belowMargin, $overrideCredit);
 
         return response()->json($this->present($request, $order), 201);
     }

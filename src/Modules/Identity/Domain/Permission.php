@@ -24,6 +24,14 @@ enum Permission: string
     case SalesInvoice = 'sales.invoice';
     case SalesCancel = 'sales.cancel';
     case FinanceView = 'finance.view';
+    case SuppliersManage = 'suppliers.manage';
+    case SupplierInvoicesRecord = 'supplier_invoices.record';
+    case SupplierPaymentsMake = 'supplier_payments.make';
+    case GrIrClear = 'grir.clear';
+    case ReceiptsRecord = 'receipts.record';
+    case SalesReturn = 'sales.return';
+    case SalesOverrideCredit = 'sales.override_credit';
+    case ReportsView = 'reports.view';
     case AuditView = 'audit.view';
     case UsersManage = 'users.manage';
     /** Without it a user only works in the warehouses assigned to them. */

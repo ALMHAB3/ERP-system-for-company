@@ -7,6 +7,7 @@ namespace Modules\Sales\Application;
 use DomainException;
 use Modules\Sales\Domain\CustomerRepository;
 use Modules\Sales\Domain\Events\InvoiceIssued;
+use Modules\Sales\Domain\Exceptions\CreditLimitExceeded;
 use Modules\Sales\Domain\Exceptions\InvalidOrderState;
 use Modules\Sales\Domain\Exceptions\PricingApprovalRequired;
 use Modules\Sales\Domain\Ports\StockAvailability;
@@ -33,16 +34,17 @@ final class SalesOrderService
         private readonly StockAvailability $stock,
         private readonly TransactionRunner $tx,
         private readonly EventBus $events,
+        private readonly ReceivablesService $receivables,
     ) {}
 
     /** @param list<OrderLineRequest> $requests */
-    public function place(int $customerId, int $warehouseId, array $requests, bool $allowBelowMargin = false): SalesOrder
+    public function place(int $customerId, int $warehouseId, array $requests, bool $allowBelowMargin = false, bool $overrideCredit = false): SalesOrder
     {
         if ($requests === []) {
             throw new DomainException('An order needs at least one line.');
         }
 
-        return $this->tx->run(function () use ($customerId, $warehouseId, $requests, $allowBelowMargin): SalesOrder {
+        return $this->tx->run(function () use ($customerId, $warehouseId, $requests, $allowBelowMargin, $overrideCredit): SalesOrder {
             $customer = $this->customers->find($customerId) ?? throw new DomainException("Customer {$customerId} not found.");
             $engine = $this->pricing->forCategory($customer->category);
 
@@ -56,7 +58,17 @@ final class SalesOrderService
                 $lines[] = new SalesOrderLine(null, $request->productId, $request->quantity, $quote->listPrice, $quote->discountRate, $quote->unitPrice, $reservationId);
             }
 
-            return $this->orders->create(new SalesOrder(null, '', $customerId, $warehouseId, 'reserved', $lines));
+            $order = new SalesOrder(null, '', $customerId, $warehouseId, 'reserved', $lines);
+            if ($customer->creditLimit->isPositive() && ! $overrideCredit) {   // limit 0 = no limit
+                $net = $order->net();
+                $gross = $net->add($net->mul(Fixed::parse((string) config('erp.vat_rate'))));
+                $exposure = $this->receivables->exposure($customerId);
+                if ($exposure->add($gross)->gt($customer->creditLimit)) {
+                    throw new CreditLimitExceeded("Credit limit {$customer->creditLimit} exceeded: open exposure {$exposure} + this order {$gross}.");
+                }
+            }
+
+            return $this->orders->create($order);
         });
     }
 

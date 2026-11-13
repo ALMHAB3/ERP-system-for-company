@@ -9,8 +9,10 @@ use Modules\Identity\Http\Controllers\UserAdminController;
 use Modules\Import\Http\Controllers\ShipmentController;
 use Modules\Inventory\Http\Controllers\InventoryController;
 use Modules\Inventory\Http\Controllers\MasterDataController;
+use Modules\Procurement\Http\Controllers\PayablesController;
 use Modules\Procurement\Http\Controllers\PurchaseOrderController;
 use Modules\Sales\Http\Controllers\CustomerController;
+use Modules\Sales\Http\Controllers\ReceivablesController;
 use Modules\Sales\Http\Controllers\SalesOrderController;
 
 Route::post('auth/token', [AuthController::class, 'issueToken'])->middleware('throttle:login')->name('auth.token');
@@ -59,6 +61,24 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
         Route::post('{order}/invoice', [SalesOrderController::class, 'invoice'])->middleware('permission:sales.invoice')->name('invoice');
         Route::post('{order}/cancel', [SalesOrderController::class, 'cancel'])->middleware('permission:sales.cancel')->name('cancel');
     });
+
+    Route::prefix('payables')->name('payables.')->group(function () {
+        Route::get('suppliers', [PayablesController::class, 'suppliers'])->middleware('permission:finance.view')->name('suppliers.index');
+        Route::post('suppliers', [PayablesController::class, 'storeSupplier'])->middleware('permission:suppliers.manage')->name('suppliers.store');
+        Route::get('invoices', [PayablesController::class, 'invoices'])->middleware('permission:finance.view')->name('invoices.index');
+        Route::post('invoices', [PayablesController::class, 'recordInvoice'])->middleware('permission:supplier_invoices.record')->name('invoices.store');
+        Route::post('payments', [PayablesController::class, 'pay'])->middleware('permission:supplier_payments.make')->name('payments.store');
+        Route::get('goods-received', [PayablesController::class, 'receiptStatus'])->middleware('permission:finance.view')->name('grir.status');
+        Route::post('goods-received/clear', [PayablesController::class, 'clearReceipt'])->middleware('permission:grir.clear')->name('grir.clear');
+        Route::get('ageing', [PayablesController::class, 'ageing'])->middleware('permission:reports.view')->name('ageing');
+    });
+
+    Route::prefix('receivables')->name('receivables.')->group(function () {
+        Route::get('invoices', [ReceivablesController::class, 'invoices'])->middleware('permission:finance.view')->name('invoices.index');
+        Route::post('receipts', [ReceivablesController::class, 'receive'])->middleware('permission:receipts.record')->name('receipts.store');
+        Route::get('ageing', [ReceivablesController::class, 'ageing'])->middleware('permission:reports.view')->name('ageing');
+    });
+    Route::post('sales-orders/{order}/credit-notes', [ReceivablesController::class, 'creditNote'])->whereNumber('order')->middleware('permission:sales.return')->name('sales_orders.credit_note');
 
     Route::get('finance/trial-balance', [FinanceController::class, 'trialBalance'])->middleware('permission:finance.view')->name('finance.trial_balance');
 

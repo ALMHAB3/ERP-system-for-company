@@ -20,11 +20,13 @@ final class CustomerController
             'name' => ['required', 'string', 'max:200'],
             'category' => ['required', 'in:wholesale,retail,direct'],
             'credit_limit' => [Decimal::RULE],
+            'terms_days' => ['integer', 'between:0,365'],
         ]);
         $id = DB::transaction(function () use ($d) {
             $id = DB::table('customers')->insertGetId([
                 'name' => $d['name'], 'category' => $d['category'],
                 'credit_limit' => isset($d['credit_limit']) ? Decimal::of($d['credit_limit'])->units : 0,
+                'terms_days' => $d['terms_days'] ?? 0,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
             $this->audit->record('customer.created', 'customer', $id, $d);

@@ -87,7 +87,9 @@ final class DbSalesOrderRepository implements SalesOrderRepository
 
     public function createInvoice(int $orderId, Fixed $net, Fixed $tax, Fixed $gross): array
     {
+        $terms = (int) $this->db->table('customers')->where('id', $this->db->table('sales_orders')->where('id', $orderId)->value('customer_id'))->value('terms_days');
         $id = $this->db->table('sales_invoices')->insertGetId([
+            'due_date' => now()->addDays($terms)->format('Y-m-d'),
             'number' => 'PENDING-'.bin2hex(random_bytes(6)), 'sales_order_id' => $orderId,
             'net' => $net->units, 'tax' => $tax->units, 'gross' => $gross->units,
             'created_at' => now(),
