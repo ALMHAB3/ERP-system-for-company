@@ -87,6 +87,7 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
         Route::get('goods-received', [PayablesController::class, 'receiptStatus'])->middleware('permission:finance.view')->name('grir.status');
         Route::post('goods-received/clear', [PayablesController::class, 'clearReceipt'])->middleware('permission:grir.clear')->name('grir.clear');
         Route::get('ageing', [PayablesController::class, 'ageing'])->middleware('permission:reports.view')->name('ageing');
+        Route::match(['get', 'post'], 'settlement', [PayablesController::class, 'settlement'])->middleware('permission:shipments.settle')->name('settlement');
     });
 
     Route::prefix('receivables')->name('receivables.')->group(function () {

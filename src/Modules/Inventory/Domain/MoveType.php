@@ -14,11 +14,14 @@ enum MoveType: string
     case AdjustmentOut = 'adjustment_out';
     case SalesReturn = 'sales_return';
     case PurchaseReturn = 'purchase_return';
+    /** Value-only corrections of a lot (quantity 0), e.g. final actual cost after the supplier was paid. */
+    case RevaluationUp = 'revaluation_up';
+    case RevaluationDown = 'revaluation_down';
 
     public function isInbound(): bool
     {
         return match ($this) {
-            self::Receipt, self::TransferIn, self::AdjustmentIn, self::SalesReturn => true,
+            self::Receipt, self::TransferIn, self::AdjustmentIn, self::SalesReturn, self::RevaluationUp => true,
             default => false,
         };
     }

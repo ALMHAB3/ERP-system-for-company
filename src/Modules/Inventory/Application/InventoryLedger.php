@@ -97,6 +97,41 @@ final class InventoryLedger
         });
     }
 
+    /**
+     * Changes the VALUE of one lot without moving any quantity (quantity 0 ledger line). Used by the final-cost settlement
+     * once the real cost of a shipment is known. Returns null when the delta is zero.
+     */
+    public function revalue(int $productId, int $warehouseId, string $lotNo, Fixed $delta, string $reference, string $idempotencyKey): ?StockMove
+    {
+        if ($delta->isZero()) {
+            return null;
+        }
+
+        return $this->tx->run(function () use ($productId, $warehouseId, $lotNo, $delta, $reference, $idempotencyKey): ?StockMove {
+            if (($existing = $this->ledger->movesByIdempotencyKey($idempotencyKey)) !== []) {
+                return $existing[0];
+            }
+            $balance = $this->ledger->lockBalance($productId, $warehouseId);
+            $lot = $this->ledger->lockLots($productId, $warehouseId, $lotNo)[0] ?? throw new InvalidStockMove("Lot {$lotNo} does not exist in warehouse {$warehouseId}.");
+            $newLotValue = $lot->value->add($delta);
+            $newBalanceValue = $balance->value->add($delta);
+            if ($newLotValue->isNegative() || $newBalanceValue->isNegative()) {
+                throw new InvalidStockMove("Revaluation of lot {$lotNo} would make its value negative.");
+            }
+
+            $this->ledger->saveLot($productId, $warehouseId, $lot->with($lot->onHand, $newLotValue));
+            $this->ledger->saveBalance($productId, $warehouseId, $balance->with(value: $newBalanceValue));
+            $move = $this->ledger->append(new StockMove(
+                null, $productId, $warehouseId, $delta->isPositive() ? MoveType::RevaluationUp : MoveType::RevaluationDown,
+                Fixed::zero(), Fixed::zero(), $delta->abs(), $balance->onHand, $newBalanceValue, $reference, $lotNo,
+                $idempotencyKey.'#0', new DateTimeImmutable, $lot->expiryDate,
+            ));
+            $this->events->dispatch(new StockMoved($move));
+
+            return $move;
+        });
+    }
+
     /** Outbound movement helper returning the per-lot result. */
     public function issue(StockMoveData $data): IssuedStock
     {

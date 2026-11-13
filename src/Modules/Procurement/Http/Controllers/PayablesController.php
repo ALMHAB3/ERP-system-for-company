@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Audit\Application\AuditLogger;
 use Modules\Finance\Application\ExchangeRates;
 use Modules\Procurement\Application\PayablesService;
+use Modules\Procurement\Application\ShipmentSettlementService;
 use Modules\Procurement\Domain\InvoiceKind;
 use Modules\Shared\Domain\Fixed;
 use Modules\Shared\Http\ApiController;
@@ -126,6 +127,29 @@ final class PayablesController extends ApiController
         $d = $request->validate(['reference' => ['required', 'string', 'regex:/^(shipment|po):.+$/'], 'reason' => ['required', 'string', 'min:5', 'max:200']]);
 
         return response()->json(['cleared' => (string) $service->clearToVariance($d['reference'], $d['reason'])]);
+    }
+
+    /** Preview (GET) or book (POST) the final actual cost of a fully paid shipment. */
+    public function settlement(Request $request, ShipmentSettlementService $service): JsonResponse
+    {
+        $d = $request->validate(['shipment_reference' => ['required', 'string', 'exists:shipments,reference']]);
+        $reference = 'shipment:'.$d['shipment_reference'];
+        $plan = $request->isMethod('POST') ? $service->settle($reference, $this->userId($request)) : $service->preview($reference);
+
+        $products = DB::table('products')->whereIn('id', array_column($plan['lines'], 'product_id'))->pluck('sku', 'id');
+        $money = fn (Fixed $v) => (string) $v;
+
+        return response()->json([
+            'receipt_reference' => $plan['receipt_reference'], 'settled' => $request->isMethod('POST'),
+            'booked_total' => $money($plan['booked_total']), 'fx_difference' => $money($plan['fx_difference']), 'cleared_variance' => $money($plan['cleared_variance']),
+            'delta' => $money($plan['delta']), 'final_total' => $money($plan['booked_total']->add($plan['delta'])),
+            'inventory_part' => $money($plan['inventory_part']), 'cogs_part' => $money($plan['cogs_part']),
+            'lines' => array_map(fn ($l) => [
+                'sku' => $products[$l['product_id']] ?? $l['product_id'], 'lot_no' => $l['lot_no'], 'received_quantity' => $money($l['received_quantity']), 'quantity_in_stock' => $money($l['quantity_in_stock']),
+                'booked_cost' => $money($l['booked_cost']), 'delta' => $money($l['delta']), 'inventory_part' => $money($l['inventory_part']), 'cogs_part' => $money($l['cogs_part']),
+                'final_unit_cost' => $money($l['booked_cost']->add($l['delta'])->div($l['received_quantity'])),
+            ], $plan['lines']),
+        ], $request->isMethod('POST') ? 201 : 200);
     }
 
     public function ageing(Request $request): JsonResponse

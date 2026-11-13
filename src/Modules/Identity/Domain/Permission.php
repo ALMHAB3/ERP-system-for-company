@@ -28,6 +28,7 @@ enum Permission: string
     case SupplierInvoicesRecord = 'supplier_invoices.record';
     case SupplierPaymentsMake = 'supplier_payments.make';
     case GrIrClear = 'grir.clear';
+    case ShipmentsSettle = 'shipments.settle';
     case ReceiptsRecord = 'receipts.record';
     case SalesReturn = 'sales.return';
     case SalesOverrideCredit = 'sales.override_credit';

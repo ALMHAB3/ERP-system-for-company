@@ -213,6 +213,16 @@ final class ReportQueries
             }
         }
 
+        // final-cost settlements: the real cost differs from the estimate booked at receipt
+        $settled = [];
+        foreach ($this->db->table('shipment_cost_settlements')->get(['receipt_reference', 'delta', 'cogs_part']) as $s) {
+            if (isset($report[$s->receipt_reference])) {
+                $report[$s->receipt_reference]['landed_cost'] += (int) $s->delta;
+                $report[$s->receipt_reference]['cogs'] += (int) $s->cogs_part;
+                $settled[$s->receipt_reference] = true;
+            }
+        }
+
         $out = [];
         foreach ($report as $reference => $r) {
             $revenue = $r['revenue'] - $r['returned_revenue'];
@@ -224,6 +234,7 @@ final class ReportQueries
                 'cogs' => (string) Fixed::units($cogs), 'profit' => (string) Fixed::units($revenue - $cogs),
                 'margin_pct' => $revenue > 0 ? round(($revenue - $cogs) / $revenue * 100, 1) : null,
                 'unsold_stock_cost' => (string) Fixed::units($r['landed_cost'] - $cogs),
+                'final_cost' => isset($settled[$reference]),
             ];
         }
 

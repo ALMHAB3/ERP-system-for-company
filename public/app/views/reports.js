@@ -8,7 +8,7 @@ const sh = () => panel(async () => {
     hbars({ title: 'نسبة بيع الشحنة (من المستلم)', items: r.data.map((x) => ({ label: x.shipment, value: x.sell_through_pct ?? 0 })), colorOf: () => '#0f8fa6', valueLabel: (i) => i.value + '%' })),
     h('p', { class: 'hint' }, 'الربح = مبيعات دفعات الشحنة − تكلفتها الفعلية، بعد المرتجعات. المخزون غير المباع يظهر بتكلفته.'),
     table([{ label: 'الشحنة', key: 'shipment' }, { label: 'المستلم', num: true, render: (r) => qty(r.received_qty) }, { label: 'المباع', num: true, render: (r) => qty(r.sold_qty) }, { label: 'نسبة البيع %', num: true, render: (r) => r.sell_through_pct ?? '' },
-      { label: 'التكلفة الفعلية', num: true, render: (r) => money(r.landed_cost) }, { label: 'الإيراد', num: true, render: (r) => money(r.revenue) }, { label: 'تكلفة المباع', num: true, render: (r) => money(r.cogs) },
+      { label: 'التكلفة الفعلية', num: true, render: (r) => money(r.landed_cost) }, { label: 'الإيراد', num: true, render: (r) => money(r.revenue) }, { label: 'تكلفة المباع', num: true, render: (r) => money(r.cogs) }, { label: 'نوع التكلفة', render: (r) => h('span', { class: 'badge ' + (r.final_cost ? 'ok' : 'warn') }, r.final_cost ? 'نهائية' : 'تقديرية') },
       { label: 'الربح', num: true, render: (r) => h('b', { class: Number(r.profit) < 0 ? 'neg' : 'pos' }, money(r.profit)) }, { label: 'الهامش %', num: true, render: (r) => r.margin_pct ?? '' }, { label: 'مخزون غير مباع (تكلفة)', num: true, render: (r) => money(r.unsold_stock_cost) }], r.data, 'لا توجد شحنات مستلمة', { csv: 'shipment-profit' }));
 });
 

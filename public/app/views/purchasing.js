@@ -106,6 +106,34 @@ function grir() {
     form([{ name: 'reference', label: 'المرجع، مثال: shipment:CONT-001 أو po:PO-123', type: 'text', required: true, wide: true }], 'عرض الحالة', (v) => run(v.reference, false)), out);
 }
 
+function settlement() {
+  const out = h('div');
+  return panel(async () => {
+    const received = (await get('shipments')).data.filter((s) => s.status === 'received');
+    const show = (r) => {
+      const card = (l, v, cls) => h('div', { class: 'kpi ' + (cls || '') }, h('div', { class: 'l' }, l), h('div', { class: 'v' }, money(v)));
+      return [
+        h('div', { class: 'cards' }, card('التكلفة المسجلة عند الاستلام', r.booked_total), card('فرق الصرف المدفوع (بدون الضريبة)', r.fx_difference, Number(r.fx_difference) > 0 ? 'bad' : 'good'),
+          card('فرق مطابقة مُسوّى سابقاً', r.cleared_variance), card('صافي تعديل التكلفة', r.delta, Number(r.delta) > 0 ? 'bad' : 'good'), card('التكلفة النهائية الفعلية', r.final_total, 'good')),
+        h('p', { class: 'hint' }, `الجزء المتبقي في المخزون: ${money(r.inventory_part)} يُضاف لقيمة الدفعة · الجزء المباع: ${money(r.cogs_part)} يذهب إلى تكلفة المبيعات.`),
+        table([{ label: 'الصنف', key: 'sku' }, { label: 'الدفعة', key: 'lot_no' }, { label: 'المستلم', num: true, render: (l) => qty(l.received_quantity) }, { label: 'الباقي بالمخزون', num: true, render: (l) => qty(l.quantity_in_stock) },
+          { label: 'التكلفة المسجلة', num: true, render: (l) => money(l.booked_cost) }, { label: 'التعديل', num: true, render: (l) => money(l.delta) }, { label: 'للمخزون', num: true, render: (l) => money(l.inventory_part) }, { label: 'لتكلفة المبيعات', num: true, render: (l) => money(l.cogs_part) },
+          { label: 'تكلفة الوحدة النهائية', num: true, render: (l) => h('b', null, money(l.final_unit_cost)) }], r.lines),
+      ];
+    };
+    const run = async (ref, apply) => {
+      try {
+        const r = apply ? await post('payables/settlement', { shipment_reference: ref }) : await get('payables/settlement', { shipment_reference: ref });
+        if (apply) { toast('تم اعتماد التكلفة النهائية وترحيل القيد', 'ok'); out.replaceChildren(h('div', { class: 'card pos' }, 'تمت التسوية: التكلفة النهائية ' + money(r.final_total)), ...show(r)); return; }
+        out.replaceChildren(...show(r), h('div', { class: 'card' }, h('p', null, 'راجع الأرقام مع المحاسب القانوني. التسوية تُنفَّذ مرة واحدة لكل شحنة ولا تُعدَّل (التصحيح بقيد عكسي).'),
+          act('اعتماد التكلفة النهائية', () => run(ref, true), null, { confirm: 'اعتماد التكلفة النهائية للشحنة ' + ref + '؟ لا يمكن تكرارها.', ok: 'تم' })));
+      } catch (e) { out.replaceChildren(h('div', { class: 'card neg' }, e.message)); }
+    };
+    return h('div', null, h('p', { class: 'hint' }, 'بعد سداد كل فواتير الشحنة بالكامل ومطابقة المستلم بالمفوتر، يحسب النظام التكلفة الفعلية حسب أسعار الصرف التي دفعت بها فعلاً: يعدّل تكلفة الدفعة في المخزون، وما بيع منها يُسوّى في تكلفة المبيعات.'),
+      form([{ name: 'ref', label: 'الشحنة المستلمة', type: 'select', options: received.map((s) => ({ value: s.reference, label: s.reference })) }], 'معاينة التسوية', (v) => v.ref ? run(v.ref, false) : toast('لا توجد شحنات مستلمة', 'error')), out);
+  });
+}
+
 function ageing() {
   return panel(async () => {
     const r = await get('payables/ageing');
@@ -122,6 +150,7 @@ export default async function () {
     ...(can('finance.view', 'supplier_invoices.record') ? [{ label: 'فواتير الموردين', render: bills }] : []),
     ...(can('supplier_payments.make') ? [{ label: 'دفع للموردين', render: async () => pay() }] : []),
     ...(can('finance.view') ? [{ label: 'مطابقة المستلم والمفوتر (GR/IR)', render: async () => grir() }] : []),
+    ...(can('shipments.settle') ? [{ label: 'التكلفة النهائية للشحنة', render: async () => settlement() }] : []),
     ...(can('reports.view') ? [{ label: 'أعمار ديون الموردين', render: async () => ageing() }] : []),
   ]);
 }
