@@ -57,10 +57,29 @@ export const get = (p, q) => api('GET', p + (q ? '?' + new URLSearchParams(Objec
 export const post = (p, b) => api('POST', p, b || {});
 export const put = (p, b) => api('PUT', p, b);
 
+// ---------- motion helpers (durations/easing live in CSS tokens; JS only toggles state classes) ----------
+const svgEl = (tag, attrs) => { const e = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
+const CLOSE_MS = { toast: 250, modal: 150 };
+/** Replays the entrance animation on an element (after its content was replaced). */
+export function enter(el) { el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter'); return el; }
+/** Placeholder shown while a screen loads: calm shimmer instead of a bare "loading" text. */
+export function skeleton(kind) {
+  const el = h('div', { class: 'sk', role: 'status', 'aria-busy': 'true' }, h('span', { class: 'sr-only' }, 'جارٍ التحميل…'),
+    kind === 'cards' ? h('div', { class: 'sk-cards' }, [1, 2, 3, 4, 5].map(() => h('div', { class: 'sk-card' }))) : null,
+    h('div', { class: 'sk-row t' }), h('div', { class: 'sk-row m' }), h('div', { class: 'sk-row s' }), h('div', { class: 'sk-row m' }));
+  return el;
+}
+
 export function toast(msg, kind) {
-  const t = h('div', { class: 'toast ' + (kind || '') }, msg);
+  const t = h('div', { class: 'toast ' + (kind || ''), role: kind === 'error' ? 'alert' : 'status' }, msg);
+  if (kind === 'ok') { // check mark draws itself
+    const icon = svgEl('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.6', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' });
+    icon.append(svgEl('path', { class: 'tick', d: 'M5 12.5l4.5 4.5L19 7.5' }));
+    t.prepend(icon);
+  }
   document.getElementById('toasts').append(t);
-  setTimeout(() => t.remove(), kind === 'error' ? 9000 : 3500);
+  requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('is-open')));
+  setTimeout(() => { t.classList.replace('is-open', 'is-closing'); setTimeout(() => t.remove(), CLOSE_MS.toast); }, kind === 'error' ? 9000 : 3500);
 }
 export const can = (...perms) => perms.length === 0 || perms.some((p) => state.me.permissions.includes(p));
 
@@ -83,7 +102,7 @@ export function table(cols, rows, empty, o) {
 function tableEl(cols, rows) {
   return h('div', { class: 'tablewrap' }, h('table', null,
     h('thead', null, h('tr', null, cols.map((c) => h('th', { class: c.num ? 'num' : '' }, c.label)))),
-    h('tbody', null, rows.map((r) => h('tr', null, cols.map((c) => {
+    h('tbody', null, rows.map((r, i) => h('tr', { class: i < 12 ? 'rowin' : '' }, cols.map((c) => {
       const v = c.render ? c.render(r) : r[c.key];
       return h('td', { class: c.num ? 'num' : '' }, v === null || v === undefined ? '' : v);
     })))),
@@ -95,19 +114,41 @@ export function tabs(items) {
   const bar = h('div', { class: 'tabs' });
   const show = async (i) => {
     [...bar.children].forEach((b, j) => b.classList.toggle('active', i === j));
-    body.replaceChildren(h('div', { class: 'muted' }, 'جارٍ التحميل…'));
+    body.replaceChildren(skeleton());
     try { body.replaceChildren(await items[i].render()); } catch (e) { body.replaceChildren(h('div', { class: 'card neg' }, e.message)); }
+    enter(body); stagger(body);
   };
   items.forEach((it, i) => bar.append(h('button', { type: 'button', onclick: () => show(i) }, it.label)));
   show(0);
   return h('div', null, bar, body);
 }
 
+// Modal: scales in from 0.96 (250ms), out faster (150ms); Esc and backdrop close it; focus moves in and returns.
 export function modal(title, content) {
-  const bg = h('div', { class: 'modal-bg', onclick: (e) => e.target === bg && bg.remove() },
-    h('div', { class: 'modal', role: 'dialog' }, h('h3', null, title), content, h('div', { class: 'formbar' }, h('button', { class: 'btn secondary small', type: 'button', onclick: () => bg.remove() }, 'إغلاق'))));
+  const opener = document.activeElement;
+  let closed = false;
+  const close = () => {
+    if (closed) return; closed = true;
+    document.removeEventListener('keydown', onKey);
+    bg.classList.replace('is-open', 'is-closing');
+    setTimeout(() => { bg.remove(); opener?.focus?.(); }, CLOSE_MS.modal);
+  };
+  const onKey = (e) => e.key === 'Escape' && close();
+  const bg = h('div', { class: 'modal-bg', onclick: (e) => e.target === bg && close() },
+    h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': title }, h('h3', null, title), content,
+      h('div', { class: 'formbar' }, h('button', { class: 'btn secondary small', type: 'button', onclick: close }, 'إغلاق'))));
   document.body.append(bg);
-  return { close: () => bg.remove() };
+  document.addEventListener('keydown', onKey);
+  requestAnimationFrame(() => { bg.classList.add('is-open'); (bg.querySelector('input,select,textarea') || bg.querySelector('button'))?.focus(); });
+  return { close };
+}
+
+/** Sets the stagger index (CSS custom property) on direct animated children so they enter 40ms apart. */
+export function stagger(root) {
+  root.querySelectorAll('tbody tr.rowin').forEach((tr, i) => tr.style.setProperty('--i', Math.min(i, 10)));
+  root.querySelectorAll('.cards > .kpi, .grid2 > .chartcard, .svgc .bar, .svgc .hbar, .svgc .seg').forEach((el, i) => {
+    el.style.setProperty('--i', el.closest('.svgc') ? i % 14 : Math.min(i, 12));
+  });
 }
 
 // A field is {name,label,type,options,required,value,wide,hint,fields(for rows),items(for ref)}
@@ -174,10 +215,10 @@ export function form(fields, submitLabel, onSubmit, opts) {
   el.addEventListener('submit', async (e) => {
     e.preventDefault();
     Object.values(inputs).forEach((x) => x.err && (x.err.textContent = ''));
-    btn.disabled = true;
+    btn.disabled = true; btn.setAttribute('aria-busy', 'true');
     try { await onSubmit(read(inputs), el); }
-    catch (err) { toast(err.message, 'error'); }
-    finally { btn.disabled = false; }
+    catch (err) { toast(err.message, 'error'); el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }   // invalid: the form shakes once
+    finally { btn.disabled = false; btn.removeAttribute('aria-busy'); }
   });
   return el;
 }
@@ -222,9 +263,11 @@ export const dl = (o) => h('div', { class: 'card' }, Object.entries(o).map(([k, 
 
 // A self-refreshing block: build(refresh) returns the node; actions call refresh() to reload it in place.
 export function panel(build) {
-  const box = h('div');
+  const box = h('div', null, skeleton());
+  let first = true;
   const refresh = async () => {
     try { box.replaceChildren(await build(refresh)); } catch (e) { box.replaceChildren(h('div', { class: 'card neg' }, e.message)); }
+    if (first) { first = false; } stagger(box);   // later refreshes swap in place without replaying the entrance
   };
   refresh();
   return box;
@@ -233,9 +276,9 @@ export function panel(build) {
 export function act(label, fn, refresh, o) {
   const b = h('button', { class: 'btn small ' + (o?.cls || ''), type: 'button', onclick: async () => {
     if (o?.confirm && !confirm(tr(o.confirm))) return;
-    b.disabled = true;
+    b.disabled = true; b.setAttribute('aria-busy', 'true');
     try { const r = await fn(); toast(o?.ok || 'تم', 'ok'); if (refresh) await refresh(); return r; }
-    catch (e) { toast(e.message, 'error'); } finally { b.disabled = false; }
+    catch (e) { toast(e.message, 'error'); } finally { b.disabled = false; b.removeAttribute('aria-busy'); }
   } }, label);
   return b;
 }

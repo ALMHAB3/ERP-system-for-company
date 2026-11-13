@@ -5,6 +5,7 @@ const NS = 'http://www.w3.org/2000/svg';
 const S = (tag, attrs, ...kids) => {
   const el = document.createElementNS(NS, tag);
   for (const [k, v] of Object.entries(attrs || {})) if (v !== null && v !== undefined) el.setAttribute(k, v);
+  if (attrs?.class === 'draw') el.setAttribute('pathLength', '1');   // lines draw themselves (stroke-dash animation in CSS)
   kids.flat().forEach((c) => c !== null && c !== undefined && el.append(c instanceof Node ? c : document.createTextNode(String(c))));
   return el;
 };
@@ -45,12 +46,12 @@ export function barLine({ title, sub, labels, series, unit, height = 280 }) {
     svg.append(S('text', { x: cx, y: H - 14, class: 'ax', 'text-anchor': 'middle' }, /^\d{4}-\d{2}$/.test(l) ? l.slice(2) : l));
     bars.forEach((s, k) => {
       const v = s.values[i], x = cx - (bars.length * bw) / 2 + k * bw, y0 = y(0), y1 = y(v);
-      svg.append(S('rect', { x, y: Math.min(y0, y1), width: bw - 2, height: Math.max(1, Math.abs(y0 - y1)), fill: s.color || COLORS[k], rx: 2 }, S('title', null, `${l} — ${s.name}: ${full(v)} ${unit || ''}`)));
+      svg.append(S('rect', { class: 'bar', x, y: Math.min(y0, y1), width: bw - 2, height: Math.max(1, Math.abs(y0 - y1)), fill: s.color || COLORS[k], rx: 2 }, S('title', null, `${l} — ${s.name}: ${full(v)} ${unit || ''}`)));
     });
   });
   lines.forEach((s, k) => {
     const pts = s.values.map((v, i) => [m.l + gw * i + gw / 2, y(v)]);
-    svg.append(S('polyline', { points: pts.map((p) => p.join(',')).join(' '), fill: 'none', stroke: s.color || COLORS[k + 2], 'stroke-width': 2.5, 'stroke-linejoin': 'round' }),
+    svg.append(S('polyline', { class: 'draw', points: pts.map((p) => p.join(',')).join(' '), fill: 'none', stroke: s.color || COLORS[k + 2], 'stroke-width': 2.5, 'stroke-linejoin': 'round' }),
       ...pts.map(([px, py], i) => S('circle', { cx: px, cy: py, r: 3.5, fill: '#fff', stroke: s.color || COLORS[k + 2], 'stroke-width': 2 }, S('title', null, `${labels[i]} — ${s.name}: ${full(s.values[i])} ${unit || ''}`))));
   });
   return wrap(title, sub, svg, series.map((s, i) => [s.color || COLORS[i], s.name, s.type === 'line']));
@@ -68,7 +69,7 @@ export function hbars({ title, sub, items, unit, colorOf, valueLabel }) {
   items.forEach((it, i) => {
     const y = 8 + i * rowH, w = Math.abs(it.value) * sx, x = it.value >= 0 ? x0 : x0 - w;
     svg.append(S('text', { x: lw - 8, y: y + 15, class: 'ax lab', 'text-anchor': 'end' }, it.label.length > 16 ? it.label.slice(0, 15) + '…' : it.label),
-      S('rect', { x, y, width: Math.max(2, w), height: 20, rx: 3, fill: colorOf ? colorOf(it, i) : it.value < 0 ? '#c4372c' : COLORS[0] }, S('title', null, `${it.label}: ${full(it.value)} ${unit || ''}`)),
+      S('rect', { class: 'hbar', x, y, width: Math.max(2, w), height: 20, rx: 3, fill: colorOf ? colorOf(it, i) : it.value < 0 ? '#c4372c' : COLORS[0] }, S('title', null, `${it.label}: ${full(it.value)} ${unit || ''}`)),
       S('text', { x: it.value >= 0 ? x + Math.max(2, w) + 6 : x - 6, y: y + 15, class: 'ax val', 'text-anchor': it.value >= 0 ? 'start' : 'end' }, valueLabel ? valueLabel(it) : compact(it.value)));
   });
   return wrap(title, sub, svg);
@@ -86,7 +87,7 @@ export function donut({ title, sub, items, unit, centerLabel }) {
     const p = (a, rad) => [cx + rad * Math.cos(a), cy + rad * Math.sin(a)];
     const [x1, y1] = p(a0, R), [x2, y2] = p(a1, R), [x3, y3] = p(a1, r), [x4, y4] = p(a0, r);
     const d = items.length === 1 ? `M${cx - R},${cy} a${R},${R} 0 1,0 ${2 * R},0 a${R},${R} 0 1,0 ${-2 * R},0 M${cx - r},${cy} a${r},${r} 0 1,1 ${2 * r},0 a${r},${r} 0 1,1 ${-2 * r},0` : `M${x1},${y1} A${R},${R} 0 ${large} 1 ${x2},${y2} L${x3},${y3} A${r},${r} 0 ${large} 0 ${x4},${y4} Z`;
-    svg.append(S('path', { d, fill: COLORS[i % COLORS.length], 'fill-rule': 'evenodd' }, S('title', null, `${it.label}: ${full(it.value)} ${unit || ''} (${(frac * 100).toFixed(1)}%)`)));
+    svg.append(S('path', { class: 'seg', d, fill: COLORS[i % COLORS.length], 'fill-rule': 'evenodd' }, S('title', null, `${it.label}: ${full(it.value)} ${unit || ''} (${(frac * 100).toFixed(1)}%)`)));
     a0 += frac * Math.PI * 2;
   });
   svg.append(S('text', { x: cx, y: cy - 2, class: 'dtot', 'text-anchor': 'middle' }, compact(total)), S('text', { x: cx, y: cy + 16, class: 'ax', 'text-anchor': 'middle' }, centerLabel || unit || ''));
@@ -107,9 +108,9 @@ export function forecastChart({ title, sub, historyLabels, history, forecastLabe
   labels.forEach((l, i) => i % step === 0 && svg.append(S('text', { x: x(i), y: H - 14, class: 'ax', 'text-anchor': 'middle' }, l.slice(2))));
   if (forecast.length) svg.append(S('rect', { x: x(history.length - 0.5 < 0 ? 0 : history.length - 0.5), y: m.t, width: W - m.r - x(Math.max(0, history.length - 0.5)), height: ih, class: 'fband' }));
   const hp = history.map((v, i) => [x(i), y(v)]);
-  if (hp.length) svg.append(S('polyline', { points: hp.map((p) => p.join(',')).join(' '), fill: 'none', stroke: COLORS[0], 'stroke-width': 2.5 }), ...hp.map(([px, py], i) => S('circle', { cx: px, cy: py, r: 3, fill: COLORS[0] }, S('title', null, `${historyLabels[i]}: ${full(history[i])} ${unit || ''}`))));
+  if (hp.length) svg.append(S('polyline', { class: 'draw', points: hp.map((p) => p.join(',')).join(' '), fill: 'none', stroke: COLORS[0], 'stroke-width': 2.5 }), ...hp.map(([px, py], i) => S('circle', { cx: px, cy: py, r: 3, fill: COLORS[0] }, S('title', null, `${historyLabels[i]}: ${full(history[i])} ${unit || ''}`))));
   const fp = [...(hp.length ? [hp[hp.length - 1]] : []), ...forecast.map((v, i) => [x(history.length + i), y(v)])];
-  svg.append(S('polyline', { points: fp.map((p) => p.join(',')).join(' '), fill: 'none', stroke: COLORS[1], 'stroke-width': 2.5, 'stroke-dasharray': '6 5' }), ...forecast.map((v, i) => S('circle', { cx: x(history.length + i), cy: y(v), r: 3.5, fill: '#fff', stroke: COLORS[1], 'stroke-width': 2 }, S('title', null, `${forecastLabels[i]}: ${full(v)} ${unit || ''} (متوقع)`))));
+  svg.append(S('polyline', { points: fp.map((p) => p.join(',')).join(' '), fill: 'none', stroke: COLORS[1], 'stroke-width': 2.5, 'stroke-dasharray': '6 5', class: 'fc' }), ...forecast.map((v, i) => S('circle', { cx: x(history.length + i), cy: y(v), r: 3.5, fill: '#fff', stroke: COLORS[1], 'stroke-width': 2 }, S('title', null, `${forecastLabels[i]}: ${full(v)} ${unit || ''} (متوقع)`))));
   return wrap(title, sub, svg, [[COLORS[0], 'المبيعات الفعلية'], [COLORS[1], 'التنبؤ', true]]);
 }
 

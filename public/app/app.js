@@ -1,4 +1,4 @@
-import { h, state, api, get, post, toast, can, form } from './ui.js';
+import { h, state, api, get, post, toast, can, form, skeleton, enter, stagger } from './ui.js';
 import { lang, setLang, startI18n } from './i18n.js';
 import dashboard from './views/dashboard.js';
 import inventory from './views/inventory.js';
@@ -20,6 +20,25 @@ const SECTIONS = [
   { id: 'admin', label: 'المستخدمون والتدقيق', perms: ['users.manage', 'audit.view'], view: admin },
 ];
 const root = document.getElementById('app');
+
+// Navigation icons: simple 24px stroke drawings (no icon font, no external files)
+const ICONS = {
+  dashboard: ['M3 3h7v9H3z', 'M14 3h7v5h-7z', 'M14 12h7v9h-7z', 'M3 16h7v5H3z'],
+  inventory: ['M21 8l-9-5-9 5v8l9 5 9-5V8z', 'M3 8l9 5 9-5', 'M12 13v8'],
+  imports: ['M3 17l2 3h14l2-3', 'M5 17v-6h14v6', 'M9 11V7h6v4', 'M12 3v4'],
+  purchasing: ['M3 4h2l2.5 11h10L20 7H6', 'M9 19.5h.01', 'M17 19.5h.01'],
+  sales: ['M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2V3z', 'M9 8h6', 'M9 12h6'],
+  finance: ['M5 3h14v18H5z', 'M8 7h8', 'M8 12h2', 'M14 12h2', 'M8 16h2', 'M14 16h2'],
+  reports: ['M5 21V11', 'M12 21V4', 'M19 21v-7'],
+  admin: ['M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z', 'M9 12l2 2 4-4'],
+};
+function icon(id) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  for (const [k, v] of Object.entries({ viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', class: 'ico', 'aria-hidden': 'true' })) svg.setAttribute(k, v);
+  for (const d of ICONS[id] || []) { const p = document.createElementNS(NS, 'path'); p.setAttribute('d', d); svg.append(p); }
+  return svg;
+}
 
 const langButton = () => h('button', { class: 'btn secondary small', type: 'button', onclick: () => setLang(lang === 'en' ? 'ar' : 'en') }, lang === 'en' ? 'العربية' : 'English');
 
@@ -43,8 +62,8 @@ async function render() {
   const section = allowed.find((s) => s.id === id) || allowed[0];
   document.querySelectorAll('nav.side a').forEach((a) => a.classList.toggle('active', a.dataset.id === section.id));
   const main = document.getElementById('main');
-  main.replaceChildren(h('h2', null, section.label), h('div', { class: 'muted' }, 'جارٍ التحميل…'));
-  try { main.replaceChildren(h('h2', null, section.label), await section.view()); }
+  main.replaceChildren(h('h2', null, section.label), skeleton(section.id === 'dashboard' ? 'cards' : undefined));
+  try { const view = await section.view(); main.replaceChildren(h('h2', null, section.label), enter(h('div', null, view))); stagger(main); }
   catch (e) { main.replaceChildren(h('h2', null, section.label), h('div', { class: 'card neg' }, e.message)); }
 }
 
@@ -57,9 +76,9 @@ async function start() {
   const allowed = SECTIONS.filter((s) => can(...s.perms));
   root.replaceChildren(h('div', { class: 'layout' },
     h('nav', { class: 'side' }, h('h1', null, 'نظام الاستيراد والتوزيع'),
-      allowed.map((s) => h('a', { href: '#/' + s.id, 'data-id': s.id }, s.label)),
-      h('div', { class: 'who' }, state.me.name, h('br'), h('span', { class: 'ltr' }, state.me.email), h('br'), langButton(), ' ',
-        h('button', { class: 'btn secondary small', onclick: async () => { try { await api('DELETE', 'auth/token'); } catch {} sessionStorage.removeItem('erp_token'); location.hash = ''; location.reload(); } }, 'تسجيل الخروج'))),
+      allowed.map((s) => h('a', { href: '#/' + s.id, 'data-id': s.id }, icon(s.id), s.label)),
+      h('div', { class: 'who' }, h('div', null, h('b', null, state.me.name), h('br'), h('span', { class: 'ltr' }, state.me.email)), h('div', { class: 'row' }, langButton(), ' ',
+        h('button', { class: 'btn secondary small', onclick: async () => { try { await api('DELETE', 'auth/token'); } catch {} sessionStorage.removeItem('erp_token'); location.hash = ''; location.reload(); } }, 'تسجيل الخروج')))),
     h('main', { id: 'main' })));
   if (!listening) { window.addEventListener('hashchange', render); listening = true; }
   render();

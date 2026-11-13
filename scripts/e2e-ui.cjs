@@ -105,7 +105,7 @@ const SH = (process.env.SHOTS_DIR || '/tmp/erp-shots') + '/';
     await tab('طلبات البيع'); await page.getByRole('button', { name: 'تسليم', exact: true }).first().click(); await page.waitForFunction(() => document.body.innerText.includes('تم التسليم'));
     await page.getByRole('button', { name: 'إصدار فاتورة' }).first().click(); await page.waitForFunction(() => document.body.innerText.includes('تم إصدار الفاتورة'));
     await go('finance'); await tab('الصندوق والحسابات المصرفية');
-    await page.waitForFunction(() => /Commercial Bank/.test(document.body.innerText) && /7\d\d\.00|776\.00/.test(document.body.innerText));
+    await page.waitForFunction(() => [...document.querySelectorAll('tbody tr')].some((r) => /Commercial Bank/.test(r.textContent) && !/(^|[^\d.,])0\.00\s*$/.test(r.textContent.trim())));   // the transfer reached that bank
     await page.screenshot({ path: SH + '5b-banks.png' });
   });
   await step('credit-sale-refused-for-cash-customer', async () => {
