@@ -68,6 +68,8 @@ final class LandedCostService
                     $result->line($line->id)->total,
                     "shipment:{$shipment->reference}",
                     "shipment:{$shipmentId}:line:{$line->id}",
+                    $line->lotNo ?? "SHP-{$shipmentId}",
+                    $line->expiryDate,
                 );
             }
             $this->shipments->setStatus($shipmentId, 'received');

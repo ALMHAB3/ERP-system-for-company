@@ -31,8 +31,9 @@ final class DbShipmentRepository implements ShipmentRepository
                 'shipment_id' => $id, 'product_id' => $l->productId, 'quantity' => $l->quantity->units,
                 'unit_price' => $l->unitPrice->units, 'volume_cbm' => $l->volumeCbm->units,
                 'weight_kg' => $l->weightKg->units, 'duty_rate' => $l->dutyRate->units,
+                'lot_no' => $l->lotNo, 'expiry_date' => $l->expiryDate?->format('Y-m-d'),
             ]);
-            $lines[] = new ShipmentLine($lineId, $l->productId, $l->quantity, $l->unitPrice, $l->volumeCbm, $l->weightKg, $l->dutyRate);
+            $lines[] = new ShipmentLine($lineId, $l->productId, $l->quantity, $l->unitPrice, $l->volumeCbm, $l->weightKg, $l->dutyRate, $l->lotNo, $l->expiryDate);
         }
         foreach ($shipment->costItems as $c) {
             $this->db->table('shipment_cost_items')->insert([
@@ -75,6 +76,7 @@ final class DbShipmentRepository implements ShipmentRepository
             ->map(static fn ($l) => new ShipmentLine(
                 (int) $l->id, (int) $l->product_id, Fixed::units((int) $l->quantity), Fixed::units((int) $l->unit_price),
                 Fixed::units((int) $l->volume_cbm), Fixed::units((int) $l->weight_kg), Fixed::units((int) $l->duty_rate),
+                $l->lot_no, $l->expiry_date ? new \DateTimeImmutable($l->expiry_date) : null,
             ))->all();
         $items = $this->db->table('shipment_cost_items')->where('shipment_id', $id)->orderBy('id')->get()
             ->map(static fn ($c) => new CostItem($c->code, Fixed::units((int) $c->amount), CostBasis::from($c->basis), (bool) $c->in_customs_value))->all();

@@ -31,6 +31,8 @@ final class ShipmentController extends ApiController
             'lines.*.volume_cbm' => ['nullable', Decimal::RULE],
             'lines.*.weight_kg' => ['nullable', Decimal::RULE],
             'lines.*.duty_rate' => ['required', Decimal::RULE],
+            'lines.*.lot_no' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9._-]+$/'],
+            'lines.*.expiry_date' => ['nullable', 'date_format:Y-m-d'],
             'costs' => ['array', 'max:50'],
             'costs.*.code' => ['required', 'string', 'max:40', 'not_in:PURCHASE,DUTY'],
             'costs.*.amount' => ['required', Decimal::RULE],
@@ -45,6 +47,8 @@ final class ShipmentController extends ApiController
                 isset($l['volume_cbm']) ? Decimal::of($l['volume_cbm']) : Fixed::zero(),
                 isset($l['weight_kg']) ? Decimal::of($l['weight_kg']) : Fixed::zero(),
                 Decimal::of($l['duty_rate']),
+                $l['lot_no'] ?? null,
+                isset($l['expiry_date']) ? new \DateTimeImmutable($l['expiry_date']) : null,
             ), $d['lines']),
             array_map(fn ($c) => new CostItem($c['code'], Decimal::of($c['amount']), CostBasis::from($c['basis']), (bool) ($c['in_customs_value'] ?? false)), $d['costs'] ?? []),
         ));

@@ -9,12 +9,12 @@ use Modules\Inventory\Domain\Events\StockReserved;
 use Modules\Inventory\Domain\Exceptions\InsufficientStock;
 use Modules\Inventory\Domain\Exceptions\InvalidStockMove;
 use Modules\Inventory\Domain\Exceptions\ReservationNotActive;
+use Modules\Inventory\Domain\IssuedStock;
 use Modules\Inventory\Domain\MoveType;
 use Modules\Inventory\Domain\Reservation;
 use Modules\Inventory\Domain\ReservationRepository;
 use Modules\Inventory\Domain\ReservationStatus;
 use Modules\Inventory\Domain\StockLedgerRepository;
-use Modules\Inventory\Domain\StockMove;
 use Modules\Inventory\Domain\StockMoveData;
 use Modules\Shared\Application\EventBus;
 use Modules\Shared\Application\TransactionRunner;
@@ -82,10 +82,10 @@ final class AtpService
         });
     }
 
-    /** Turns a reservation into a real stock issue (cost = moving average at that instant). */
-    public function consume(int $reservationId, string $reference, ?string $idempotencyKey = null): StockMove
+    /** Turns a reservation into a real stock issue, FEFO across lots, each at its own lot cost. */
+    public function consume(int $reservationId, string $reference, ?string $idempotencyKey = null): IssuedStock
     {
-        return $this->tx->run(function () use ($reservationId, $reference, $idempotencyKey): StockMove {
+        return $this->tx->run(function () use ($reservationId, $reference, $idempotencyKey): IssuedStock {
             $reservation = $this->activeOrFail($reservationId);
             $balance = $this->ledger->lockBalance($reservation->productId, $reservation->warehouseId);
             $this->ledger->saveBalance(
@@ -95,7 +95,7 @@ final class AtpService
             );
             $this->reservations->setStatus($reservationId, ReservationStatus::Consumed);
 
-            return $this->inventory->record(new StockMoveData(
+            return $this->inventory->issue(new StockMoveData(
                 $reservation->productId,
                 $reservation->warehouseId,
                 MoveType::Issue,

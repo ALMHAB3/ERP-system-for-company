@@ -16,5 +16,7 @@ interface StockReceiver
         Fixed $totalCost,
         string $reference,
         string $idempotencyKey,
+        string $lotNo,
+        ?\DateTimeImmutable $expiryDate = null,
     ): void;
 }

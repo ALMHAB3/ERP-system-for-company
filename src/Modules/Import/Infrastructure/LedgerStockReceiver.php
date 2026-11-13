@@ -15,11 +15,11 @@ final class LedgerStockReceiver implements StockReceiver
 {
     public function __construct(private readonly InventoryLedger $ledger) {}
 
-    public function receive(int $productId, int $warehouseId, Fixed $quantity, Fixed $totalCost, string $reference, string $idempotencyKey): void
+    public function receive(int $productId, int $warehouseId, Fixed $quantity, Fixed $totalCost, string $reference, string $idempotencyKey, string $lotNo, ?\DateTimeImmutable $expiryDate = null): void
     {
         $this->ledger->record(new StockMoveData(
             $productId, $warehouseId, MoveType::Receipt, $quantity, null, $reference,
-            totalCost: $totalCost, idempotencyKey: $idempotencyKey,
+            lotNo: $lotNo, totalCost: $totalCost, idempotencyKey: $idempotencyKey, expiryDate: $expiryDate,
         ));
     }
 }

@@ -16,6 +16,9 @@ final readonly class ShipmentLine
         public Fixed $volumeCbm,
         public Fixed $weightKg,
         public Fixed $dutyRate,
+        /** Supplier batch number; defaults to SHP-<shipment id> so every shipment is its own lot. */
+        public ?string $lotNo = null,
+        public ?\DateTimeImmutable $expiryDate = null,
     ) {}
 
     public function toCostable(): CostableLine

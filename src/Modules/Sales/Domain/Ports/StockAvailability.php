@@ -14,6 +14,10 @@ interface StockAvailability
 
     public function release(int $reservationId): void;
 
-    /** Issues the reserved stock; returns the cost of goods issued (moving average x quantity). */
-    public function issue(int $reservationId, string $reference, string $idempotencyKey): Fixed;
+    /**
+     * Issues the reserved stock FEFO across lots.
+     *
+     * @return list<IssuedLine> one per lot consumed, each at its own lot cost
+     */
+    public function issue(int $reservationId, string $reference, string $idempotencyKey): array;
 }

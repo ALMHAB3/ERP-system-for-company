@@ -63,6 +63,7 @@ final class PurchaseOrderService
                     $line->productId, $warehouseId, $line->quantity,
                     $line->total()->mul($order->exchangeRate),
                     "po:{$order->number}", "po:{$id}:line:{$line->id}",
+                    "PO-{$order->number}",
                 );
             }
             $this->orders->setStatus($id, PurchaseOrderStatus::Received);

@@ -61,20 +61,24 @@ final class InventoryController extends ApiController
             'direction' => ['required', 'in:in,out'],
             'quantity' => ['required', Decimal::RULE],
             'unit_cost' => ['required_if:direction,in', Decimal::RULE],
+            'lot_no' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9._-]+$/'],
+            'expiry_date' => ['nullable', 'date_format:Y-m-d'],
             'reason' => ['required', 'string', 'max:100'],
         ]);
         $this->warehouse($request, $d['warehouse_id']);
 
-        $move = $ledger->record(new StockMoveData(
+        $moves = $ledger->recordMany(new StockMoveData(
             $d['product_id'], $d['warehouse_id'],
             $d['direction'] === 'in' ? MoveType::AdjustmentIn : MoveType::AdjustmentOut,
             Decimal::of($d['quantity']),
             isset($d['unit_cost']) ? Decimal::of($d['unit_cost']) : null,
             'adjustment:'.$d['reason'],
+            lotNo: $d['lot_no'] ?? null,
             idempotencyKey: $this->idempotencyKey($request, 'adjustment'),
+            expiryDate: isset($d['expiry_date']) ? new \DateTimeImmutable($d['expiry_date']) : null,
         ));
 
-        return response()->json(self::move($move), 201);
+        return response()->json(['id' => $moves[0]->id, 'moves' => array_map(self::move(...), $moves)], 201);
     }
 
     public function transfer(Request $request, InventoryLedger $ledger): JsonResponse
@@ -85,12 +89,13 @@ final class InventoryController extends ApiController
             'to_warehouse_id' => ['required', 'integer', 'exists:warehouses,id', 'different:from_warehouse_id'],
             'quantity' => ['required', Decimal::RULE],
             'reference' => ['required', 'string', 'max:80'],
+            'lot_no' => ['nullable', 'string', 'max:64'],
         ]);
         $this->warehouse($request, $d['from_warehouse_id'], $d['to_warehouse_id']);
 
-        [$out, $in] = $ledger->transfer($d['product_id'], $d['from_warehouse_id'], $d['to_warehouse_id'], Decimal::of($d['quantity']), 'transfer:'.$d['reference']);
+        [$out, $in] = $ledger->transfer($d['product_id'], $d['from_warehouse_id'], $d['to_warehouse_id'], Decimal::of($d['quantity']), 'transfer:'.$d['reference'], $d['lot_no'] ?? null);
 
-        return response()->json(['out' => self::move($out), 'in' => self::move($in)], 201);
+        return response()->json(['out' => array_map(self::move(...), $out), 'in' => array_map(self::move(...), $in)], 201);
     }
 
     public function atp(Request $request, AtpService $atp): JsonResponse
@@ -106,7 +111,7 @@ final class InventoryController extends ApiController
     {
         return [
             'id' => $m->id, 'type' => $m->type->value, 'product_id' => $m->productId, 'warehouse_id' => $m->warehouseId,
-            'quantity' => (string) $m->quantity, 'balance_qty_after' => (string) $m->balanceQtyAfter, 'reference' => $m->reference,
+            'lot_no' => $m->lotNo, 'quantity' => (string) $m->quantity, 'balance_qty_after' => (string) $m->balanceQtyAfter, 'reference' => $m->reference,
         ];
     }
 }

@@ -122,7 +122,7 @@ final class InventoryLedgerTest extends ErpTestCase
         $branch = $this->makeWarehouse('BR1');
         [$out, $in] = app(InventoryLedger::class)->transfer($this->product, $this->warehouse, $branch, Fixed::parse('4'), 'tr-1');
 
-        $this->assertSame($out->totalCost->units, $in->totalCost->units);
+        $this->assertSame($out[0]->totalCost->units, $in[0]->totalCost->units);
         $this->assertSame('6.0000', (string) $this->balance()->onHand);
         $this->assertSame('4.0000', (string) app(StockLedgerRepository::class)->balance($this->product, $branch)->onHand);
         $this->assertSame([], app(LedgerReconciler::class)->reconcile());

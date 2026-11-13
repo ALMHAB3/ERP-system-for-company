@@ -24,11 +24,27 @@ final class LedgerReconciler
         foreach ($this->ledger->knownPairs() as [$productId, $warehouseId]) {
             $qty = Fixed::zero();
             $value = Fixed::zero();
+            $perLot = [];
             foreach ($this->ledger->movesFor($productId, $warehouseId) as $move) {
                 $qty = $qty->add($move->signedQuantity());
                 $value = $value->add($move->signedValue());
+                $lot = $move->lotNo ?? 'NOLOT';
+                $perLot[$lot] = [($perLot[$lot][0] ?? Fixed::zero())->add($move->signedQuantity()), ($perLot[$lot][1] ?? Fixed::zero())->add($move->signedValue())];
                 if (! $move->balanceQtyAfter->equals($qty) || ! $move->balanceValueAfter->equals($value)) {
                     $drifts[] = new LedgerDrift($productId, $warehouseId, "running balance at move #{$move->id}", (string) $move->balanceQtyAfter.' / '.$move->balanceValueAfter, "{$qty} / {$value}");
+                }
+            }
+
+            $storedLots = [];
+            foreach ($this->ledger->lots($productId, $warehouseId) as $lot) {
+                $storedLots[$lot->lotNo] = $lot;
+            }
+            foreach (array_unique([...array_keys($perLot), ...array_keys($storedLots)]) as $lotNo) {
+                $expectedQty = $perLot[$lotNo][0] ?? Fixed::zero();
+                $expectedValue = $perLot[$lotNo][1] ?? Fixed::zero();
+                $lot = $storedLots[$lotNo] ?? null;
+                if ($lot === null || ! $lot->onHand->equals($expectedQty) || ! $lot->value->equals($expectedValue)) {
+                    $drifts[] = new LedgerDrift($productId, $warehouseId, "lot {$lotNo}", $lot === null ? 'missing' : $lot->onHand.' / '.$lot->value, "{$expectedQty} / {$expectedValue}");
                 }
             }
 

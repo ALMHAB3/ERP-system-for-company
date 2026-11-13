@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Sales\Domain;
 
+use Modules\Sales\Domain\Ports\IssuedLine;
 use Modules\Shared\Domain\Fixed;
 
 interface SalesOrderRepository
@@ -14,7 +15,8 @@ interface SalesOrderRepository
 
     public function find(int $id): ?SalesOrder;
 
-    public function recordShipment(int $orderId, array $costByLineId): void;
+    /** @param array<int, list<IssuedLine>> $issuesByLineId */
+    public function recordShipment(int $orderId, array $issuesByLineId): void;
 
     public function setStatus(int $orderId, string $status): void;
 

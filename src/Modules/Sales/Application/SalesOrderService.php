@@ -64,11 +64,11 @@ final class SalesOrderService
     {
         return $this->tx->run(function () use ($orderId): SalesOrder {
             $order = $this->load($orderId, 'reserved');
-            $costs = [];
+            $issues = [];
             foreach ($order->lines as $line) {
-                $costs[$line->id] = $this->stock->issue($line->reservationId, "sales_order:{$order->number}", "sales_order:{$orderId}:line:{$line->id}:ship");
+                $issues[$line->id] = $this->stock->issue($line->reservationId, "sales_order:{$order->number}", "sales_order:{$orderId}:line:{$line->id}:ship");
             }
-            $this->orders->recordShipment($orderId, $costs);
+            $this->orders->recordShipment($orderId, $issues);
             $this->orders->setStatus($orderId, 'shipped');
 
             return $this->orders->lock($orderId);

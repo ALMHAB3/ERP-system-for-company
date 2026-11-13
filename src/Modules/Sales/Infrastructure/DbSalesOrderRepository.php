@@ -65,9 +65,17 @@ final class DbSalesOrderRepository implements SalesOrderRepository
         return new SalesOrder((int) $o->id, $o->number, (int) $o->customer_id, (int) $o->warehouse_id, $o->status, $lines);
     }
 
-    public function recordShipment(int $orderId, array $costByLineId): void
+    public function recordShipment(int $orderId, array $issuesByLineId): void
     {
-        foreach ($costByLineId as $lineId => $cost) {
+        foreach ($issuesByLineId as $lineId => $issues) {
+            $cost = Fixed::zero();
+            foreach ($issues as $issue) {
+                $cost = $cost->add($issue->cost);
+                $this->db->table('sales_issue_lines')->insert([
+                    'sales_order_line_id' => $lineId, 'stock_move_id' => $issue->stockMoveId, 'lot_no' => $issue->lotNo,
+                    'quantity' => $issue->quantity->units, 'cost' => $issue->cost->units,
+                ]);
+            }
             $this->db->table('sales_order_lines')->where('id', $lineId)->update(['cost_of_goods' => $cost->units]);
         }
     }

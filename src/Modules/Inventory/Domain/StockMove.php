@@ -24,6 +24,7 @@ final readonly class StockMove
         public ?string $lotNo,
         public ?string $idempotencyKey,
         public DateTimeImmutable $occurredAt,
+        public ?DateTimeImmutable $expiryDate = null,
     ) {}
 
     public function signedQuantity(): Fixed

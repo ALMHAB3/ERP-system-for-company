@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Sales\Infrastructure;
 
 use Modules\Inventory\Application\AtpService;
+use Modules\Sales\Domain\Ports\IssuedLine;
 use Modules\Sales\Domain\Ports\StockAvailability;
 use Modules\Shared\Domain\Fixed;
 
@@ -23,8 +24,11 @@ final class AtpStockAvailability implements StockAvailability
         $this->atp->release($reservationId);
     }
 
-    public function issue(int $reservationId, string $reference, string $idempotencyKey): Fixed
+    public function issue(int $reservationId, string $reference, string $idempotencyKey): array
     {
-        return $this->atp->consume($reservationId, $reference, $idempotencyKey)->totalCost;
+        return array_map(
+            static fn ($m) => new IssuedLine((int) $m->id, (string) $m->lotNo, $m->quantity, $m->totalCost),
+            $this->atp->consume($reservationId, $reference, $idempotencyKey)->moves,
+        );
     }
 }

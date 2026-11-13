@@ -68,9 +68,9 @@ final class AtpServiceTest extends ErpTestCase
     {
         $this->stock('10');
         $r = $this->atp()->reserve($this->product, $this->warehouse, Fixed::parse('4'), 'so-1');
-        $move = $this->atp()->consume($r->id, 'so-1', 'so-1:ship');
+        $issued = $this->atp()->consume($r->id, 'so-1', 'so-1:ship');
 
-        $this->assertSame('20.0000', (string) $move->totalCost);
+        $this->assertSame('20.0000', (string) $issued->totalCost());
         $balance = app(StockLedgerRepository::class)->balance($this->product, $this->warehouse);
         $this->assertSame('6.0000', (string) $balance->onHand);
         $this->assertSame('0.0000', (string) $balance->reserved);
