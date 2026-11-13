@@ -30,7 +30,7 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     environment: { ERP_HOST: "${ERP_HOST:-erp.local}", ACME_EMAIL: "${ACME_EMAIL:-}" }
-    ports: ["443:443", "80:80"]
+    ports: ["443:443", "80:80", "127.0.0.1:8080:8080"]   # 8080 = origin for `tailscale serve`, reachable from this computer only
     volumes:
       # default: office network only. For a public domain set CADDYFILE=./docker/Caddyfile.public (docs/INTERNET-ACCESS.md)
       - ${CADDYFILE:-./docker/Caddyfile}:/etc/caddy/Caddyfile:ro

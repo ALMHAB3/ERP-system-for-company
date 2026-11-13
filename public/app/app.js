@@ -20,6 +20,8 @@ const SECTIONS = [
   { id: 'admin', label: 'المستخدمون والتدقيق', perms: ['users.manage', 'audit.view'], view: admin },
 ];
 const root = document.getElementById('app');
+let COMPANY = '';
+const companyName = (tag, cls) => h(tag, { class: cls, 'data-no-translate': '' }, COMPANY);   // always Arabic, in both languages
 
 // Navigation icons: simple 24px stroke drawings (no icon font, no external files)
 const ICONS = {
@@ -43,7 +45,7 @@ function icon(id) {
 const langButton = () => h('button', { class: 'btn secondary small', type: 'button', onclick: () => setLang(lang === 'en' ? 'ar' : 'en') }, lang === 'en' ? 'العربية' : 'English');
 
 function loginScreen() {
-  root.replaceChildren(h('div', { class: 'login' }, h('div', { class: 'toolbar' }, langButton()), h('h1', null, 'تسجيل الدخول'),
+  root.replaceChildren(h('div', { class: 'login' }, h('div', { class: 'toolbar' }, langButton()), companyName('div', 'brand'), h('h1', null, 'تسجيل الدخول'),
     form([
       { name: 'email', label: 'البريد الإلكتروني', type: 'text', required: true, wide: true },
       { name: 'password', label: 'كلمة المرور', type: 'password', required: true, wide: true },
@@ -62,24 +64,26 @@ async function render() {
   const section = allowed.find((s) => s.id === id) || allowed[0];
   document.querySelectorAll('nav.side a').forEach((a) => a.classList.toggle('active', a.dataset.id === section.id));
   const main = document.getElementById('main');
-  main.replaceChildren(h('h2', null, section.label), skeleton(section.id === 'dashboard' ? 'cards' : undefined));
-  try { const view = await section.view(); main.replaceChildren(h('h2', null, section.label), enter(h('div', null, view))); stagger(main); }
-  catch (e) { main.replaceChildren(h('h2', null, section.label), h('div', { class: 'card neg' }, e.message)); }
+  const banner = main.querySelector('.banner');
+  main.replaceChildren(...(banner ? [banner] : []), h('h2', null, section.label), skeleton(section.id === 'dashboard' ? 'cards' : undefined));
+  try { const view = await section.view(); main.replaceChildren(...(banner ? [banner] : []), h('h2', null, section.label), enter(h('div', null, view))); stagger(main); }
+  catch (e) { main.replaceChildren(...(banner ? [banner] : []), h('h2', null, section.label), h('div', { class: 'card neg' }, e.message)); }
 }
 
 let listening = false;
 async function start() {
+  try { COMPANY = (await (await fetch('/api/public-info')).json()).company_name || ''; if (COMPANY) document.title = COMPANY; } catch { /* name stays empty */ }
   const token = sessionStorage.getItem('erp_token');
   if (!token) return loginScreen();
   try { [state.me, state.lookups] = await Promise.all([get('me'), get('lookups')]); }
   catch { sessionStorage.removeItem('erp_token'); return loginScreen(); }
   const allowed = SECTIONS.filter((s) => can(...s.perms));
   root.replaceChildren(h('div', { class: 'layout' },
-    h('nav', { class: 'side' }, h('h1', null, 'نظام الاستيراد والتوزيع'),
+    h('nav', { class: 'side' }, companyName('h1'),
       allowed.map((s) => h('a', { href: '#/' + s.id, 'data-id': s.id }, icon(s.id), s.label)),
       h('div', { class: 'who' }, h('div', null, h('b', null, state.me.name), h('br'), h('span', { class: 'ltr' }, state.me.email)), h('div', { class: 'row' }, langButton(), ' ',
         h('button', { class: 'btn secondary small', onclick: async () => { try { await api('DELETE', 'auth/token'); } catch {} sessionStorage.removeItem('erp_token'); location.hash = ''; location.reload(); } }, 'تسجيل الخروج')))),
-    h('main', { id: 'main' })));
+    h('main', { id: 'main' }, state.lookups.demo ? h('div', { class: 'banner' }, 'هذا النظام يحتوي بيانات تجريبية للتجربة فقط. ابدأ من قاعدة بيانات فارغة قبل إدخال البيانات الحقيقية.') : null)));
   if (!listening) { window.addEventListener('hashchange', render); listening = true; }
   render();
 }

@@ -2,6 +2,7 @@
 
 use App\Providers\AppServiceProvider;
 use Modules\Audit\AuditServiceProvider;
+use Modules\Demo\DemoServiceProvider;
 use Modules\Finance\FinanceServiceProvider;
 use Modules\Identity\IdentityServiceProvider;
 use Modules\Import\ImportServiceProvider;
@@ -22,4 +23,5 @@ return [
     IdentityServiceProvider::class,
     AuditServiceProvider::class,
     ReportingServiceProvider::class,
+    DemoServiceProvider::class,
 ];

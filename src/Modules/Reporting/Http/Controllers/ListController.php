@@ -25,6 +25,8 @@ final class ListController extends ApiController
         $userId = $this->userId($request);
 
         return response()->json([
+            'company_name' => config('erp.company_name'),
+            'demo' => DB::table('system_flags')->where('name', 'demo_data')->exists(),
             'currency' => config('erp.base_currency'),
             'currencies' => collect($rates->latest())->map(fn ($r, $code) => ['code' => $code, 'name' => config('erp.currencies')[$code] ?? $code, 'rate' => $r['rate'], 'rate_date' => $r['date']])->values(),
             'vat_rate' => (string) config('erp.vat_rate'),

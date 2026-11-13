@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Inventory\Application;
 
-use DateTimeImmutable;
+use Carbon\CarbonImmutable;
 use LogicException;
 use Modules\Inventory\Domain\Events\StockMoved;
 use Modules\Inventory\Domain\Exceptions\InsufficientStock;
@@ -83,7 +83,7 @@ final class InventoryLedger
                     reference: $data->reference,
                     lotNo: $lot->lotNo,
                     idempotencyKey: $data->idempotencyKey === null ? null : $data->idempotencyKey.'#'.$i,
-                    occurredAt: $data->occurredAt ?? new DateTimeImmutable,
+                    occurredAt: $data->occurredAt ?? CarbonImmutable::now(),
                     expiryDate: $lot->expiryDate,
                 ));
             }
@@ -124,7 +124,7 @@ final class InventoryLedger
             $move = $this->ledger->append(new StockMove(
                 null, $productId, $warehouseId, $delta->isPositive() ? MoveType::RevaluationUp : MoveType::RevaluationDown,
                 Fixed::zero(), Fixed::zero(), $delta->abs(), $balance->onHand, $newBalanceValue, $reference, $lotNo,
-                $idempotencyKey.'#0', new DateTimeImmutable, $lot->expiryDate,
+                $idempotencyKey.'#0', CarbonImmutable::now(), $lot->expiryDate,
             ));
             $this->events->dispatch(new StockMoved($move));
 
@@ -189,7 +189,7 @@ final class InventoryLedger
             throw new InvalidStockMove("Lot {$lotNo} already holds stock with a different expiry date.");
         }
         $lot = $lot === null
-            ? new StockLot($lotNo, $data->expiryDate, $data->occurredAt ?? new DateTimeImmutable, $data->quantity, $total)
+            ? new StockLot($lotNo, $data->expiryDate, $data->occurredAt ?? CarbonImmutable::now(), $data->quantity, $total)
             : new StockLot($lot->lotNo, $data->expiryDate ?? $lot->expiryDate, $lot->receivedAt, $lot->onHand->add($data->quantity), $lot->value->add($total));
 
         return [$lot, $data->quantity, $total];
@@ -202,7 +202,7 @@ final class InventoryLedger
             throw InsufficientStock::for($data->productId, $data->warehouseId, $data->quantity, $balance->available());
         }
 
-        $today = new DateTimeImmutable('today');
+        $today = CarbonImmutable::today();
         $lots = $this->ledger->lockLots($data->productId, $data->warehouseId, $data->lotNo);
         if ($data->type === MoveType::Issue) {   // sales never ship expired goods; write-offs and counts may take any lot
             $lots = array_values(array_filter($lots, static fn (StockLot $l) => ! $l->isExpired($today)));

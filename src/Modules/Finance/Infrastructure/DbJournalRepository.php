@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Finance\Infrastructure;
 
+use Carbon\CarbonImmutable;
 use DateTimeImmutable;
 use Illuminate\Database\ConnectionInterface;
 use Modules\Finance\Domain\JournalEntryData;
@@ -38,7 +39,7 @@ final class DbJournalRepository implements JournalRepository
             'source_id' => $entry->sourceId,
             'rule' => $entry->rule,
             'reverses_entry_id' => $reversesEntryId,
-            'posted_at' => ($entry->postedAt ?? new DateTimeImmutable)->format('Y-m-d H:i:s'),
+            'posted_at' => ($entry->postedAt ?? CarbonImmutable::now())->format('Y-m-d H:i:s'),
             'created_at' => now(),
         ]);
         $this->db->table('journal_lines')->insert(array_map(static fn (JournalLineData $l) => [

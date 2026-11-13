@@ -73,7 +73,7 @@ const inMessage = (n) => !!n.parentElement?.closest('.toast, .neg, .err, .card.n
 function handleText(node) {
   const v = node.nodeValue;
   if (!v || !v.trim()) return;
-  if (lang === 'en') { if (HAS_AR.test(v)) { const t = enText(v); if (t !== v) node.nodeValue = t; } return; }
+  if (lang === 'en') { if (HAS_AR.test(v) && !node.parentElement?.closest('[data-no-translate]')) { const t = enText(v); if (t !== v) node.nodeValue = t; } return; }   // the company name is never translated
   if (/[A-Za-z]/.test(v)) { const t = arText(v, inMessage(node)); if (t !== v) node.nodeValue = t; }
 }
 const ATTRS = ['placeholder', 'title', 'aria-label'];
@@ -94,7 +94,6 @@ function walk(root) {
 export function startI18n() {
   document.documentElement.lang = lang;
   document.documentElement.dir = lang === 'en' ? 'ltr' : 'rtl';
-  if (lang === 'en') document.title = enText(document.title);
   new MutationObserver((muts) => {
     for (const m of muts) {
       if (m.type === 'characterData') handleText(m.target);

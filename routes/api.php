@@ -21,6 +21,9 @@ use Modules\Sales\Http\Controllers\PricingController;
 use Modules\Sales\Http\Controllers\ReceivablesController;
 use Modules\Sales\Http\Controllers\SalesOrderController;
 
+// Public: only the company name (the login screen shows it before anyone is signed in)
+Route::get('public-info', fn () => response()->json(['company_name' => config('erp.company_name')]))->name('public-info');
+
 Route::post('auth/token', [AuthController::class, 'issueToken'])->middleware('throttle:login')->name('auth.token');
 
 Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->group(function () {

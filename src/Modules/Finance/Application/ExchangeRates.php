@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Finance\Application;
 
+use Carbon\CarbonImmutable;
 use DateTimeImmutable;
 use DomainException;
 use Illuminate\Database\ConnectionInterface;
@@ -34,9 +35,9 @@ final class ExchangeRates
             return Fixed::of(1);
         }
         $rate = $this->db->table('exchange_rates')->where('currency', $currency)
-            ->where('rate_date', '<=', ($date ?? new DateTimeImmutable)->format('Y-m-d'))->orderByDesc('rate_date')->value('rate');
+            ->where('rate_date', '<=', ($date ?? CarbonImmutable::now())->format('Y-m-d'))->orderByDesc('rate_date')->value('rate');
         if ($rate === null) {
-            throw new DomainException("No exchange rate for {$currency} on or before ".($date ?? new DateTimeImmutable)->format('Y-m-d').'. Enter it under Accounting > Exchange rates.');
+            throw new DomainException("No exchange rate for {$currency} on or before ".($date ?? CarbonImmutable::now())->format('Y-m-d').'. Enter it under Accounting > Exchange rates.');
         }
 
         return Fixed::units((int) $rate);

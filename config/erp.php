@@ -1,6 +1,9 @@
 <?php
 
 return [
+    // The company's name. It is Arabic in every language of the interface (never translated).
+    'company_name' => env('COMPANY_NAME', 'شركة هب الريح لعوازل الأسطح ومواد البناء'),
+
     // Company (accounting) currency. Everything is booked in it; foreign amounts keep their own currency and rate.
     'base_currency' => env('ERP_BASE_CURRENCY', 'LYD'),
 

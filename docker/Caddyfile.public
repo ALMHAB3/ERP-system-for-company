@@ -9,6 +9,12 @@
 	import /etc/caddy/erp-site.caddy
 }
 
+# Origin for `tailscale serve` on this computer (published on 127.0.0.1 only): Tailscale adds the HTTPS certificate and the
+# client address (X-Forwarded-For); this listener believes it only from private/loopback peers.
+:8080 {
+	import /etc/caddy/erp-site.caddy
+}
+
 # Same private tunnel origin as the default file, so both ways can run together.
 :8081 {
 	import /etc/caddy/erp-site.caddy

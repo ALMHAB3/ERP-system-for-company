@@ -19,9 +19,12 @@
 
 ## الطريقة 2: Tailscale (الأسهل والأأمن)
 1. ثبّت Tailscale على جهاز السيرفر وعلى كل جهاز يحتاج الوصول (الهاتف والحاسوب) وسجّل الدخول بالحساب نفسه.
-2. من لوحة Tailscale فعّل MagicDNS وانسخ اسم جهاز السيرفر (مثل `office-pc.tailnet-name.ts.net`).
-3. في `.env`: `ERP_HOST=office-pc.tailnet-name.ts.net` ثم `docker compose up -d`.
-4. افتح `https://office-pc.tailnet-name.ts.net` من أي جهاز مسجَّل (ثبّت شهادة Caddy الداخلية مرة واحدة كما في دليل المقر، أو استخدم `tailscale cert` للحصول على شهادة موثوقة).
+2. على جهاز السيرفر (بعد `docker compose up -d`) نفّذ أمراً واحداً:
+   ```bash
+   tailscale serve --bg --https=443 http://127.0.0.1:8080
+   ```
+   يعرض عنواناً مثل `https://office-pc.tailnet-name.ts.net` بشهادة موثوقة تلقائياً (فعّل HTTPS/MagicDNS من لوحة Tailscale مرة واحدة). لا يلزم تثبيت شهادة على الأجهزة.
+3. المنفذ 8080 يُنشر على الجهاز نفسه فقط (127.0.0.1)، وعنوان العميل الحقيقي يُسجَّل في سجل التدقيق.
    لا يصل إليه أحد خارج شبكتك الخاصة.
 
 ## الطريقة 3: نفق Cloudflare (رابط عام بلا فتح منافذ)

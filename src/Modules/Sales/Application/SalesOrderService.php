@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Sales\Application;
 
+use Carbon\CarbonImmutable;
 use DomainException;
 use Modules\Sales\Domain\CustomerRepository;
 use Modules\Sales\Domain\Events\InvoiceIssued;
@@ -112,7 +113,7 @@ final class SalesOrderService
 
             // Cash and bank-transfer sales are paid at the counter: the receipt is booked with the invoice, into the till or the chosen bank.
             if ($order->paymentMethod->isImmediate()) {
-                $this->receivables->receive($order->customerId, new \DateTimeImmutable('today'), $order->paymentMethod->value,
+                $this->receivables->receive($order->customerId, CarbonImmutable::today(), $order->paymentMethod->value,
                     $paymentReference ?? $order->paymentReference ?? $order->number, [$invoice['id'] => $gross], $order->cashAccount);
             }
 

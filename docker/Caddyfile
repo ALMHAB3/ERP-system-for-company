@@ -3,6 +3,10 @@
 {
 	auto_https disable_redirects
 	# The tunnel's plain-HTTP origin (below) is the ONLY listener that believes a client-IP header, and only from private addresses.
+	servers :8080 {
+		trusted_proxies static private_ranges
+		client_ip_headers X-Forwarded-For
+	}
 	servers :8081 {
 		trusted_proxies static private_ranges
 		client_ip_headers CF-Connecting-IP X-Forwarded-For
@@ -11,6 +15,12 @@
 
 {$ERP_HOST:erp.local} {
 	tls internal
+	import /etc/caddy/erp-site.caddy
+}
+
+# Origin for `tailscale serve` on this computer (published on 127.0.0.1 only): Tailscale adds the HTTPS certificate and the
+# client address (X-Forwarded-For); this listener believes it only from private/loopback peers.
+:8080 {
 	import /etc/caddy/erp-site.caddy
 }
 

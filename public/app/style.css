@@ -182,3 +182,7 @@ tbody tr.rowin{animation:rise var(--dur-fast) var(--ease) both;animation-delay:c
 .svgc .fc{animation:fadein var(--dur-slow) var(--ease) 500ms both}
 nav.side .who .btn.secondary{background:transparent;color:var(--side-ink);border-color:#37597a}
 nav.side .who .btn.secondary:hover{background:var(--side-2)}
+
+.banner{background:var(--warn-weak);color:var(--warn);border:1px solid #ecc88a;border-radius:var(--radius);padding:8px var(--s4);margin-bottom:var(--s4);font-weight:600;font-size:13px}
+.login .brand{font-size:19px;font-weight:800;line-height:1.4;color:var(--brand);margin-bottom:var(--s2)}
+nav.side h1[data-no-translate]{font-size:15px;line-height:1.5}

@@ -2275,5 +2275,9 @@ export const EN_PAIRS = [
 [
 "Cash customer - عميل نقدي",
 "Cash customer (walk-in)"
+],
+[
+"هذا النظام يحتوي بيانات تجريبية للتجربة فقط. ابدأ من قاعدة بيانات فارغة قبل إدخال البيانات الحقيقية.",
+"This system contains demo data for testing only. Start from an empty database before entering real data."
 ]
 ];
