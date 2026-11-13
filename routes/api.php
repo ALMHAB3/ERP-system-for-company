@@ -14,6 +14,7 @@ use Modules\Procurement\Http\Controllers\PayablesController;
 use Modules\Procurement\Http\Controllers\PurchaseOrderController;
 use Modules\Reporting\Http\Controllers\ListController;
 use Modules\Reporting\Http\Controllers\ReportController;
+use Modules\Reporting\Http\Controllers\ShipmentPreviewController;
 use Modules\Sales\Http\Controllers\CustomerController;
 use Modules\Sales\Http\Controllers\PricingController;
 use Modules\Sales\Http\Controllers\ReceivablesController;
@@ -56,6 +57,7 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
 
     Route::prefix('shipments')->name('shipments.')->whereNumber('shipment')->group(function () {
         Route::post('/', [ShipmentController::class, 'store'])->middleware('permission:shipments.manage')->name('store');
+        Route::post('preview', ShipmentPreviewController::class)->middleware('permission:shipments.manage')->name('preview');
         Route::get('{shipment}', [ShipmentController::class, 'show'])->middleware('permission:shipments.manage')->name('show');
         Route::post('{shipment}/finalize', [ShipmentController::class, 'finalize'])->middleware('permission:shipments.cost')->name('finalize');
         Route::post('{shipment}/receive', [ShipmentController::class, 'receive'])->middleware('permission:shipments.receive')->name('receive');

@@ -34,6 +34,46 @@ function list() {
 }
 
 function create() {
+  const wrapper = h('div');
+  const f = createForm();
+  wrapper.append(f, preview(f));
+  return wrapper;
+}
+
+// Live estimate: landed cost in dinar and suggested selling prices (rounded up) while the shipment is being typed. Nothing is saved.
+function preview(f) {
+  const margin = h('input', { dir: 'ltr', placeholder: 'اختياري', size: 6 });
+  const out = h('div', { class: 'muted' }, 'أدخل صنفاً بكميته وسعره لتظهر التكلفة بالدينار وسعر البيع المقترح فوراً.');
+  let timer;
+  const run = async () => {
+    const v = f.querySelector('form')._peek();
+    const rows = (v.lines || []).map((l, i) => ({ l, i })).filter(({ l }) => l.quantity && l.unit_price);
+    if (!rows.length) return out.replaceChildren('أدخل صنفاً بكميته وسعره لتظهر التكلفة بالدينار وسعر البيع المقترح فوراً.');
+    try {
+      const r = await post('shipments/preview', {
+        currency: v.currency, exchange_rate: v.exchange_rate || undefined, margin_pct: margin.value.trim() || undefined,
+        lines: rows.map(({ l }) => ({ quantity: l.quantity, unit_price: l.unit_price, volume_cbm: l.volume_cbm || undefined, weight_kg: l.weight_kg || undefined, duty_rate: rateFromPercent(l.duty_pct || '0') })),
+        costs: (v.costs || []).filter((c) => c.code && c.amount).map((c) => ({ code: c.code.toUpperCase(), amount: c.amount, basis: c.basis, in_customs_value: !!c.in_customs_value })),
+      });
+      out.replaceChildren(
+        table([
+          { label: 'الصنف', render: (x) => x.label }, { label: 'سعر الوحدة (' + v.currency + ')', num: true, render: (x) => money(x.price) },
+          { label: 'تكلفة الشراء بالدينار (وحدة)', num: true, render: (x) => money(x.r.purchase_unit_base) },
+          { label: 'التكلفة الفعلية للوحدة (مع المصاريف والجمارك)', num: true, render: (x) => h('b', null, money(x.r.landed_unit_cost)) },
+          { label: 'سعر بيع جملة (' + pct(Number(r.margins.wholesale) / 100) + ')', num: true, render: (x) => h('b', null, money(x.r.suggested.wholesale)) },
+          { label: 'تجزئة (' + pct(Number(r.margins.retail) / 100) + ')', num: true, render: (x) => h('b', null, money(x.r.suggested.retail)) },
+          { label: 'مباشر (' + pct(Number(r.margins.direct) / 100) + ')', num: true, render: (x) => h('b', null, money(x.r.suggested.direct)) },
+        ], rows.map(({ l, i }, k) => ({ label: refItems.products().find((p) => p.id === Number(l.product_id))?.label || 'سطر ' + (i + 1), price: l.unit_price, r: r.lines[k] }))),
+        h('div', null, 'إجمالي تكلفة الشحنة بالدينار: ', h('b', null, money(r.total)), ' ' + r.base + ' · التقريب للأعلى إلى مضاعف ' + qty(r.step) + ' ' + r.base));
+    } catch (e) { out.replaceChildren(h('span', { class: 'neg' }, e.message)); }
+  };
+  const schedule = () => { clearTimeout(timer); timer = setTimeout(run, 500); };
+  f.addEventListener('input', schedule); f.addEventListener('change', schedule); margin.addEventListener('input', schedule);
+  return h('div', { class: 'card' }, h('h3', null, 'تقدير فوري بالدينار وسعر البيع المقترح'),
+    h('div', { class: 'toolbar' }, h('div', { class: 'field' }, h('label', null, 'نسبة ربح موحّدة % (فارغ = الافتراضي لكل فئة)'), margin)), out);
+}
+
+function createForm() {
   return h('div', null, h('p', { class: 'hint' }, 'أدخل بنود الفاتورة التجارية ثم المصاريف. الشحن والتأمين يُحسبان ضمن القيمة الجمركية (CIF). الرسم الجمركي يُدخل كنسبة مئوية لكل بند حسب بند التعرفة.'),
     form([
       { name: 'reference', label: 'مرجع الشحنة / رقم الحاوية', type: 'text', required: true },

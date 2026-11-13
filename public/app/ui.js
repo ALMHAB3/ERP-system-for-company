@@ -132,18 +132,18 @@ export function form(fields, submitLabel, onSubmit, opts) {
     if (f.type === 'checkbox') return h('div', { class: 'field check' + (f.wide ? ' wide' : '') }, input, h('label', { for: id }, f.label));
     return h('div', { class: 'field' + (f.wide ? ' wide' : '') }, h('label', { for: id }, f.label + (f.required ? ' *' : '')), input, input._list, (bag[f.name].hintEl = f.hint ? h('div', { class: 'muted' }, f.hint) : null), err);
   };
-  const read = (bag) => {
+  const read = (bag, loose) => {
     const out = {};
     for (const [name, { f, input }] of Object.entries(bag)) {
-      if (f.type === 'rows') { out[name] = input._rows.map((r) => read(r)).filter((r) => r !== null); continue; }
+      if (f.type === 'rows') { out[name] = input._rows.map((r) => read(r, loose)).filter((r) => r !== null); continue; }
       let v;
       if (f.type === 'checkbox') v = input.checked;
       else if (f.type === 'ref') {
         const item = input._items.find((i) => i.label === input.value.trim());
-        if (input.value.trim() && !item) throw new Error('اختر ' + f.label + ' من القائمة');
+        if (input.value.trim() && !item && !loose) throw new Error('اختر ' + f.label + ' من القائمة');
         v = item ? item.id : '';
       } else v = input.value.trim();
-      if (f.required && (v === '' || v === null)) throw new Error('الحقل مطلوب: ' + f.label);
+      if (!loose && f.required && (v === '' || v === null)) throw new Error('الحقل مطلوب: ' + f.label);
       if (v !== '' || f.type === 'checkbox') out[name] = f.type === 'select' && /^\d+$/.test(v) && f.asInt ? Number(v) : v;
     }
     return out;
@@ -165,6 +165,7 @@ export function form(fields, submitLabel, onSubmit, opts) {
       el.append(wrap);
     } else el.append(build(f, inputs));
   }
+  el._peek = () => read(inputs, true);   // current values without validation (for live previews)
   const btn = h('button', { class: 'btn', type: 'submit' }, submitLabel);
   el.append(h('div', { class: 'formbar' }, btn, opts?.extra));
   el.addEventListener('submit', async (e) => {

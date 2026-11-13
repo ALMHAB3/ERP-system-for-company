@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Api;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Shared\Domain\Fixed;
 
 final class PricingApiTest extends ApiTestCase
 {
@@ -60,5 +61,33 @@ final class PricingApiTest extends ApiTestCase
         $this->assertCount(1, $rows);                                   // NEVER has no cost, so no suggestion
         $this->assertSame('50.0000', $rows[0]['unit_cost']);
         $this->assertSame('55.0000', $rows[0]['suggested_price']);      // 50 x 1.10 = 55.0 (already a multiple of 5)
+    }
+
+    public function test_preview_shows_dinar_cost_and_rounded_selling_prices_before_saving(): void
+    {
+        $buyer = $this->userWith(['purchasing_manager']);
+
+        // 100 USD at 9.5 = 950 dinar, no other costs
+        $r = $this->as($buyer)->postJson('/api/shipments/preview', ['currency' => 'USD', 'exchange_rate' => '9.5', 'lines' => [['quantity' => '1', 'unit_price' => '100']]])->assertOk();
+        $this->assertSame('950.0000', $r->json('lines.0.purchase_unit_base'));
+        $this->assertSame('950.0000', $r->json('lines.0.landed_unit_cost'));
+        $this->assertSame(['wholesale' => '1045.0000', 'retail' => '1190.0000', 'direct' => '1235.0000'], $r->json('lines.0.suggested'));   // 1187.5 -> 1190
+
+        // with freight by volume, duty 5% on CIF and a custom margin
+        $r = $this->as($buyer)->postJson('/api/shipments/preview', [
+            'currency' => 'USD', 'exchange_rate' => '9.5', 'margin_pct' => '20',
+            'lines' => [['quantity' => '10', 'unit_price' => '100', 'volume_cbm' => '2', 'duty_rate' => '0.05']],
+            'costs' => [['code' => 'FREIGHT', 'amount' => '500', 'basis' => 'volume', 'in_customs_value' => true]],
+        ])->assertOk();
+        $this->assertSame('9500.0000', (string) Fixed::parse($r->json('lines.0.components.PURCHASE')));
+        $this->assertSame('500.0000', $r->json('lines.0.components.FREIGHT'));
+        $this->assertSame('500.0000', $r->json('lines.0.components.DUTY'));          // 5% of CIF 10,000
+        $this->assertSame('1050.0000', $r->json('lines.0.landed_unit_cost'));        // 10,500 / 10
+        $this->assertSame('1260.0000', $r->json('lines.0.suggested.retail'));        // 1050 x 1.20, a multiple of 5
+
+        $this->assertSame(0, DB::table('shipments')->count());                                  // nothing saved
+        $this->as($buyer)->postJson('/api/shipments/preview', ['currency' => 'USD', 'exchange_rate' => '9.5', 'lines' => [['quantity' => '1', 'unit_price' => '1']], 'costs' => [['code' => 'F', 'amount' => '5', 'basis' => 'volume']]])
+            ->assertUnprocessable();                                                    // volume basis but no volume entered
+        $this->as($this->userWith(['sales_rep'], [$this->warehouse]))->postJson('/api/shipments/preview', ['currency' => 'USD', 'exchange_rate' => '9.5', 'lines' => [['quantity' => '1', 'unit_price' => '1']]])->assertForbidden();
     }
 }
