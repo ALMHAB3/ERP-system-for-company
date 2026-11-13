@@ -18,6 +18,6 @@ final class DbCustomerRepository implements CustomerRepository
     {
         $c = $this->db->table('customers')->where('id', $id)->first();
 
-        return $c ? new Customer((int) $c->id, $c->name, CustomerCategory::from($c->category), Fixed::units((int) $c->credit_limit)) : null;
+        return $c ? new Customer((int) $c->id, $c->name, CustomerCategory::from($c->category), Fixed::units((int) $c->credit_limit), (bool) $c->is_walk_in) : null;
     }
 }

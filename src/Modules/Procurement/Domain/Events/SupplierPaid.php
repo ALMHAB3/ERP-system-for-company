@@ -17,5 +17,7 @@ final readonly class SupplierPaid implements DomainEvent
         /** Cash actually leaving, at today's rate. The difference is an exchange gain/loss. */
         public Fixed $cashBase,
         public string $reference,
+        /** Ledger account the money left from (cash till or a bank account); null = default bank. */
+        public ?string $cashAccount = null,
     ) {}
 }

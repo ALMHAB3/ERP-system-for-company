@@ -13,5 +13,6 @@ final readonly class Customer
         public string $name,
         public CustomerCategory $category,
         public Fixed $creditLimit,
+        public bool $isWalkIn = false,
     ) {}
 }

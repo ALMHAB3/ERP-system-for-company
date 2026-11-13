@@ -54,11 +54,11 @@ final class DbPayablesRepository implements PayablesRepository
         $this->db->table('supplier_invoices')->where('id', $invoiceId)->update(['paid' => $paid->units, 'base_paid' => $basePaid->units]);
     }
 
-    public function insertPayment(int $supplierId, DateTimeImmutable $date, string $currency, Fixed $rate, Fixed $amount, string $method, string $reference): int
+    public function insertPayment(int $supplierId, DateTimeImmutable $date, string $currency, Fixed $rate, Fixed $amount, string $method, string $reference, ?string $cashAccount = null): int
     {
         return $this->db->table('supplier_payments')->insertGetId([
             'supplier_id' => $supplierId, 'paid_on' => $date->format('Y-m-d'), 'currency' => $currency,
-            'exchange_rate' => $rate->units, 'amount' => $amount->units, 'method' => $method, 'reference' => $reference, 'created_at' => now(),
+            'exchange_rate' => $rate->units, 'amount' => $amount->units, 'method' => $method, 'reference' => $reference, 'cash_account' => $cashAccount, 'created_at' => now(),
         ]);
     }
 

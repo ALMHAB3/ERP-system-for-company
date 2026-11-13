@@ -31,8 +31,9 @@ final class ListController extends ApiController
             'products' => DB::table('products')->where('active', true)->orderBy('sku')->limit(5000)->get(['id', 'sku', 'name', 'base_uom', 'lead_time_days', 'cover_days']),
             'warehouses' => DB::table('warehouses')->where('active', true)->orderBy('code')->get(['id', 'code', 'name', 'type'])
                 ->filter(fn ($w) => $this->access->canUseWarehouse($userId, (int) $w->id))->values(),
-            'customers' => DB::table('customers')->orderBy('name')->limit(5000)->get(['id', 'name', 'category', 'credit_limit', 'terms_days'])
-                ->map(fn ($c) => ['id' => (int) $c->id, 'name' => $c->name, 'category' => $c->category, 'credit_limit' => (string) Fixed::units((int) $c->credit_limit), 'terms_days' => (int) $c->terms_days]),
+            'customers' => DB::table('customers')->orderBy('is_walk_in', 'desc')->orderBy('name')->limit(5000)->get(['id', 'name', 'category', 'credit_limit', 'terms_days', 'is_walk_in'])
+                ->map(fn ($c) => ['id' => (int) $c->id, 'name' => $c->name, 'category' => $c->category, 'credit_limit' => (string) Fixed::units((int) $c->credit_limit), 'terms_days' => (int) $c->terms_days, 'is_walk_in' => (bool) $c->is_walk_in]),
+            'bank_accounts' => DB::table('bank_accounts')->where('active', true)->orderBy('id')->get(['id', 'name', 'account_number', 'currency', 'gl_account']),
             'suppliers' => DB::table('suppliers')->where('active', true)->orderBy('name')->get(['id', 'name', 'currency', 'terms_days']),
             'accounts' => DB::table('accounts')->orderBy('code')->get(['code', 'name', 'type']),
             'roles' => DB::table('roles')->orderBy('name')->get(['name', 'label', 'approval_level']),

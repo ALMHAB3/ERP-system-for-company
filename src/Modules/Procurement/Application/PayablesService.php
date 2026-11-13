@@ -59,13 +59,13 @@ final class PayablesService
      *
      * @param  array<int,Fixed>  $allocations  invoice id => amount in invoice currency
      */
-    public function pay(int $supplierId, DateTimeImmutable $date, string $currency, Fixed $rate, string $method, string $reference, array $allocations): int
+    public function pay(int $supplierId, DateTimeImmutable $date, string $currency, Fixed $rate, string $method, string $reference, array $allocations, ?string $cashAccount = null): int
     {
         if ($allocations === [] || ! $rate->isPositive()) {
             throw new DomainException('A payment needs allocations and a positive exchange rate.');
         }
 
-        return $this->tx->run(function () use ($supplierId, $date, $currency, $rate, $method, $reference, $allocations): int {
+        return $this->tx->run(function () use ($supplierId, $date, $currency, $rate, $method, $reference, $allocations, $cashAccount): int {
             $supplier = $this->repo->supplier($supplierId) ?? throw new DomainException("Supplier {$supplierId} not found.");
             $invoices = $this->repo->lockInvoices($supplierId, array_keys($allocations));
 
@@ -91,12 +91,12 @@ final class PayablesService
                 $rows[] = [$invoiceId, $alloc, $invoiceBase, $cashBase, $inv];
             }
 
-            $paymentId = $this->repo->insertPayment($supplierId, $date, strtoupper($currency), $rate, $amount, $method, $reference);
+            $paymentId = $this->repo->insertPayment($supplierId, $date, strtoupper($currency), $rate, $amount, $method, $reference, $cashAccount);
             foreach ($rows as [$invoiceId, $alloc, $invoiceBase, $cashBase, $inv]) {
                 $this->repo->insertAllocation($paymentId, $invoiceId, $alloc, $invoiceBase, $cashBase);
                 $this->repo->applyPayment($invoiceId, ($inv->paid ?? Fixed::zero())->add($alloc), ($inv->basePaid ?? Fixed::zero())->add($invoiceBase));
             }
-            $this->events->dispatch(new SupplierPaid($paymentId, $supplier->name, $payableTotal, $cashTotal, $reference));
+            $this->events->dispatch(new SupplierPaid($paymentId, $supplier->name, $payableTotal, $cashTotal, $reference, $cashAccount));
 
             return $paymentId;
         });

@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Audit\Http\Controllers\AuditController;
 use Modules\Audit\Http\Middleware\AuditWriteRequests;
+use Modules\Finance\Http\Controllers\BankAccountController;
 use Modules\Finance\Http\Controllers\CurrencyController;
 use Modules\Finance\Http\Controllers\FinanceController;
 use Modules\Identity\Http\Controllers\AuthController;
@@ -108,6 +109,8 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
         Route::get('reorder-suggestions', [ReportController::class, 'reorder'])->name('reorder');
     });
 
+    Route::get('finance/bank-accounts', [BankAccountController::class, 'index'])->middleware('permission:finance.view|banks.manage')->name('banks.index');
+    Route::post('finance/bank-accounts', [BankAccountController::class, 'store'])->middleware('permission:banks.manage')->name('banks.store');
     Route::get('currencies', [CurrencyController::class, 'index'])->name('currencies.index');
     Route::get('currencies/history', [CurrencyController::class, 'history'])->middleware('permission:finance.view|currencies.manage')->name('currencies.history');
     Route::post('currencies/rates', [CurrencyController::class, 'store'])->middleware('permission:currencies.manage')->name('currencies.rates.store');

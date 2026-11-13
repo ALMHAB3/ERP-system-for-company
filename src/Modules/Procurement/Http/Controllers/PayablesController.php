@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Audit\Application\AuditLogger;
+use Modules\Finance\Application\CashAccounts;
 use Modules\Finance\Application\ExchangeRates;
 use Modules\Procurement\Application\PayablesService;
 use Modules\Procurement\Application\ShipmentSettlementService;
@@ -93,14 +94,15 @@ final class PayablesController extends ApiController
         return response()->json(['data' => $rows]);
     }
 
-    public function pay(Request $request, PayablesService $service, ExchangeRates $rates): JsonResponse
+    public function pay(Request $request, PayablesService $service, ExchangeRates $rates, CashAccounts $cash): JsonResponse
     {
         $d = $request->validate([
             'supplier_id' => ['required', 'integer', 'exists:suppliers,id'],
             'paid_on' => ['required', 'date_format:Y-m-d'],
             'currency' => ['required', 'string', 'size:3'],
             'exchange_rate' => ['nullable', Decimal::RULE],
-            'method' => ['required', 'in:bank,cash,cheque'],
+            'method' => ['required', 'in:cash,transfer,bank,cheque'],
+            'bank_account_id' => ['nullable', 'integer', 'exists:bank_accounts,id'],
             'reference' => ['required', 'string', 'max:120'],
             'allocations' => ['required', 'array', 'min:1', 'max:200'],
             'allocations.*.invoice_id' => ['required', 'integer', 'distinct'],
@@ -110,7 +112,8 @@ final class PayablesController extends ApiController
         foreach ($d['allocations'] as $a) {
             $allocations[(int) $a['invoice_id']] = Decimal::of($a['amount']);
         }
-        $id = $service->pay($d['supplier_id'], new DateTimeImmutable($d['paid_on']), $d['currency'], $rates->resolve($d['currency'], $d['exchange_rate'] ?? null, new DateTimeImmutable($d['paid_on'])), $d['method'], $d['reference'], $allocations);
+        $id = $service->pay($d['supplier_id'], new DateTimeImmutable($d['paid_on']), $d['currency'], $rates->resolve($d['currency'], $d['exchange_rate'] ?? null, new DateTimeImmutable($d['paid_on'])), CashAccounts::normalize($d['method']), $d['reference'], $allocations,
+            $cash->resolve($d['method'], isset($d['bank_account_id']) ? (int) $d['bank_account_id'] : null));
 
         return response()->json(['id' => $id], 201);
     }

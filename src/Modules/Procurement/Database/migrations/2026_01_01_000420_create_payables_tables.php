@@ -51,6 +51,7 @@ return new class extends Migration
             $t->bigInteger('amount');
             $t->string('method', 16);
             $t->string('reference', 120);
+            $t->string('cash_account', 16)->nullable();   // ledger account the money left from
             $t->dateTime('created_at');
         });
 

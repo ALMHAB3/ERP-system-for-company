@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Sales\Infrastructure;
 
 use Illuminate\Database\ConnectionInterface;
+use Modules\Sales\Domain\PaymentMethod;
 use Modules\Sales\Domain\SalesOrder;
 use Modules\Sales\Domain\SalesOrderLine;
 use Modules\Sales\Domain\SalesOrderRepository;
@@ -19,6 +20,7 @@ final class DbSalesOrderRepository implements SalesOrderRepository
         $id = $this->db->table('sales_orders')->insertGetId([
             'number' => 'PENDING-'.bin2hex(random_bytes(6)), 'customer_id' => $order->customerId,
             'warehouse_id' => $order->warehouseId, 'status' => $order->status,
+            'payment_method' => $order->paymentMethod->value, 'cash_account' => $order->cashAccount, 'payment_reference' => $order->paymentReference,
             'created_at' => now(), 'updated_at' => now(),
         ]);
         $number = 'SO-'.str_pad((string) $id, 6, '0', STR_PAD_LEFT);
@@ -34,7 +36,7 @@ final class DbSalesOrderRepository implements SalesOrderRepository
             $lines[] = new SalesOrderLine($lineId, $l->productId, $l->quantity, $l->listPrice, $l->discountRate, $l->unitPrice, $l->reservationId);
         }
 
-        return new SalesOrder($id, $number, $order->customerId, $order->warehouseId, $order->status, $lines);
+        return new SalesOrder($id, $number, $order->customerId, $order->warehouseId, $order->status, $lines, $order->paymentMethod, $order->cashAccount, $order->paymentReference);
     }
 
     public function lock(int $id): ?SalesOrder
@@ -62,7 +64,7 @@ final class DbSalesOrderRepository implements SalesOrderRepository
                 $l->cost_of_goods === null ? null : Fixed::units((int) $l->cost_of_goods),
             ))->all();
 
-        return new SalesOrder((int) $o->id, $o->number, (int) $o->customer_id, (int) $o->warehouse_id, $o->status, $lines);
+        return new SalesOrder((int) $o->id, $o->number, (int) $o->customer_id, (int) $o->warehouse_id, $o->status, $lines, PaymentMethod::from($o->payment_method), $o->cash_account, $o->payment_reference);
     }
 
     public function recordShipment(int $orderId, array $issuesByLineId): void

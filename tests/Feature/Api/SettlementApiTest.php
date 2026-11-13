@@ -15,6 +15,7 @@ final class SettlementApiTest extends ApiTestCase
         $clerk = $this->userWith(['warehouse_clerk'], [$this->warehouse]);
         $supplier = DB::table('suppliers')->insertGetId(['name' => 'S', 'currency' => 'USD', 'terms_days' => 30, 'active' => true, 'created_at' => now(), 'updated_at' => now()]);
 
+        $bank = $this->as($finance)->postJson('/api/finance/bank-accounts', ['name' => 'Bank A', 'currency' => 'USD'])->assertCreated()->json('id');
         $id = $this->as($buyer)->postJson('/api/shipments', ['reference' => 'AP-1', 'currency' => 'USD', 'exchange_rate' => '4',
             'lines' => [['product_id' => $this->product, 'quantity' => '100', 'unit_price' => '10', 'duty_rate' => '0']]])->assertCreated()->json('id');
         $this->as($finance)->postJson("/api/shipments/{$id}/finalize")->assertOk();
@@ -22,7 +23,7 @@ final class SettlementApiTest extends ApiTestCase
 
         $this->as($finance)->getJson('/api/payables/settlement?shipment_reference=AP-1')->assertUnprocessable();            // nothing invoiced yet
         $inv = $this->as($finance)->postJson('/api/payables/invoices', ['supplier_id' => $supplier, 'number' => 'X1', 'invoice_date' => '2026-05-01', 'currency' => 'USD', 'exchange_rate' => '4', 'subtotal' => '1000', 'kind' => 'goods', 'shipment_reference' => 'AP-1'])->assertCreated()->json('id');
-        $this->as($finance)->postJson('/api/payables/payments', ['supplier_id' => $supplier, 'paid_on' => '2026-05-20', 'currency' => 'USD', 'exchange_rate' => '4.2', 'method' => 'bank', 'reference' => 'T1', 'allocations' => [['invoice_id' => $inv, 'amount' => '1000']]])->assertCreated();
+        $this->as($finance)->postJson('/api/payables/payments', ['supplier_id' => $supplier, 'paid_on' => '2026-05-20', 'currency' => 'USD', 'exchange_rate' => '4.2', 'method' => 'transfer', 'bank_account_id' => $bank, 'reference' => 'T1', 'allocations' => [['invoice_id' => $inv, 'amount' => '1000']]])->assertCreated();
 
         $this->as($buyer)->getJson('/api/payables/settlement?shipment_reference=AP-1')->assertForbidden();                  // finance only
         $p = $this->as($finance)->getJson('/api/payables/settlement?shipment_reference=AP-1')->assertOk()

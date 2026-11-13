@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Modules\Finance\Application\CashAccounts;
 use Modules\Sales\Application\ReceivablesService;
 use Modules\Sales\Application\SalesReturnService;
 use Modules\Shared\Domain\Fixed;
@@ -16,12 +17,13 @@ use Modules\Shared\Http\Decimal;
 
 final class ReceivablesController extends ApiController
 {
-    public function receive(Request $request, ReceivablesService $service): JsonResponse
+    public function receive(Request $request, ReceivablesService $service, CashAccounts $cash): JsonResponse
     {
         $d = $request->validate([
             'customer_id' => ['required', 'integer', 'exists:customers,id'],
             'received_on' => ['required', 'date_format:Y-m-d'],
-            'method' => ['required', 'in:bank,cash,cheque'],
+            'method' => ['required', 'in:cash,transfer,bank,cheque'],
+            'bank_account_id' => ['nullable', 'integer', 'exists:bank_accounts,id'],
             'reference' => ['required', 'string', 'max:120'],
             'allocations' => ['required', 'array', 'min:1', 'max:200'],
             'allocations.*.invoice_id' => ['required', 'integer', 'distinct'],
@@ -32,7 +34,9 @@ final class ReceivablesController extends ApiController
             $allocations[(int) $a['invoice_id']] = Decimal::of($a['amount']);
         }
 
-        return response()->json(['id' => $service->receive($d['customer_id'], new DateTimeImmutable($d['received_on']), $d['method'], $d['reference'], $allocations)], 201);
+        $method = CashAccounts::normalize($d['method']);
+
+        return response()->json(['id' => $service->receive($d['customer_id'], new DateTimeImmutable($d['received_on']), $method, $d['reference'], $allocations, $cash->resolve($method, isset($d['bank_account_id']) ? (int) $d['bank_account_id'] : null))], 201);
     }
 
     public function creditNote(Request $request, int $order, SalesReturnService $service): JsonResponse

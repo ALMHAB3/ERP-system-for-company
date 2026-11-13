@@ -18,7 +18,7 @@ interface PayablesRepository
 
     public function applyPayment(int $invoiceId, Fixed $paid, Fixed $basePaid): void;
 
-    public function insertPayment(int $supplierId, DateTimeImmutable $date, string $currency, Fixed $rate, Fixed $amount, string $method, string $reference): int;
+    public function insertPayment(int $supplierId, DateTimeImmutable $date, string $currency, Fixed $rate, Fixed $amount, string $method, string $reference, ?string $cashAccount = null): int;
 
     public function insertAllocation(int $paymentId, int $invoiceId, Fixed $amount, Fixed $invoiceBase, Fixed $cashBase): void;
 

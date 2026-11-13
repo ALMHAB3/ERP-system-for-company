@@ -36,8 +36,9 @@ final class AccountingApiTest extends ApiTestCase
         $this->as($finance)->getJson('/api/payables/goods-received?reference=po:PO-77')->assertOk()->assertJsonPath('receipts', '500.0000');
         $this->as($finance)->getJson('/api/payables/invoices?open=1')->assertOk()->assertJsonPath('data.0.balance', '133.3333');
 
+        $bank = $this->as($finance)->postJson('/api/finance/bank-accounts', ['name' => 'Commercial Bank', 'currency' => 'LYD'])->assertCreated()->json('id');
         $this->as($finance)->postJson('/api/payables/payments', [
-            'supplier_id' => $supplier, 'paid_on' => '2026-05-20', 'currency' => 'USD', 'exchange_rate' => '3.75', 'method' => 'bank', 'reference' => 'TT-1',
+            'supplier_id' => $supplier, 'paid_on' => '2026-05-20', 'currency' => 'USD', 'exchange_rate' => '3.75', 'method' => 'transfer', 'bank_account_id' => $bank, 'reference' => 'TT-1',
             'allocations' => [['invoice_id' => $id, 'amount' => '133.3333']],
         ])->assertCreated();
         $this->as($finance)->getJson('/api/payables/invoices?open=1')->assertOk()->assertJsonCount(0, 'data');

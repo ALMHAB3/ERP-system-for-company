@@ -8,8 +8,11 @@ use DomainException;
 use Modules\Sales\Domain\CustomerRepository;
 use Modules\Sales\Domain\Events\InvoiceIssued;
 use Modules\Sales\Domain\Exceptions\CreditLimitExceeded;
+use Modules\Sales\Domain\Exceptions\CreditNeedsRegisteredCustomer;
 use Modules\Sales\Domain\Exceptions\InvalidOrderState;
 use Modules\Sales\Domain\Exceptions\PricingApprovalRequired;
+use Modules\Sales\Domain\PaymentMethod;
+use Modules\Sales\Domain\PaymentTerms;
 use Modules\Sales\Domain\Ports\StockAvailability;
 use Modules\Sales\Domain\Pricing\PricingContext;
 use Modules\Sales\Domain\Pricing\PricingEngineFactory;
@@ -38,14 +41,22 @@ final class SalesOrderService
     ) {}
 
     /** @param list<OrderLineRequest> $requests */
-    public function place(int $customerId, int $warehouseId, array $requests, bool $allowBelowMargin = false, bool $overrideCredit = false): SalesOrder
+    public function place(int $customerId, int $warehouseId, array $requests, bool $allowBelowMargin = false, bool $overrideCredit = false, ?PaymentTerms $terms = null, ?string $paymentReference = null): SalesOrder
     {
         if ($requests === []) {
             throw new DomainException('An order needs at least one line.');
         }
 
-        return $this->tx->run(function () use ($customerId, $warehouseId, $requests, $allowBelowMargin, $overrideCredit): SalesOrder {
+        return $this->tx->run(function () use ($customerId, $warehouseId, $requests, $allowBelowMargin, $overrideCredit, $terms, $paymentReference): SalesOrder {
             $customer = $this->customers->find($customerId) ?? throw new DomainException("Customer {$customerId} not found.");
+            $terms ??= new PaymentTerms;
+            // Credit means the money comes later: only for a customer the company has registered and can chase.
+            if ($terms->method === PaymentMethod::Credit && $customer->isWalkIn) {
+                throw new CreditNeedsRegisteredCustomer('Credit (deferred) sales are only for registered customers. Register the customer first, or sell for cash or bank transfer.');
+            }
+            if ($terms->method->isImmediate() && $terms->cashAccount === null) {
+                throw new DomainException('Cash and bank-transfer sales need the cash account or bank account the money goes to.');
+            }
             $engine = $this->pricing->forCategory($customer->category);
 
             $lines = [];
@@ -58,8 +69,8 @@ final class SalesOrderService
                 $lines[] = new SalesOrderLine(null, $request->productId, $request->quantity, $quote->listPrice, $quote->discountRate, $quote->unitPrice, $reservationId);
             }
 
-            $order = new SalesOrder(null, '', $customerId, $warehouseId, 'reserved', $lines);
-            if ($customer->creditLimit->isPositive() && ! $overrideCredit) {   // limit 0 = no limit
+            $order = new SalesOrder(null, '', $customerId, $warehouseId, 'reserved', $lines, $terms->method, $terms->cashAccount, $paymentReference);
+            if ($terms->method === PaymentMethod::Credit && $customer->creditLimit->isPositive() && ! $overrideCredit) {   // limit 0 = no limit; paid-now sales add no exposure
                 $net = $order->net();
                 $gross = $net->add($net->mul(Fixed::parse((string) config('erp.vat_rate'))));
                 $exposure = $this->receivables->exposure($customerId);
@@ -87,9 +98,9 @@ final class SalesOrderService
         });
     }
 
-    public function invoice(int $orderId): int
+    public function invoice(int $orderId, ?string $paymentReference = null): int
     {
-        return $this->tx->run(function () use ($orderId): int {
+        return $this->tx->run(function () use ($orderId, $paymentReference): int {
             $order = $this->load($orderId, 'shipped');
             $net = $order->net();
             $tax = $net->mul(Fixed::parse((string) config('erp.vat_rate')));
@@ -98,6 +109,12 @@ final class SalesOrderService
             $invoice = $this->orders->createInvoice($orderId, $net, $tax, $gross);
             $this->orders->setStatus($orderId, 'invoiced');
             $this->events->dispatch(new InvoiceIssued($invoice['id'], $invoice['number'], $orderId, $net, $tax, $gross));
+
+            // Cash and bank-transfer sales are paid at the counter: the receipt is booked with the invoice, into the till or the chosen bank.
+            if ($order->paymentMethod->isImmediate()) {
+                $this->receivables->receive($order->customerId, new \DateTimeImmutable('today'), $order->paymentMethod->value,
+                    $paymentReference ?? $order->paymentReference ?? $order->number, [$invoice['id'] => $gross], $order->cashAccount);
+            }
 
             return $invoice['id'];
         });

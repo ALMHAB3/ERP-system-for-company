@@ -13,7 +13,8 @@ return [
 
     // Chart-of-accounts codes used by the automatic posting rules.
     'accounts' => [
-        'bank' => '1100',
+        'bank' => '1100',            // legacy / unspecified bank
+        'cash' => '1110',            // cash on hand (the till)
         'receivables' => '1200',
         'inventory' => '1300',
         'goods_received_not_invoiced' => '2100',

@@ -23,7 +23,7 @@ final class RoleCatalog
                 Permission::ShipmentsCost, Permission::InventoryView, Permission::InventoryViewCost, Permission::WarehousesAll,
                 Permission::SupplierInvoicesRecord, Permission::SupplierPaymentsMake, Permission::GrIrClear, Permission::ReceiptsRecord,
                 Permission::SalesReturn, Permission::SalesOverrideCredit, Permission::ReportsView, Permission::SuppliersManage,
-                Permission::CurrenciesManage, Permission::ShipmentsSettle,
+                Permission::CurrenciesManage, Permission::ShipmentsSettle, Permission::BanksManage,
             ]],
             'purchasing_manager' => ['label' => 'Purchasing manager', 'approval_level' => 1, 'permissions' => [
                 Permission::PurchaseOrdersCreate, Permission::PurchaseOrdersApprove, Permission::ShipmentsManage,

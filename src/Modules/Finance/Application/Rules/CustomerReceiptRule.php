@@ -23,7 +23,7 @@ final class CustomerReceiptRule implements PostingRule
         $a = config('erp.accounts');
 
         return new JournalEntryData("Receipt from {$event->customerName} ({$event->reference})", [
-            JournalLineData::debit($a['bank'], $event->amount, $event->reference),
+            JournalLineData::debit($event->cashAccount ?? $a['bank'], $event->amount, $event->reference),
             JournalLineData::credit($a['receivables'], $event->amount, $event->customerName),
         ], 'customer_receipt', (string) $event->receiptId, 'customer_receipt');
     }

@@ -22,13 +22,13 @@ final class ReceivablesService
     ) {}
 
     /** @param array<int,Fixed> $allocations sales invoice id => amount (base currency) */
-    public function receive(int $customerId, DateTimeImmutable $date, string $method, string $reference, array $allocations): int
+    public function receive(int $customerId, DateTimeImmutable $date, string $method, string $reference, array $allocations, ?string $cashAccount = null): int
     {
         if ($allocations === []) {
             throw new DomainException('A receipt must be allocated to at least one invoice.');
         }
 
-        return $this->tx->run(function () use ($customerId, $date, $method, $reference, $allocations): int {
+        return $this->tx->run(function () use ($customerId, $date, $method, $reference, $allocations, $cashAccount): int {
             $customer = $this->db->table('customers')->where('id', $customerId)->first() ?? throw new DomainException("Customer {$customerId} not found.");
             $invoices = $this->db->table('sales_invoices as i')->join('sales_orders as o', 'o.id', '=', 'i.sales_order_id')
                 ->where('o.customer_id', $customerId)->whereIn('i.id', array_keys($allocations))->orderBy('i.id')->lockForUpdate()
@@ -46,13 +46,13 @@ final class ReceivablesService
 
             $receiptId = $this->db->table('customer_receipts')->insertGetId([
                 'customer_id' => $customerId, 'received_on' => $date->format('Y-m-d'), 'amount' => $total->units,
-                'method' => $method, 'reference' => $reference, 'created_at' => now(),
+                'method' => $method, 'reference' => $reference, 'cash_account' => $cashAccount, 'created_at' => now(),
             ]);
             foreach ($allocations as $invoiceId => $amount) {
                 $this->db->table('receipt_allocations')->insert(['customer_receipt_id' => $receiptId, 'sales_invoice_id' => $invoiceId, 'amount' => $amount->units]);
                 $this->db->table('sales_invoices')->where('id', $invoiceId)->update(['paid' => (int) $invoices[$invoiceId]->paid + $amount->units]);
             }
-            $this->events->dispatch(new CustomerPaid($receiptId, $customer->name, $total, $reference));
+            $this->events->dispatch(new CustomerPaid($receiptId, $customer->name, $total, $reference, $cashAccount));
 
             return $receiptId;
         });

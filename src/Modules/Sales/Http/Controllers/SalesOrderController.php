@@ -6,22 +6,28 @@ namespace Modules\Sales\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Modules\Finance\Application\CashAccounts;
 use Modules\Identity\Domain\Permission;
 use Modules\Sales\Application\OrderLineRequest;
 use Modules\Sales\Application\SalesOrderService;
+use Modules\Sales\Domain\PaymentMethod;
+use Modules\Sales\Domain\PaymentTerms;
 use Modules\Sales\Domain\SalesOrder;
 use Modules\Shared\Http\ApiController;
 use Modules\Shared\Http\Decimal;
 
 final class SalesOrderController extends ApiController
 {
-    public function store(Request $request, SalesOrderService $service): JsonResponse
+    public function store(Request $request, SalesOrderService $service, CashAccounts $cash): JsonResponse
     {
         $d = $request->validate([
             'customer_id' => ['required', 'integer', 'exists:customers,id'],
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
             'allow_below_margin' => ['boolean'],
             'override_credit' => ['boolean'],
+            'payment_method' => ['nullable', 'in:cash,transfer,credit'],
+            'bank_account_id' => ['nullable', 'integer', 'exists:bank_accounts,id'],
+            'payment_reference' => ['nullable', 'string', 'max:120'],
             'lines' => ['required', 'array', 'min:1', 'max:300'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.quantity' => ['required', Decimal::RULE],
@@ -37,8 +43,11 @@ final class SalesOrderController extends ApiController
             $this->access->authorize($this->userId($request), Permission::SalesOverrideCredit);
         }
 
+        $method = PaymentMethod::from($d['payment_method'] ?? 'credit');
+        $terms = new PaymentTerms($method, $method === PaymentMethod::Cash ? $cash->resolve('cash', null) : ($method === PaymentMethod::Transfer ? $cash->resolve('transfer', isset($d['bank_account_id']) ? (int) $d['bank_account_id'] : null) : null));
+
         $order = $service->place($d['customer_id'], $d['warehouse_id'],
-            array_map(fn ($l) => new OrderLineRequest($l['product_id'], Decimal::of($l['quantity'])), $d['lines']), $belowMargin, $overrideCredit);
+            array_map(fn ($l) => new OrderLineRequest($l['product_id'], Decimal::of($l['quantity'])), $d['lines']), $belowMargin, $overrideCredit, $terms, $d['payment_reference'] ?? null);
 
         return response()->json($this->present($request, $order), 201);
     }
@@ -60,8 +69,9 @@ final class SalesOrderController extends ApiController
     public function invoice(Request $request, int $order, SalesOrderService $service): JsonResponse
     {
         $this->authorizedOrder($request, $order, $service);
+        $d = $request->validate(['payment_reference' => ['nullable', 'string', 'max:120']]);
 
-        return response()->json(['invoice_id' => $service->invoice($order)], 201);
+        return response()->json(['invoice_id' => $service->invoice($order, $d['payment_reference'] ?? null)], 201);
     }
 
     public function cancel(Request $request, int $order, SalesOrderService $service): JsonResponse
@@ -87,7 +97,7 @@ final class SalesOrderController extends ApiController
 
         return [
             'id' => $o->id, 'number' => $o->number, 'customer_id' => $o->customerId, 'warehouse_id' => $o->warehouseId,
-            'status' => $o->status, 'net' => (string) $o->net(),
+            'status' => $o->status, 'net' => (string) $o->net(), 'payment_method' => $o->paymentMethod->value, 'cash_account' => $o->cashAccount,
             'lines' => array_map(fn ($l) => array_filter([
                 'id' => $l->id, 'product_id' => $l->productId, 'quantity' => (string) $l->quantity,
                 'list_price' => (string) $l->listPrice, 'discount_rate' => (string) $l->discountRate,

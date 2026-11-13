@@ -16,6 +16,9 @@ final readonly class SalesOrder
         public int $warehouseId,
         public string $status, // reserved | shipped | invoiced | cancelled
         public array $lines,
+        public PaymentMethod $paymentMethod = PaymentMethod::Credit,
+        public ?string $cashAccount = null,
+        public ?string $paymentReference = null,
     ) {}
 
     public function net(): Fixed
