@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Audit\Application\AuditLogger;
+use Modules\Finance\Application\ExchangeRates;
 use Modules\Identity\Domain\AccessRepository;
 use Modules\Identity\Domain\Permission;
 use Modules\Shared\Domain\Fixed;
@@ -19,12 +20,13 @@ use Modules\Shared\Http\Decimal;
 final class ListController extends ApiController
 {
     /** Small reference data the forms need, already limited to what this user may touch. */
-    public function lookups(Request $request): JsonResponse
+    public function lookups(Request $request, ExchangeRates $rates): JsonResponse
     {
         $userId = $this->userId($request);
 
         return response()->json([
             'currency' => config('erp.base_currency'),
+            'currencies' => collect($rates->latest())->map(fn ($r, $code) => ['code' => $code, 'name' => config('erp.currencies')[$code] ?? $code, 'rate' => $r['rate'], 'rate_date' => $r['date']])->values(),
             'vat_rate' => (string) config('erp.vat_rate'),
             'products' => DB::table('products')->where('active', true)->orderBy('sku')->limit(5000)->get(['id', 'sku', 'name', 'base_uom', 'lead_time_days', 'cover_days']),
             'warehouses' => DB::table('warehouses')->where('active', true)->orderBy('code')->get(['id', 'code', 'name', 'type'])

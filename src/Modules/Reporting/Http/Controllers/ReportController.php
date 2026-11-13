@@ -19,6 +19,11 @@ final class ReportController extends ApiController
         return response()->json($q->dashboard(new DateTimeImmutable));
     }
 
+    public function charts(Request $request, ReportQueries $q): JsonResponse
+    {
+        return response()->json($q->charts(new DateTimeImmutable, $this->can($request, Permission::InventoryViewCost)));
+    }
+
     public function expiring(Request $request, ReportQueries $q): JsonResponse
     {
         $d = $request->validate(['days' => ['integer', 'between:1,730']]);

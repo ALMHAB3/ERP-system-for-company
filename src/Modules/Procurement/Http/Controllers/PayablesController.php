@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Audit\Application\AuditLogger;
+use Modules\Finance\Application\ExchangeRates;
 use Modules\Procurement\Application\PayablesService;
 use Modules\Procurement\Domain\InvoiceKind;
 use Modules\Shared\Domain\Fixed;
@@ -43,7 +44,7 @@ final class PayablesController extends ApiController
         return response()->json(['data' => DB::table('suppliers')->orderBy('name')->get(['id', 'name', 'country', 'currency', 'terms_days', 'active'])]);
     }
 
-    public function recordInvoice(Request $request, PayablesService $service): JsonResponse
+    public function recordInvoice(Request $request, PayablesService $service, ExchangeRates $rates): JsonResponse
     {
         $d = $request->validate([
             'supplier_id' => ['required', 'integer', 'exists:suppliers,id'],
@@ -51,7 +52,7 @@ final class PayablesController extends ApiController
             'invoice_date' => ['required', 'date_format:Y-m-d'],
             'due_date' => ['nullable', 'date_format:Y-m-d'],
             'currency' => ['required', 'string', 'size:3'],
-            'exchange_rate' => ['required', Decimal::RULE],
+            'exchange_rate' => ['nullable', Decimal::RULE],
             'subtotal' => ['required', Decimal::RULE],
             'tax' => ['nullable', Decimal::RULE],
             'kind' => ['required', 'in:goods,freight,customs,clearance,insurance,expense'],
@@ -65,7 +66,7 @@ final class PayablesController extends ApiController
         }
 
         $id = $service->recordInvoice(
-            $d['supplier_id'], $d['number'], new DateTimeImmutable($d['invoice_date']), $d['currency'], Decimal::of($d['exchange_rate']),
+            $d['supplier_id'], $d['number'], new DateTimeImmutable($d['invoice_date']), $d['currency'], $rates->resolve($d['currency'], $d['exchange_rate'] ?? null, new DateTimeImmutable($d['invoice_date'])),
             Decimal::of($d['subtotal']), isset($d['tax']) ? Decimal::of($d['tax']) : Fixed::zero(), InvoiceKind::from($d['kind']),
             $reference, $d['expense_account'] ?? null, isset($d['due_date']) ? new DateTimeImmutable($d['due_date']) : null,
         );
@@ -91,13 +92,13 @@ final class PayablesController extends ApiController
         return response()->json(['data' => $rows]);
     }
 
-    public function pay(Request $request, PayablesService $service): JsonResponse
+    public function pay(Request $request, PayablesService $service, ExchangeRates $rates): JsonResponse
     {
         $d = $request->validate([
             'supplier_id' => ['required', 'integer', 'exists:suppliers,id'],
             'paid_on' => ['required', 'date_format:Y-m-d'],
             'currency' => ['required', 'string', 'size:3'],
-            'exchange_rate' => ['required', Decimal::RULE],
+            'exchange_rate' => ['nullable', Decimal::RULE],
             'method' => ['required', 'in:bank,cash,cheque'],
             'reference' => ['required', 'string', 'max:120'],
             'allocations' => ['required', 'array', 'min:1', 'max:200'],
@@ -108,7 +109,7 @@ final class PayablesController extends ApiController
         foreach ($d['allocations'] as $a) {
             $allocations[(int) $a['invoice_id']] = Decimal::of($a['amount']);
         }
-        $id = $service->pay($d['supplier_id'], new DateTimeImmutable($d['paid_on']), $d['currency'], Decimal::of($d['exchange_rate']), $d['method'], $d['reference'], $allocations);
+        $id = $service->pay($d['supplier_id'], new DateTimeImmutable($d['paid_on']), $d['currency'], $rates->resolve($d['currency'], $d['exchange_rate'] ?? null, new DateTimeImmutable($d['paid_on'])), $d['method'], $d['reference'], $allocations);
 
         return response()->json(['id' => $id], 201);
     }

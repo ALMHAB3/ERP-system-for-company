@@ -6,6 +6,7 @@ namespace Modules\Import\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Modules\Finance\Application\ExchangeRates;
 use Modules\Import\Application\LandedCostService;
 use Modules\Import\Domain\CostBasis;
 use Modules\Import\Domain\CostItem;
@@ -18,12 +19,13 @@ use Modules\Shared\Http\Decimal;
 
 final class ShipmentController extends ApiController
 {
-    public function store(Request $request, LandedCostService $service): JsonResponse
+    public function store(Request $request, LandedCostService $service, ExchangeRates $rates): JsonResponse
     {
         $d = $request->validate([
             'reference' => ['required', 'string', 'max:80', 'unique:shipments,reference'],
             'currency' => ['required', 'string', 'size:3'],
-            'exchange_rate' => ['required', Decimal::RULE],
+            'exchange_rate' => ['nullable', Decimal::RULE],
+            'rate_date' => ['nullable', 'date_format:Y-m-d'],
             'lines' => ['required', 'array', 'min:1', 'max:500'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.quantity' => ['required', Decimal::RULE],
@@ -41,7 +43,7 @@ final class ShipmentController extends ApiController
         ]);
 
         $shipment = $service->open(new Shipment(
-            null, $d['reference'], strtoupper($d['currency']), Decimal::of($d['exchange_rate']), 'open',
+            null, $d['reference'], strtoupper($d['currency']), $rates->resolve($d['currency'], $d['exchange_rate'] ?? null, isset($d['rate_date']) ? new \DateTimeImmutable($d['rate_date']) : null), 'open',
             array_map(fn ($l) => new ShipmentLine(
                 null, $l['product_id'], Decimal::of($l['quantity']), Decimal::of($l['unit_price']),
                 isset($l['volume_cbm']) ? Decimal::of($l['volume_cbm']) : Fixed::zero(),

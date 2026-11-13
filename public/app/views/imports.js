@@ -1,4 +1,4 @@
-import { h, get, post, form, table, tabs, panel, act, can, modal, money, qty, pct, rateFromPercent, badge, toast, opts, refItems } from '../ui.js';
+import { h, get, post, form, table, tabs, panel, act, can, modal, money, qty, pct, rateFromPercent, badge, toast, opts, refItems, currencyFields } from '../ui.js';
 
 const BASIS = [['volume', 'حسب الحجم (CBM)'], ['weight', 'حسب الوزن (كجم)'], ['value', 'حسب القيمة'], ['quantity', 'حسب الكمية']].map(([value, label]) => ({ value, label }));
 
@@ -37,8 +37,7 @@ function create() {
   return h('div', null, h('p', { class: 'hint' }, 'أدخل بنود الفاتورة التجارية ثم المصاريف. الشحن والتأمين يُحسبان ضمن القيمة الجمركية (CIF). الرسم الجمركي يُدخل كنسبة مئوية لكل بند حسب بند التعرفة.'),
     form([
       { name: 'reference', label: 'مرجع الشحنة / رقم الحاوية', type: 'text', required: true },
-      { name: 'currency', label: 'عملة فاتورة المورد', type: 'text', value: 'USD', required: true },
-      { name: 'exchange_rate', label: 'سعر الصرف إلى العملة الأساسية', type: 'number', required: true },
+      ...currencyFields('USD', 'سعر الصرف إلى الدينار الليبي'),
       { name: 'lines', label: 'بنود الفاتورة التجارية', type: 'rows', fields: [
         { name: 'product_id', label: 'الصنف', type: 'ref', items: refItems.products(), required: true },
         { name: 'quantity', label: 'الكمية', type: 'number', required: true }, { name: 'unit_price', label: 'سعر الوحدة', type: 'number', required: true },
@@ -52,7 +51,7 @@ function create() {
       ] },
     ], 'إنشاء الشحنة', async (v, f) => {
       await post('shipments', {
-        reference: v.reference, currency: v.currency, exchange_rate: v.exchange_rate,
+        reference: v.reference, currency: v.currency, exchange_rate: v.exchange_rate || undefined,
         lines: v.lines.map((l) => ({ product_id: Number(l.product_id), quantity: l.quantity, unit_price: l.unit_price, volume_cbm: l.volume_cbm, weight_kg: l.weight_kg, duty_rate: rateFromPercent(l.duty_pct), lot_no: l.lot_no, expiry_date: l.expiry_date })),
         costs: v.costs.map((c) => ({ code: c.code.toUpperCase(), amount: c.amount, basis: c.basis, in_customs_value: !!c.in_customs_value })),
       });

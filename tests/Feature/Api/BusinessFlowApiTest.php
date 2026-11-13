@@ -64,7 +64,7 @@ final class BusinessFlowApiTest extends ApiTestCase
         $clerk = $this->userWith(['warehouse_clerk'], [$this->warehouse]);
 
         $po = $this->as($buyer)->postJson('/api/purchase-orders', [
-            'number' => 'PO-1', 'supplier' => 'Local Co', 'currency' => 'SAR', 'exchange_rate' => '1',
+            'number' => 'PO-1', 'supplier' => 'Local Co', 'currency' => 'LYD', 'exchange_rate' => '1',
             'lines' => [['product_id' => $this->product, 'quantity' => '5000', 'unit_price' => '25']],   // 125,000 -> level 3
         ])->assertCreated()->assertJsonPath('required_approval_level', 3)->json('id');
         $this->as($buyer)->postJson("/api/purchase-orders/{$po}/submit")->assertOk();

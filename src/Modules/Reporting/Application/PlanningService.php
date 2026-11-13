@@ -50,9 +50,20 @@ final class PlanningService
     /** @return array<string,mixed> */
     public function forecast(int $productId, int $horizon = 3): array
     {
-        $result = $this->forecaster->forecast($this->monthlyDemand($productId), $horizon);
+        $history = $this->monthlyDemand($productId);
+        $result = $this->forecaster->forecast($history, $horizon);
+        $last = (new DateTimeImmutable('first day of this month'))->modify('-1 month');   // last completed month
+        $labels = [];
+        for ($i = count($history) - 1; $i >= 0; $i--) {
+            $labels[] = $last->modify("-{$i} months")->format('Y-m');
+        }
+        $future = [];
+        for ($i = 1; $i <= $horizon; $i++) {
+            $future[] = $last->modify("+{$i} months")->format('Y-m');
+        }
 
         return [
+            'history' => array_map(static fn ($v) => round($v, 2), $history), 'history_labels' => $labels, 'forecast_labels' => $future,
             'product_id' => $productId, 'method' => $result->method, 'history_months' => $result->periods,
             'forecast' => array_map(static fn ($v) => round($v, 2), $result->forecast),
             'wape' => $result->wape === null ? null : round($result->wape, 3),

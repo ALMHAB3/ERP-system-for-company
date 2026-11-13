@@ -45,6 +45,70 @@ final class ReportQueries
         ];
     }
 
+    /**
+     * Series for the management charts. Cost-revealing series are included only when $withCost.
+     *
+     * @return array<string,mixed>
+     */
+    public function charts(DateTimeImmutable $now, bool $withCost): array
+    {
+        $months = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $months[$now->modify('first day of this month')->modify("-{$i} months")->format('Y-m')] = ['revenue' => 0, 'cogs' => 0];
+        }
+        $from = array_key_first($months).'-01 00:00:00';
+        foreach ($this->db->table('sales_invoices')->where('created_at', '>=', $from)->get(['net', 'created_at']) as $r) {
+            $k = substr((string) $r->created_at, 0, 7);
+            isset($months[$k]) && $months[$k]['revenue'] += (int) $r->net;
+        }
+        foreach ($this->db->table('credit_notes')->where('created_at', '>=', $from)->get(['net', 'created_at']) as $r) {
+            $k = substr((string) $r->created_at, 0, 7);
+            isset($months[$k]) && $months[$k]['revenue'] -= (int) $r->net;
+        }
+        foreach ($this->db->table('stock_moves')->whereIn('type', ['issue', 'sales_return'])->where('occurred_at', '>=', $from)->get(['type', 'total_cost', 'occurred_at']) as $r) {
+            $k = substr((string) $r->occurred_at, 0, 7);
+            isset($months[$k]) && $months[$k]['cogs'] += $r->type === 'issue' ? (int) $r->total_cost : -(int) $r->total_cost;
+        }
+        $u = static fn (int $v) => round($v / Fixed::FACTOR, 2);
+
+        $expiry = ['expired' => 0, '0-30' => 0, '31-60' => 0, '61-90' => 0, '90+' => 0, 'none' => 0];
+        $today = $now->format('Y-m-d');
+        foreach ($this->db->table('stock_lots')->where('on_hand', '>', 0)->get(['expiry_date', 'value']) as $l) {
+            if ($l->expiry_date === null) {
+                $expiry['none'] += (int) $l->value;
+
+                continue;
+            }
+            $days = (int) (new DateTimeImmutable($today))->diff(new DateTimeImmutable($l->expiry_date))->format('%r%a');
+            $b = match (true) {
+                $days < 0 => 'expired', $days <= 30 => '0-30', $days <= 60 => '31-60', $days <= 90 => '61-90', default => '90+'
+            };
+            $expiry[$b] += (int) $l->value;
+        }
+
+        $out = [
+            'currency' => config('erp.base_currency'),
+            'months' => array_keys($months),
+            'revenue' => array_map(fn ($m) => $u($m['revenue']), array_values($months)),
+            'inventory_by_warehouse' => $this->db->table('stock_balances as b')->join('warehouses as w', 'w.id', '=', 'b.warehouse_id')->groupBy('w.code', 'w.name')
+                ->selectRaw('w.code, w.name, sum(b.value) as v')->havingRaw('sum(b.value) > 0')->orderByDesc('v')->get()->map(fn ($r) => ['label' => $r->code, 'value' => $u((int) $r->v)])->all(),
+            'expiry_buckets' => array_map($u, $expiry),
+            'payables_by_currency' => $this->db->table('supplier_invoices')->whereRaw('base_total - base_paid > 0')->groupBy('currency')
+                ->selectRaw('currency, sum(base_total - base_paid) as v')->orderByDesc('v')->get()->map(fn ($r) => ['label' => $r->currency, 'value' => $u((int) $r->v)])->all(),
+            'shipments_by_status' => $this->db->table('shipments')->groupBy('status')->selectRaw('status, count(*) as n')->pluck('n', 'status')->map(fn ($n) => (int) $n)->all(),
+        ];
+        if ($withCost) {
+            $out['cogs'] = array_map(fn ($m) => $u($m['cogs']), array_values($months));
+            $out['profit'] = array_map(fn ($m) => $u($m['revenue'] - $m['cogs']), array_values($months));
+            $out['top_products'] = array_map(fn ($p) => ['label' => $p['sku'], 'value' => (float) Fixed::parse($p['profit'])->units / Fixed::FACTOR, 'margin_pct' => $p['margin_pct']],
+                array_slice($this->productProfitability($now->modify('-90 days'), $now), 0, 8));
+            $out['inventory_by_product'] = $this->db->table('stock_balances as b')->join('products as p', 'p.id', '=', 'b.product_id')->groupBy('p.sku')
+                ->selectRaw('p.sku, sum(b.value) as v')->havingRaw('sum(b.value) > 0')->orderByDesc('v')->limit(8)->get()->map(fn ($r) => ['label' => $r->sku, 'value' => $u((int) $r->v)])->all();
+        }
+
+        return $out;
+    }
+
     /** Lots expiring within $days (or already expired), with the value at risk. @return list<array<string,mixed>> */
     public function expiring(int $days, DateTimeImmutable $now): array
     {

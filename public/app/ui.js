@@ -63,8 +63,22 @@ export function toast(msg, kind) {
 export const can = (...perms) => perms.length === 0 || perms.some((p) => state.me.permissions.includes(p));
 
 // ---------- components ----------
-export function table(cols, rows, empty) {
+function csvDownload(name, cols, rows) {
+  const cell = (v) => '"' + String(v ?? '').replace(/"/g, '""').replace(/\s+/g, ' ').trim() + '"';
+  const text = (c, r) => { const v = c.csv ? c.csv(r) : c.render ? c.render(r) : r[c.key]; return v instanceof Node ? v.textContent : v; };
+  const body = [cols.map((c) => cell(c.label)).join(','), ...rows.map((r) => cols.map((c) => cell(text(c, r))).join(','))].join('\r\n');
+  const url = URL.createObjectURL(new Blob(['\ufeff' + body], { type: 'text/csv;charset=utf-8' }));
+  const a = h('a', { href: url, download: name + '-' + today() + '.csv' });
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+// table(cols, rows, emptyText, {csv:'file-name'}) — the csv option adds an Excel-friendly export button.
+export function table(cols, rows, empty, o) {
   if (!rows || rows.length === 0) return h('div', { class: 'card empty' }, empty || 'لا توجد بيانات');
+  const t = tableEl(cols, rows);
+  return o?.csv ? h('div', null, h('div', { class: 'csvbar' }, h('button', { class: 'btn secondary small', type: 'button', onclick: () => csvDownload(o.csv, cols, rows) }, 'تصدير Excel (CSV)'), ' ', h('button', { class: 'btn secondary small', type: 'button', onclick: () => window.print() }, 'طباعة')), t) : t;
+}
+function tableEl(cols, rows) {
   return h('div', { class: 'tablewrap' }, h('table', null,
     h('thead', null, h('tr', null, cols.map((c) => h('th', { class: c.num ? 'num' : '' }, c.label)))),
     h('tbody', null, rows.map((r) => h('tr', null, cols.map((c) => {
@@ -112,10 +126,11 @@ export function form(fields, submitLabel, onSubmit, opts) {
     else if (f.type === 'checkbox') input = h('input', { id, type: 'checkbox', checked: !!f.value });
     else input = h('input', { id, type: f.type === 'number' ? 'text' : f.type || 'text', inputmode: f.type === 'number' ? 'decimal' : null, value: f.value ?? '', placeholder: f.placeholder, dir: ['number', 'date', 'password'].includes(f.type) ? 'ltr' : null, autocomplete: f.type === 'password' ? 'new-password' : 'off' });
     bag[f.name] = { f, input };
+    if (f.onChange) input.addEventListener('change', () => f.onChange(input.value, bag));
     const err = h('div', { class: 'err' });
     bag[f.name].err = err;
     if (f.type === 'checkbox') return h('div', { class: 'field check' + (f.wide ? ' wide' : '') }, input, h('label', { for: id }, f.label));
-    return h('div', { class: 'field' + (f.wide ? ' wide' : '') }, h('label', { for: id }, f.label + (f.required ? ' *' : '')), input, input._list, f.hint ? h('div', { class: 'muted' }, f.hint) : null, err);
+    return h('div', { class: 'field' + (f.wide ? ' wide' : '') }, h('label', { for: id }, f.label + (f.required ? ' *' : '')), input, input._list, (bag[f.name].hintEl = f.hint ? h('div', { class: 'muted' }, f.hint) : null), err);
   };
   const read = (bag) => {
     const out = {};
@@ -169,12 +184,26 @@ export const refItems = {
   suppliers: () => state.lookups.suppliers.map((s) => ({ id: s.id, label: s.name })),
 };
 export const opts = {
+  currencies: () => state.lookups.currencies.map((c) => ({ value: c.code, label: c.code + ' — ' + c.name })),
   warehouses: () => state.lookups.warehouses.map((w) => ({ value: w.id, label: w.code + ' — ' + w.name })),
   customers: () => state.lookups.customers.map((c) => ({ value: c.id, label: c.name })),
   suppliers: () => state.lookups.suppliers.map((s) => ({ value: s.id, label: s.name })),
   accounts: () => state.lookups.accounts.map((a) => ({ value: a.code, label: a.code + ' — ' + a.name })),
 };
 export async function reloadLookups() { state.lookups = await get('lookups'); }
+// Fills a rate input from the latest stored rate whenever the currency select changes.
+export function rateHint(currency) {
+  const c = state.lookups.currencies.find((x) => x.code === currency);
+  if (!c || currency === state.lookups.currency) return { value: '1', hint: 'العملة الأساسية: السعر 1' };
+  return c.rate ? { value: c.rate, hint: `آخر سعر مسجل بتاريخ ${c.rate_date}` } : { value: '', hint: 'لا يوجد سعر مسجل — أدخله هنا أو من المحاسبة ← أسعار الصرف' };
+}
+export function currencyFields(defaultCode, rateLabel) {
+  const first = rateHint(defaultCode);
+  return [
+    { name: 'currency', label: 'العملة', type: 'select', options: opts.currencies(), value: defaultCode, onChange: (v, bag) => { const r = rateHint(v); bag.exchange_rate.input.value = r.value; bag.exchange_rate.hintEl && (bag.exchange_rate.hintEl.textContent = r.hint); } },
+    { name: 'exchange_rate', label: rateLabel || 'سعر الصرف إلى ' + state.lookups.currency, type: 'number', value: first.value, hint: first.hint, hintId: true },
+  ];
+}
 export const dl = (o) => h('div', { class: 'card' }, Object.entries(o).map(([k, v]) => h('div', null, h('span', { class: 'muted' }, k + ': '), v)));
 
 // A self-refreshing block: build(refresh) returns the node; actions call refresh() to reload it in place.

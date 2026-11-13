@@ -1,4 +1,4 @@
-import { h, get, post, form, table, tabs, panel, act, can, modal, money, qty, badge, toast, state, opts, refItems, today } from '../ui.js';
+import { h, get, post, form, table, tabs, panel, act, can, modal, money, qty, badge, toast, state, opts, refItems, today, currencyFields, rateHint } from '../ui.js';
 
 const KINDS = [['goods', 'بضاعة'], ['freight', 'شحن'], ['insurance', 'تأمين'], ['customs', 'جمارك'], ['clearance', 'تخليص ومصاريف ميناء'], ['expense', 'مصروف عام']].map(([value, label]) => ({ value, label }));
 
@@ -22,12 +22,12 @@ function orders() {
 function newOrder() {
   return form([
     { name: 'number', label: 'رقم الأمر', type: 'text', required: true }, { name: 'supplier', label: 'اسم المورد', type: 'text', required: true },
-    { name: 'currency', label: 'العملة', type: 'text', value: state.lookups.currency, required: true }, { name: 'exchange_rate', label: 'سعر الصرف', type: 'number', value: '1', required: true },
+    ...currencyFields(state.lookups.currency),
     { name: 'lines', label: 'البنود', type: 'rows', fields: [
       { name: 'product_id', label: 'الصنف', type: 'ref', items: refItems.products(), required: true },
       { name: 'quantity', label: 'الكمية', type: 'number', required: true }, { name: 'unit_price', label: 'سعر الوحدة', type: 'number', required: true }] },
   ], 'إنشاء أمر الشراء', async (v, f) => {
-    const r = await post('purchase-orders', { ...v, lines: v.lines.map((l) => ({ ...l, product_id: Number(l.product_id) })) });
+    const r = await post('purchase-orders', { ...v, exchange_rate: v.exchange_rate || undefined, lines: v.lines.map((l) => ({ ...l, product_id: Number(l.product_id) })) });
     toast(`تم إنشاء الأمر (إجمالي ${money(r.total)}، يتطلب اعتماد مستوى ${r.required_approval_level})`, 'ok'); f.reset();
   });
 }
@@ -36,7 +36,7 @@ function suppliers() {
   return panel(async (refresh) => h('div', null,
     can('suppliers.manage') ? h('div', { class: 'card' }, h('h3', null, 'إضافة مورد'), form([
       { name: 'name', label: 'الاسم', type: 'text', required: true }, { name: 'country', label: 'الدولة (رمز من حرفين)', type: 'text' },
-      { name: 'currency', label: 'عملة التعامل', type: 'text', value: 'USD', required: true }, { name: 'terms_days', label: 'مدة السداد (يوم)', type: 'number', value: '30' }, { name: 'tax_no', label: 'الرقم الضريبي', type: 'text' },
+      { name: 'currency', label: 'عملة التعامل', type: 'select', options: opts.currencies(), value: 'USD' }, { name: 'terms_days', label: 'مدة السداد (يوم)', type: 'number', value: '30' }, { name: 'tax_no', label: 'الرقم الضريبي', type: 'text' },
     ], 'إضافة', async (v, f) => { await post('payables/suppliers', { ...v, terms_days: +v.terms_days }); state.lookups = await get('lookups'); toast('تمت إضافة المورد', 'ok'); refresh(); })) : null,
     table([{ label: 'المورد', key: 'name' }, { label: 'الدولة', key: 'country' }, { label: 'العملة', key: 'currency' }, { label: 'مدة السداد', num: true, key: 'terms_days' }], (await get('payables/suppliers')).data)));
 }
@@ -50,14 +50,14 @@ async function bills() {
       can('supplier_invoices.record') ? h('div', { class: 'card' }, h('h3', null, 'تسجيل فاتورة مورد'), form([
         { name: 'supplier_id', label: 'المورد', type: 'select', options: opts.suppliers(), required: true }, { name: 'number', label: 'رقم فاتورة المورد', type: 'text', required: true },
         { name: 'invoice_date', label: 'تاريخ الفاتورة', type: 'date', value: today(), required: true }, { name: 'due_date', label: 'تاريخ الاستحقاق (اختياري)', type: 'date' },
-        { name: 'currency', label: 'العملة', type: 'text', value: 'USD', required: true }, { name: 'exchange_rate', label: 'سعر الصرف يوم الفاتورة', type: 'number', required: true },
+        ...currencyFields('USD', 'سعر الصرف يوم الفاتورة'),
         { name: 'subtotal', label: 'المبلغ قبل الضريبة', type: 'number', required: true }, { name: 'tax', label: 'الضريبة', type: 'number', value: '0' },
         { name: 'kind', label: 'نوع الفاتورة', type: 'select', options: KINDS },
         { name: 'ref', label: 'الشحنة / أمر الشراء المرتبط', type: 'select', options: refs },
         { name: 'expense_account', label: 'حساب المصروف (للمصروفات العامة)', type: 'select', options: [{ value: '', label: '—' }, ...opts.accounts()] },
       ], 'تسجيل الفاتورة', async (v) => {
         const [type, ref] = (v.ref || '').split(/:(.*)/s);
-        await post('payables/invoices', { supplier_id: Number(v.supplier_id), number: v.number, invoice_date: v.invoice_date, due_date: v.due_date, currency: v.currency, exchange_rate: v.exchange_rate, subtotal: v.subtotal, tax: v.tax || '0', kind: v.kind, expense_account: v.expense_account, ...(type === 'shipment' ? { shipment_reference: ref } : type === 'po' ? { po_number: ref } : {}) });
+        await post('payables/invoices', { supplier_id: Number(v.supplier_id), number: v.number, invoice_date: v.invoice_date, due_date: v.due_date, currency: v.currency, exchange_rate: v.exchange_rate || undefined, subtotal: v.subtotal, tax: v.tax || '0', kind: v.kind, expense_account: v.expense_account, ...(type === 'shipment' ? { shipment_reference: ref } : type === 'po' ? { po_number: ref } : {}) });
         toast('تم تسجيل الفاتورة وترحيل قيدها', 'ok'); refresh();
       })) : null,
       h('h3', null, 'فواتير الموردين'),
@@ -76,14 +76,14 @@ function pay() {
       const amounts = {};
       const rows = inv.map((i) => { const input = h('input', { dir: 'ltr', placeholder: '0' }); amounts[i.id] = input; return h('tr', null, h('td', null, i.number), h('td', null, i.currency), h('td', { class: 'num' }, money(i.balance)), h('td', null, input), h('td', null, h('button', { class: 'btn secondary small', type: 'button', onclick: () => { input.value = i.balance; } }, 'كامل المتبقي'))); });
       const meta = form([
-        { name: 'paid_on', label: 'تاريخ الدفع', type: 'date', value: today(), required: true }, { name: 'exchange_rate', label: 'سعر الصرف يوم الدفع', type: 'number', required: true },
+        { name: 'paid_on', label: 'تاريخ الدفع', type: 'date', value: today(), required: true }, { name: 'exchange_rate', label: 'سعر الصرف يوم الدفع (' + inv[0].currency + ')', type: 'number', value: rateHint(inv[0].currency).value, hint: rateHint(inv[0].currency).hint },
         { name: 'method', label: 'الطريقة', type: 'select', options: [['bank', 'تحويل بنكي'], ['cheque', 'شيك'], ['cash', 'نقد']].map(([value, label]) => ({ value, label })) }, { name: 'reference', label: 'مرجع الدفع', type: 'text', required: true },
       ], 'تنفيذ الدفع', async (m) => {
         const allocations = inv.filter((i) => amounts[i.id].value.trim()).map((i) => ({ invoice_id: i.id, amount: amounts[i.id].value.trim(), currency: i.currency }));
         if (!allocations.length) throw new Error('حدد مبلغاً لفاتورة واحدة على الأقل');
         const currencies = [...new Set(allocations.map((a) => a.currency))];
         if (currencies.length > 1) throw new Error('ادفع كل عملة في عملية منفصلة');
-        await post('payables/payments', { supplier_id: Number(v.supplier_id), paid_on: m.paid_on, currency: currencies[0], exchange_rate: m.exchange_rate, method: m.method, reference: m.reference, allocations: allocations.map(({ invoice_id, amount }) => ({ invoice_id, amount })) });
+        await post('payables/payments', { supplier_id: Number(v.supplier_id), paid_on: m.paid_on, currency: currencies[0], exchange_rate: m.exchange_rate || undefined, method: m.method, reference: m.reference, allocations: allocations.map(({ invoice_id, amount }) => ({ invoice_id, amount })) });
         toast('تم الدفع وترحيل القيد (مع فرق العملة إن وجد)', 'ok'); supplierBox.replaceChildren();
       });
       supplierBox.replaceChildren(h('div', { class: 'tablewrap' }, h('table', null, h('thead', null, h('tr', null, ['الفاتورة', 'العملة', 'المتبقي', 'المبلغ المدفوع', ''].map((t) => h('th', null, t)))), h('tbody', null, rows))), meta);

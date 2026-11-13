@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Audit\Http\Controllers\AuditController;
 use Modules\Audit\Http\Middleware\AuditWriteRequests;
+use Modules\Finance\Http\Controllers\CurrencyController;
 use Modules\Finance\Http\Controllers\FinanceController;
 use Modules\Identity\Http\Controllers\AuthController;
 use Modules\Identity\Http\Controllers\UserAdminController;
@@ -92,6 +93,7 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
 
     Route::prefix('reports')->name('reports.')->middleware('permission:reports.view')->group(function () {
         Route::get('dashboard', [ReportController::class, 'dashboard'])->name('dashboard');
+        Route::get('charts', [ReportController::class, 'charts'])->name('charts');
         Route::get('expiring', [ReportController::class, 'expiring'])->name('expiring');
         Route::get('slow-moving', [ReportController::class, 'slowMoving'])->name('slow');
         Route::get('product-profitability', [ReportController::class, 'productProfit'])->name('product_profit');
@@ -99,6 +101,10 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
         Route::get('forecast', [ReportController::class, 'forecast'])->name('forecast');
         Route::get('reorder-suggestions', [ReportController::class, 'reorder'])->name('reorder');
     });
+
+    Route::get('currencies', [CurrencyController::class, 'index'])->name('currencies.index');
+    Route::get('currencies/history', [CurrencyController::class, 'history'])->middleware('permission:finance.view|currencies.manage')->name('currencies.history');
+    Route::post('currencies/rates', [CurrencyController::class, 'store'])->middleware('permission:currencies.manage')->name('currencies.rates.store');
 
     Route::get('finance/trial-balance', [FinanceController::class, 'trialBalance'])->middleware('permission:finance.view')->name('finance.trial_balance');
 

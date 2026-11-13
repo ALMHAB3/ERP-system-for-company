@@ -6,6 +6,7 @@ namespace Modules\Procurement\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Modules\Finance\Application\ExchangeRates;
 use Modules\Procurement\Application\PurchaseOrderService;
 use Modules\Procurement\Domain\PurchaseOrderLine;
 use Modules\Shared\Http\ApiController;
@@ -13,20 +14,20 @@ use Modules\Shared\Http\Decimal;
 
 final class PurchaseOrderController extends ApiController
 {
-    public function store(Request $request, PurchaseOrderService $service): JsonResponse
+    public function store(Request $request, PurchaseOrderService $service, ExchangeRates $rates): JsonResponse
     {
         $d = $request->validate([
             'number' => ['required', 'string', 'max:40', 'unique:purchase_orders,number'],
             'supplier' => ['required', 'string', 'max:200'],
             'currency' => ['required', 'string', 'size:3'],
-            'exchange_rate' => ['required', Decimal::RULE],
+            'exchange_rate' => ['nullable', Decimal::RULE],
             'lines' => ['required', 'array', 'min:1', 'max:500'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.quantity' => ['required', Decimal::RULE],
             'lines.*.unit_price' => ['required', Decimal::RULE],
         ]);
         $order = $service->draft(
-            $d['number'], $d['supplier'], strtoupper($d['currency']), Decimal::of($d['exchange_rate']),
+            $d['number'], $d['supplier'], strtoupper($d['currency']), $rates->resolve($d['currency'], $d['exchange_rate'] ?? null),
             array_map(fn ($l) => new PurchaseOrderLine(null, $l['product_id'], Decimal::of($l['quantity']), Decimal::of($l['unit_price'])), $d['lines']),
             $this->userId($request),
         );

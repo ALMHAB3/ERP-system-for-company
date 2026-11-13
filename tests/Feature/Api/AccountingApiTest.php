@@ -18,7 +18,7 @@ final class AccountingApiTest extends ApiTestCase
         $this->as($clerk)->postJson('/api/payables/suppliers', ['name' => 'X', 'currency' => 'USD'])->assertForbidden();
 
         $po = $this->as($buyer)->postJson('/api/purchase-orders', [
-            'number' => 'PO-77', 'supplier' => 'Guangzhou Co', 'currency' => 'SAR', 'exchange_rate' => '1',
+            'number' => 'PO-77', 'supplier' => 'Guangzhou Co', 'currency' => 'LYD', 'exchange_rate' => '1',
             'lines' => [['product_id' => $this->product, 'quantity' => '100', 'unit_price' => '5']],
         ])->assertCreated()->json('id');
         $this->as($buyer)->postJson("/api/purchase-orders/{$po}/submit")->assertOk();

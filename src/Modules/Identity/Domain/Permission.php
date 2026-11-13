@@ -32,6 +32,7 @@ enum Permission: string
     case SalesReturn = 'sales.return';
     case SalesOverrideCredit = 'sales.override_credit';
     case ReportsView = 'reports.view';
+    case CurrenciesManage = 'currencies.manage';
     case AuditView = 'audit.view';
     case UsersManage = 'users.manage';
     /** Without it a user only works in the warehouses assigned to them. */

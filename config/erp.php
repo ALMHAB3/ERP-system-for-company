@@ -1,10 +1,15 @@
 <?php
 
 return [
-    'base_currency' => env('ERP_BASE_CURRENCY', 'SAR'),
+    // Company (accounting) currency. Everything is booked in it; foreign amounts keep their own currency and rate.
+    'base_currency' => env('ERP_BASE_CURRENCY', 'LYD'),
 
     // VAT / sales tax rate as a 4-decimal string. Set to the rate of your jurisdiction.
-    'vat_rate' => env('ERP_VAT_RATE', '0.1500'),
+    'vat_rate' => env('ERP_VAT_RATE', '0.0000'),
+
+    // Currencies of the business (import invoices, supplier payments). Enter their rates under Accounting > Exchange rates.
+    // ISO code => Arabic name. Libyan dinar is the base currency; USD, EUR and CNY are used for imports.
+    'currencies' => ['LYD' => 'دينار ليبي', 'USD' => 'دولار أمريكي', 'EUR' => 'يورو', 'CNY' => 'يوان صيني'],
 
     // Chart-of-accounts codes used by the automatic posting rules.
     'accounts' => [
