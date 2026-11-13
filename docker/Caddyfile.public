@@ -1,0 +1,15 @@
+# PUBLIC DOMAIN served straight from this computer: Caddy gets and renews a free Let's Encrypt certificate by itself.
+# Needs: a domain pointing at your public IP (dynamic DNS is fine), ports 80 and 443 forwarded on the router,
+# and an ISP that gives you a real public IPv4 (not CGNAT). Select with CADDYFILE=./docker/Caddyfile.public in .env.
+{
+	email {$ACME_EMAIL}
+}
+
+{$ERP_HOST} {
+	import /etc/caddy/erp-site.caddy
+}
+
+# Same private tunnel origin as the default file, so both ways can run together.
+:8081 {
+	import /etc/caddy/erp-site.caddy
+}

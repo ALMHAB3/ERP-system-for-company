@@ -1,24 +1,20 @@
-# Internal HTTPS for the office network. Caddy issues certificates from its own local CA
-# (install its root certificate on client devices once, see docs/LOCAL-DEPLOYMENT.md).
+# DEFAULT: office network only, HTTPS from Caddy's own local CA (install its root certificate once on each device).
+# For the internet see docs/INTERNET-ACCESS.md (public domain: docker/Caddyfile.public; no open ports: Cloudflare tunnel).
 {
 	auto_https disable_redirects
+	# The tunnel's plain-HTTP origin (below) is the ONLY listener that believes a client-IP header, and only from private addresses.
+	servers :8081 {
+		trusted_proxies static private_ranges
+		client_ip_headers CF-Connecting-IP X-Forwarded-For
+	}
 }
 
 {$ERP_HOST:erp.local} {
 	tls internal
-	root * /var/www/html/public
-	encode zstd gzip
-	header {
-		Strict-Transport-Security "max-age=31536000"
-		X-Content-Type-Options nosniff
-		X-Frame-Options DENY
-		Referrer-Policy no-referrer
-		-Server
-	}
-	@app path /app/*
-	header @app Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
-	@hidden path /.* /storage/* /vendor/*
-	respond @hidden 404
-	php_fastcgi app:9000
-	file_server
+	import /etc/caddy/erp-site.caddy
+}
+
+# Origin for the optional Cloudflare tunnel. Reachable only from inside the docker network (port is not published).
+:8081 {
+	import /etc/caddy/erp-site.caddy
 }

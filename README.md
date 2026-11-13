@@ -121,6 +121,8 @@ PHP 8.3 + Laravel 13 · **Modular Monolith** · PostgreSQL 16
 
 ## التشغيل
 
+**الوصول من الإنترنت (والجهاز هو السيرفر):** Tailscale أو نفق Cloudflare أو دومين مباشر، راجع [`docs/INTERNET-ACCESS.md`](docs/INTERNET-ACCESS.md).
+
 **التشغيل الفعلي داخل الشركة:** راجع [`docs/LOCAL-DEPLOYMENT.md`](docs/LOCAL-DEPLOYMENT.md) (سيرفر محلي، HTTPS داخلي، نسخ احتياطي يومي واختبار استرجاع).
 
 للتطوير:

@@ -3,7 +3,8 @@
 x-app: &app
   build: .
   env_file: .env
-  environment: { DB_HOST: db, REDIS_HOST: redis }
+  # TRUST_PROXIES: PHP sits behind Caddy only (nothing else can reach it), so Caddy's X-Forwarded-For is the real client address.
+  environment: { DB_HOST: db, REDIS_HOST: redis, TRUST_PROXIES: "true" }
   restart: unless-stopped
   depends_on:
     db: { condition: service_healthy }
@@ -28,13 +29,25 @@ services:
   web:
     image: caddy:2-alpine
     restart: unless-stopped
-    environment: { ERP_HOST: "${ERP_HOST:-erp.local}" }
+    environment: { ERP_HOST: "${ERP_HOST:-erp.local}", ACME_EMAIL: "${ACME_EMAIL:-}" }
     ports: ["443:443", "80:80"]
     volumes:
-      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      # default: office network only. For a public domain set CADDYFILE=./docker/Caddyfile.public (docs/INTERNET-ACCESS.md)
+      - ${CADDYFILE:-./docker/Caddyfile}:/etc/caddy/Caddyfile:ro
+      - ./docker/erp-site.caddy:/etc/caddy/erp-site.caddy:ro
       - ./public:/var/www/html/public:ro
       - caddy_data:/data
     depends_on: [app]
+
+  # OPTIONAL internet access with no open port on your router: an outbound-only Cloudflare tunnel to the private origin web:8081.
+  # Start it with:  docker compose --profile tunnel up -d     (needs TUNNEL_TOKEN in .env, see docs/INTERNET-ACCESS.md)
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment: { TUNNEL_TOKEN: "${TUNNEL_TOKEN:-}" }
+    depends_on: [web]
 
   worker:
     <<: *app

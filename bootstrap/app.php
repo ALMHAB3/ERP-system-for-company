@@ -17,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Behind Caddy (docker): take the client address from X-Forwarded-For so rate limits and the audit log see the real device.
+        if (env('TRUST_PROXIES')) {
+            $middleware->trustProxies(at: '*', headers: Request::HEADER_X_FORWARDED_FOR);
+        }
         $middleware->api(prepend: [CaptureAuditContext::class]);
         $middleware->alias(['permission' => RequirePermission::class]);
     })
