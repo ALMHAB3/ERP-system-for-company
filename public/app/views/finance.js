@@ -32,6 +32,23 @@ function rates() {
   });
 }
 
+function banks() {
+  return panel(async (refresh) => {
+    const r = await get('finance/bank-accounts');
+    return h('div', null,
+      h('p', { class: 'hint' }, 'كل حساب مصرفي له حساب مستقل في دفتر الأستاذ، فتذهب كل حوالة إلى المصرف الذي استُلمت عليه فعلاً. الصندوق (النقد) حساب مستقل أيضاً.'),
+      can('banks.manage') ? h('div', { class: 'card' }, h('h3', null, 'إضافة حساب مصرفي'), form([
+        { name: 'name', label: 'اسم المصرف', type: 'text', required: true }, { name: 'account_number', label: 'رقم الحساب / IBAN', type: 'text' },
+        { name: 'currency', label: 'عملة الحساب', type: 'select', options: opts.currencies(), value: state.lookups.currency },
+      ], 'إضافة', async (v) => { await post('finance/bank-accounts', v); await reloadLookups(); toast('تمت إضافة الحساب المصرفي', 'ok'); refresh(); })) : null,
+      table([
+        { label: 'الحساب', render: (b) => (b.kind === 'cash' ? 'الصندوق (نقد)' : b.name) }, { label: 'رقم الحساب', render: (b) => b.account_number || '' },
+        { label: 'العملة', key: 'currency' }, { label: 'حساب الأستاذ', key: 'gl_account' },
+        { label: 'الرصيد (' + state.lookups.currency + ')', num: true, render: (b) => h('b', { class: Number(b.balance) < 0 ? 'neg' : '' }, money(b.balance)) },
+      ], r.data, 'لا توجد حسابات', { csv: 'cash-and-banks' }));
+  });
+}
+
 export default async function () {
-  return tabs([{ label: 'ميزان المراجعة', render: trial }, { label: 'أسعار الصرف', render: async () => rates() }]);
+  return tabs([{ label: 'ميزان المراجعة', render: trial }, { label: 'الصندوق والحسابات المصرفية', render: async () => banks() }, { label: 'أسعار الصرف', render: async () => rates() }]);
 }

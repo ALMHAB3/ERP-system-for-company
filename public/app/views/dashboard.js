@@ -18,18 +18,18 @@ export default async function () {
   const profitTotal = ch.profit ? ch.profit.reduce((a, b) => a + b, 0) : null;
   const revenueTotal = ch.revenue.reduce((a, b) => a + b, 0);
   const margin = profitTotal !== null && revenueTotal > 0 ? (profitTotal / revenueTotal) * 100 : null;
-  const labels = ch.months.map((m) => MONTHS[Number(m.slice(5)) - 1].slice(0, 4));
+  const labels = ch.months.map((m) => MONTHS[Number(m.slice(5)) - 1]);
 
   const charts = [
     barLine({ title: 'المبيعات والربح الشهري (آخر 12 شهراً)', sub: 'الصافي بعد المرتجعات — ' + cur, labels, unit: cur,
-      series: [{ name: 'المبيعات', values: ch.revenue, color: COLORS[0] }, ...(ch.cogs ? [{ name: 'تكلفة المباع', values: ch.cogs, color: '#b8c4d0' }, { name: 'الربح', values: ch.profit, color: COLORS[2], type: 'line' }] : [])] }),
+      series: [{ name: 'المبيعات', values: ch.revenue, color: COLORS[0] }, ...(ch.cogs ? [{ name: 'تكلفة البضاعة المباعة', values: ch.cogs, color: '#b8c4d0' }, { name: 'الربح', values: ch.profit, color: COLORS[2], type: 'line' }] : [])] }),
     donut({ title: 'قيمة المخزون حسب المستودع', items: ch.inventory_by_warehouse, unit: cur, centerLabel: cur }),
     ...(ch.top_products ? [hbars({ title: 'أعلى الأصناف ربحاً (آخر 90 يوماً)', items: ch.top_products, unit: cur, valueLabel: (i) => compact(i.value) + (i.margin_pct !== null ? ' · ' + i.margin_pct + '%' : '') })] : []),
     barLine({ title: 'قيمة المخزون حسب قرب انتهاء الصلاحية', sub: 'القيمة المعرّضة للخسارة بالأحمر', labels: Object.keys(ch.expiry_buckets).map((k) => EXPIRY[k]), unit: cur, height: 240,
       series: [{ name: cur, values: Object.values(ch.expiry_buckets), color: COLORS[0] }] }),
     ...(ar && ap ? [barLine({ title: 'أعمار الديون: لنا (العملاء) وعلينا (الموردون)', sub: 'حسب أيام التأخر — ' + cur, labels: Object.keys(ar.buckets).map((k) => BUCKET[k]), unit: cur, height: 240,
-      series: [{ name: 'ذمم العملاء', values: Object.values(ar.buckets).map(Number), color: COLORS[2] }, { name: 'مستحقات الموردين', values: Object.values(ap.buckets).map(Number), color: COLORS[4] }] })] : []),
-    donut({ title: 'مستحقات الموردين حسب عملة الفاتورة', sub: 'القيمة بالعملة الأساسية', items: ch.payables_by_currency, unit: cur, centerLabel: cur }),
+      series: [{ name: 'ذمم العملاء', values: Object.values(ar.buckets).map(Number), color: COLORS[2] }, { name: 'ذمم الموردين', values: Object.values(ap.buckets).map(Number), color: COLORS[4] }] })] : []),
+    donut({ title: 'ذمم الموردين حسب عملة الفاتورة', sub: 'القيمة بالعملة الأساسية', items: ch.payables_by_currency, unit: cur, centerLabel: cur }),
     ...(ch.inventory_by_product ? [hbars({ title: 'أكبر الأصناف قيمة في المخزون', items: ch.inventory_by_product, unit: cur })] : []),
     hbars({ title: 'حالة الشحنات', items: Object.entries(ch.shipments_by_status).map(([k, v]) => ({ label: STATUS[k] || k, value: v })), colorOf: (it, i) => COLORS[i % COLORS.length], valueLabel: (i) => String(i.value) }),
   ];
@@ -40,9 +40,9 @@ export default async function () {
       kpi('مبيعات هذا الشهر (صافي)', money(d.revenue_this_month), cur),
       ...(margin !== null ? [kpi('هامش الربح (12 شهراً)', margin.toFixed(1) + '%', '', margin < 0 ? 'bad' : 'good')] : []),
       kpi('ذمم العملاء المفتوحة', money(d.receivables_open), cur),
-      kpi('مستحقات الموردين', money(d.payables_open), cur, Number(d.payables_open) > Number(d.receivables_open) ? 'bad' : ''),
+      kpi('ذمم الموردين', money(d.payables_open), cur, Number(d.payables_open) > Number(d.receivables_open) ? 'bad' : ''),
       kpi('دوران المخزون (سنوي)', d.inventory_turnover ?? '—', '', '', d.days_of_inventory ? 'أي ' + d.days_of_inventory + ' يوم مخزون' : ''),
-      kpi('طلبات بانتظار الشحن', d.orders_waiting_shipment),
+      kpi('طلبات بانتظار التسليم', d.orders_waiting_shipment),
       kpi('شحنات قادمة', d.shipments.open + d.shipments.costed, '', '', d.shipments.received + ' مستلمة'),
       kpi('مخزون ينتهي خلال 60 يوماً', money(d.expiring_60d_value), cur, d.expiring_60d_lots ? 'bad' : '', d.expiring_60d_lots + ' دفعة')),
     grid(...charts),

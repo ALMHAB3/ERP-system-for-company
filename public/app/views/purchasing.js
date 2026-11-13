@@ -1,6 +1,6 @@
-import { h, get, post, form, table, tabs, panel, act, can, modal, money, qty, badge, toast, state, opts, refItems, today, currencyFields, rateHint } from '../ui.js';
+import { h, get, post, form, table, tabs, panel, act, can, modal, money, qty, badge, toast, state, opts, refItems, today, currencyFields, rateHint, wireBank, PAY_METHODS } from '../ui.js';
 
-const KINDS = [['goods', 'بضاعة'], ['freight', 'شحن'], ['insurance', 'تأمين'], ['customs', 'جمارك'], ['clearance', 'تخليص ومصاريف ميناء'], ['expense', 'مصروف عام']].map(([value, label]) => ({ value, label }));
+const KINDS = [['goods', 'بضاعة'], ['freight', 'أجور الشحن'], ['insurance', 'تأمين'], ['customs', 'جمارك'], ['clearance', 'تخليص ومصاريف ميناء'], ['expense', 'مصروف عام']].map(([value, label]) => ({ value, label }));
 
 function orders() {
   return panel(async (refresh) => {
@@ -75,17 +75,17 @@ function pay() {
       if (!inv.length) return supplierBox.replaceChildren(h('div', { class: 'card empty' }, 'لا توجد فواتير مفتوحة لهذا المورد'));
       const amounts = {};
       const rows = inv.map((i) => { const input = h('input', { dir: 'ltr', placeholder: '0' }); amounts[i.id] = input; return h('tr', null, h('td', null, i.number), h('td', null, i.currency), h('td', { class: 'num' }, money(i.balance)), h('td', null, input), h('td', null, h('button', { class: 'btn secondary small', type: 'button', onclick: () => { input.value = i.balance; } }, 'كامل المتبقي'))); });
-      const meta = form([
+      const meta = wireBank(form([
         { name: 'paid_on', label: 'تاريخ الدفع', type: 'date', value: today(), required: true }, { name: 'exchange_rate', label: 'سعر الصرف يوم الدفع (' + inv[0].currency + ')', type: 'number', value: rateHint(inv[0].currency).value, hint: rateHint(inv[0].currency).hint },
-        { name: 'method', label: 'الطريقة', type: 'select', options: [['bank', 'تحويل بنكي'], ['cheque', 'شيك'], ['cash', 'نقد']].map(([value, label]) => ({ value, label })) }, { name: 'reference', label: 'مرجع الدفع', type: 'text', required: true },
+        { name: 'method', label: 'طريقة الدفع', type: 'select', options: PAY_METHODS }, { name: 'bank_account_id', label: 'المصرف المدفوع منه', type: 'select', options: opts.banks() }, { name: 'reference', label: 'مرجع الدفع', type: 'text', required: true },
       ], 'تنفيذ الدفع', async (m) => {
         const allocations = inv.filter((i) => amounts[i.id].value.trim()).map((i) => ({ invoice_id: i.id, amount: amounts[i.id].value.trim(), currency: i.currency }));
         if (!allocations.length) throw new Error('حدد مبلغاً لفاتورة واحدة على الأقل');
         const currencies = [...new Set(allocations.map((a) => a.currency))];
         if (currencies.length > 1) throw new Error('ادفع كل عملة في عملية منفصلة');
-        await post('payables/payments', { supplier_id: Number(v.supplier_id), paid_on: m.paid_on, currency: currencies[0], exchange_rate: m.exchange_rate || undefined, method: m.method, reference: m.reference, allocations: allocations.map(({ invoice_id, amount }) => ({ invoice_id, amount })) });
+        await post('payables/payments', { supplier_id: Number(v.supplier_id), paid_on: m.paid_on, currency: currencies[0], exchange_rate: m.exchange_rate || undefined, method: m.method, bank_account_id: m.method === 'cash' ? undefined : Number(m.bank_account_id), reference: m.reference, allocations: allocations.map(({ invoice_id, amount }) => ({ invoice_id, amount })) });
         toast('تم الدفع وترحيل القيد (مع فرق العملة إن وجد)', 'ok'); supplierBox.replaceChildren();
-      });
+      }));
       supplierBox.replaceChildren(h('div', { class: 'tablewrap' }, h('table', null, h('thead', null, h('tr', null, ['الفاتورة', 'العملة', 'المتبقي', 'المبلغ المدفوع', ''].map((t) => h('th', null, t)))), h('tbody', null, rows))), meta);
     });
     return h('div', null, h('p', { class: 'hint' }, 'كل دفعة تُخصَّص لفواتير محددة. سعر صرف الدفع يُقارَن بسعر صرف الفاتورة وتُسجَّل الفروق تلقائياً.'), picker, supplierBox);

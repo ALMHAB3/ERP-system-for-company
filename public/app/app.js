@@ -1,4 +1,5 @@
 import { h, state, api, get, post, toast, can, form } from './ui.js';
+import { lang, setLang, startI18n } from './i18n.js';
 import dashboard from './views/dashboard.js';
 import inventory from './views/inventory.js';
 import imports from './views/imports.js';
@@ -20,8 +21,10 @@ const SECTIONS = [
 ];
 const root = document.getElementById('app');
 
+const langButton = () => h('button', { class: 'btn secondary small', type: 'button', onclick: () => setLang(lang === 'en' ? 'ar' : 'en') }, lang === 'en' ? 'العربية' : 'English');
+
 function loginScreen() {
-  root.replaceChildren(h('div', { class: 'login' }, h('h1', null, 'تسجيل الدخول'),
+  root.replaceChildren(h('div', { class: 'login' }, h('div', { class: 'toolbar' }, langButton()), h('h1', null, 'تسجيل الدخول'),
     form([
       { name: 'email', label: 'البريد الإلكتروني', type: 'text', required: true, wide: true },
       { name: 'password', label: 'كلمة المرور', type: 'password', required: true, wide: true },
@@ -55,11 +58,12 @@ async function start() {
   root.replaceChildren(h('div', { class: 'layout' },
     h('nav', { class: 'side' }, h('h1', null, 'نظام الاستيراد والتوزيع'),
       allowed.map((s) => h('a', { href: '#/' + s.id, 'data-id': s.id }, s.label)),
-      h('div', { class: 'who' }, state.me.name, h('br'), h('span', { class: 'ltr' }, state.me.email), h('br'),
+      h('div', { class: 'who' }, state.me.name, h('br'), h('span', { class: 'ltr' }, state.me.email), h('br'), langButton(), ' ',
         h('button', { class: 'btn secondary small', onclick: async () => { try { await api('DELETE', 'auth/token'); } catch {} sessionStorage.removeItem('erp_token'); location.hash = ''; location.reload(); } }, 'تسجيل الخروج'))),
     h('main', { id: 'main' })));
   if (!listening) { window.addEventListener('hashchange', render); listening = true; }
   render();
 }
+startI18n();
 window.addEventListener('unhandledrejection', (e) => toast(e.reason?.message || 'خطأ غير متوقع', 'error'));
 start();

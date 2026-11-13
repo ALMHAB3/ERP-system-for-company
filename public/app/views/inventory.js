@@ -10,7 +10,7 @@ async function balances() {
     wrap.replaceChildren(table([
       { label: 'الصنف', render: (x) => x.sku }, { label: 'المستودع', render: (x) => state.lookups.warehouses.find((w) => w.id === x.warehouse_id)?.code ?? x.warehouse_id },
       { label: 'الفعلي', num: true, render: (x) => qty(x.on_hand) }, { label: 'المحجوز', num: true, render: (x) => qty(x.reserved) },
-      { label: 'المتاح للوعد', num: true, render: (x) => qty(x.available) },
+      { label: 'المتاح للبيع', num: true, render: (x) => qty(x.available) },
       ...(showCost ? [{ label: 'متوسط التكلفة', num: true, render: (x) => money(x.average_cost) }, { label: 'القيمة', num: true, render: (x) => money(x.value) }] : []),
     ], r.data));
   };
@@ -34,7 +34,7 @@ function adjust() {
     form([
       { name: 'product_id', label: 'الصنف', type: 'ref', items: refItems.products(), required: true },
       { name: 'warehouse_id', label: 'المستودع', type: 'select', options: opts.warehouses(), required: true },
-      { name: 'direction', label: 'الاتجاه', type: 'select', options: [{ value: 'in', label: 'إدخال (زيادة)' }, { value: 'out', label: 'إخراج (نقص / إتلاف)' }] },
+      { name: 'direction', label: 'نوع الحركة', type: 'select', options: [{ value: 'in', label: 'إدخال (زيادة)' }, { value: 'out', label: 'إخراج (نقص / إتلاف)' }] },
       { name: 'quantity', label: 'الكمية', type: 'number', required: true },
       { name: 'unit_cost', label: 'تكلفة الوحدة (للإدخال)', type: 'number' },
       { name: 'lot_no', label: 'رقم الدفعة', type: 'text' }, { name: 'expiry_date', label: 'تاريخ الانتهاء', type: 'date' },

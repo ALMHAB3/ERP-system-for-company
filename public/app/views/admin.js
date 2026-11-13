@@ -36,11 +36,11 @@ function audit() {
   const out = h('div');
   const load = async (v) => {
     const r = await get('audit-logs', { action: v.action, subject_type: v.subject_type, user_id: v.user_id, per_page: 100 });
-    out.replaceChildren(table([{ label: 'الوقت', key: 'occurred_at' }, { label: 'المستخدم', num: true, render: (x) => x.user_id ?? '—' }, { label: 'الإجراء', render: (x) => h('span', { class: 'ltr' }, x.action) }, { label: 'الكيان', render: (x) => (x.subject_type ? x.subject_type + ' #' + x.subject_id : '') },
+    out.replaceChildren(table([{ label: 'الوقت', key: 'occurred_at' }, { label: 'المستخدم', num: true, render: (x) => x.user_id ?? '—' }, { label: 'الإجراء', render: (x) => h('span', { class: 'ltr' }, x.action) }, { label: 'السجل', render: (x) => (x.subject_type ? x.subject_type + ' #' + x.subject_id : '') },
       { label: 'IP', render: (x) => h('span', { class: 'ltr' }, x.ip || '') }, { label: 'التفاصيل', render: (x) => h('span', { class: 'ltr muted' }, JSON.stringify(x.data).slice(0, 160)) }], r.data, 'لا توجد سجلات'));
   };
   const verify = h('div', { class: 'toolbar' }, act('التحقق من سلامة السجل', async () => { const r = await get('audit-logs/verify'); toast(`السلسلة سليمة (${r.checked} سجل)`, 'ok'); return r; }, null, { ok: 'اكتمل الفحص' }));
-  const f = form([{ name: 'action', label: 'الإجراء يبدأ بـ', type: 'text', placeholder: 'stock. / http.post / auth.' }, { name: 'subject_type', label: 'نوع الكيان', type: 'text' }, { name: 'user_id', label: 'رقم المستخدم', type: 'number' }], 'بحث', load);
+  const f = form([{ name: 'action', label: 'الإجراء يبدأ بـ', type: 'text', placeholder: 'stock. / http.post / auth.' }, { name: 'subject_type', label: 'نوع السجل', type: 'text' }, { name: 'user_id', label: 'رقم المستخدم', type: 'number' }], 'بحث', load);
   load({});
   return h('div', null, verify, f, out);
 }

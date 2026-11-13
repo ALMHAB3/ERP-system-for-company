@@ -1,6 +1,6 @@
 // End-to-end smoke test of the web UI against a running instance with a fresh database seeded with the admin user, 2 warehouses,
 // products RICE-5 / OIL-1, supplier "Shenzhen Ltd", customer "Al Noor Trading" and a RICE-5 wholesale price of 80 (see docs/LOCAL-DEPLOYMENT.md).
-// Needs: npm i playwright. Usage: BASE_URL=https://erp.local node scripts/e2e-ui.js
+// Needs: npm i playwright. Usage: BASE_URL=https://erp.local node scripts/e2e-ui.cjs
 const { chromium } = require('playwright');
 const SH = (process.env.SHOTS_DIR || '/tmp/erp-shots') + '/';
 (async () => {
@@ -81,12 +81,38 @@ const SH = (process.env.SHOTS_DIR || '/tmp/erp-shots') + '/';
   });
   await step('sales-order-ship-invoice', async () => {
     await go('sales'); await tab('طلب بيع جديد');
+    await page.getByLabel('طريقة الدفع').selectOption('credit');
     await page.getByLabel('العميل').selectOption({ label: 'Al Noor Trading' }); await page.getByLabel('المستودع').selectOption({ label: 'MAIN — Main warehouse' });
     const l = page.locator('.subrow').first(); await l.getByLabel('الصنف').fill('RICE-5 — Rice 5kg'); await l.getByLabel('الكمية').fill('100');
     await page.getByRole('button', { name: 'إنشاء الطلب وحجز المخزون' }).click(); await page.waitForSelector('.toast.ok');
-    await tab('طلبات البيع'); await page.getByRole('button', { name: 'شحن', exact: true }).click(); await page.waitForFunction(() => document.body.innerText.includes('تم الشحن'));
+    await tab('طلبات البيع'); await page.getByRole('button', { name: 'تسليم', exact: true }).click(); await page.waitForFunction(() => document.body.innerText.includes('تم التسليم'));
     await page.getByRole('button', { name: 'إصدار فاتورة' }).click(); await page.waitForFunction(() => document.body.innerText.includes('مفوتر'));
     await page.screenshot({ path: SH + '5-sales.png' });
+  });
+  await step('bank-account-and-transfer-sale', async () => {
+    await go('finance'); await tab('الصندوق والحسابات المصرفية');
+    await page.getByLabel('اسم المصرف').fill('Commercial Bank'); await page.getByLabel(/رقم الحساب/).first().fill('LY12-3456'); await page.getByRole('button', { name: 'إضافة' }).click();
+    await page.waitForFunction(() => document.body.innerText.includes('Commercial Bank'));
+    await go('sales'); await tab('طلب بيع جديد');
+    await page.getByLabel('طريقة الدفع').selectOption('transfer');
+    if (await page.getByLabel('المصرف الذي حُوِّل عليه المبلغ').isHidden()) throw new Error('bank field must show for transfers');
+    await page.getByLabel('المصرف الذي حُوِّل عليه المبلغ').selectOption({ index: 0 });
+    const customerLabel = await page.getByLabel('العميل').evaluate((s) => s.selectedOptions[0].textContent);
+    if (!/Cash customer|عميل نقدي/.test(customerLabel)) throw new Error('cash/transfer should default to the cash customer, got ' + customerLabel);
+    await page.getByLabel('المستودع').selectOption({ label: 'MAIN — Main warehouse' });
+    const l = page.locator('.subrow').first(); await l.getByLabel('الصنف').fill('RICE-5 — Rice 5kg'); await l.getByLabel('الكمية').fill('10');
+    await page.getByRole('button', { name: 'إنشاء الطلب وحجز المخزون' }).click(); await page.waitForSelector('.toast.ok');
+    await tab('طلبات البيع'); await page.getByRole('button', { name: 'تسليم', exact: true }).first().click(); await page.waitForFunction(() => document.body.innerText.includes('تم التسليم'));
+    await page.getByRole('button', { name: 'إصدار فاتورة' }).first().click(); await page.waitForFunction(() => document.body.innerText.includes('تم إصدار الفاتورة'));
+    await go('finance'); await tab('الصندوق والحسابات المصرفية');
+    await page.waitForFunction(() => /Commercial Bank/.test(document.body.innerText) && /7\d\d\.00|776\.00/.test(document.body.innerText));
+    await page.screenshot({ path: SH + '5b-banks.png' });
+  });
+  await step('credit-sale-refused-for-cash-customer', async () => {
+    await go('sales'); await tab('طلب بيع جديد');
+    await page.getByLabel('طريقة الدفع').selectOption('credit');
+    const customerLabel = await page.getByLabel('العميل').evaluate((s) => s.selectedOptions[0].textContent);
+    if (/Cash customer|عميل نقدي/.test(customerLabel)) throw new Error('credit must switch away from the cash customer');
   });
   await step('receipt-collection', async () => {
     await tab('الفواتير والتحصيل');

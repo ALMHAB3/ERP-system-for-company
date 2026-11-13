@@ -1,4 +1,6 @@
 // Tiny UI toolkit. No framework, no innerHTML: every value from the server is inserted as text.
+import { tr } from './i18n.js';
+
 export const state = { me: null, lookups: null };
 
 export function h(tag, attrs, ...kids) {
@@ -30,7 +32,7 @@ export const today = () => new Date().toISOString().slice(0, 10);
 export const STATUS = {
   open: ['مفتوحة', 'warn'], costed: ['تم احتساب التكلفة', 'warn'], received: ['مستلمة', 'ok'],
   draft: ['مسودة', ''], pending_approval: ['بانتظار الاعتماد', 'warn'], approved: ['معتمد', 'ok'], cancelled: ['ملغى', 'bad'],
-  reserved: ['محجوز', 'warn'], shipped: ['تم الشحن', 'warn'], invoiced: ['مفوتر', 'ok'],
+  reserved: ['محجوز', 'warn'], shipped: ['تم التسليم', 'warn'], invoiced: ['مفوتر', 'ok'],
 };
 export const badge = (s) => { const [t, c] = STATUS[s] || [s, '']; return h('span', { class: 'badge ' + c }, t); };
 
@@ -165,6 +167,7 @@ export function form(fields, submitLabel, onSubmit, opts) {
       el.append(wrap);
     } else el.append(build(f, inputs));
   }
+  el._inputs = inputs;
   el._peek = () => read(inputs, true);   // current values without validation (for live previews)
   const btn = h('button', { class: 'btn', type: 'submit' }, submitLabel);
   el.append(h('div', { class: 'formbar' }, btn, opts?.extra));
@@ -185,6 +188,7 @@ export const refItems = {
   suppliers: () => state.lookups.suppliers.map((s) => ({ id: s.id, label: s.name })),
 };
 export const opts = {
+  banks: () => state.lookups.bank_accounts.map((b) => ({ value: b.id, label: b.name + (b.account_number ? ' · ' + b.account_number : '') })),
   currencies: () => state.lookups.currencies.map((c) => ({ value: c.code, label: c.code + ' — ' + c.name })),
   warehouses: () => state.lookups.warehouses.map((w) => ({ value: w.id, label: w.code + ' — ' + w.name })),
   customers: () => state.lookups.customers.map((c) => ({ value: c.id, label: c.name })),
@@ -205,6 +209,15 @@ export function currencyFields(defaultCode, rateLabel) {
     { name: 'exchange_rate', label: rateLabel || 'سعر الصرف إلى ' + state.lookups.currency, type: 'number', value: first.value, hint: first.hint, hintId: true },
   ];
 }
+// Shows the bank-account field only when the payment goes through a bank (anything but cash).
+export function wireBank(f, methodName = 'method', bankName = 'bank_account_id') {
+  const I = f._inputs;
+  const sync = () => { I[bankName].input.closest('.field').hidden = I[methodName].input.value === 'cash'; };
+  f.addEventListener('change', sync); sync();
+  return f;
+}
+export const PAY_METHODS = [{ value: 'cash', label: 'نقداً (كاش)' }, { value: 'transfer', label: 'تحويل مصرفي' }, { value: 'cheque', label: 'شيك' }];
+export const SALE_METHODS = { cash: ['نقداً (كاش)', 'ok'], transfer: ['تحويل مصرفي', 'ok'], credit: ['بالأجل (آجل)', 'warn'] };
 export const dl = (o) => h('div', { class: 'card' }, Object.entries(o).map(([k, v]) => h('div', null, h('span', { class: 'muted' }, k + ': '), v)));
 
 // A self-refreshing block: build(refresh) returns the node; actions call refresh() to reload it in place.
@@ -219,7 +232,7 @@ export function panel(build) {
 // Action button: confirm -> call -> toast -> refresh.
 export function act(label, fn, refresh, o) {
   const b = h('button', { class: 'btn small ' + (o?.cls || ''), type: 'button', onclick: async () => {
-    if (o?.confirm && !confirm(o.confirm)) return;
+    if (o?.confirm && !confirm(tr(o.confirm))) return;
     b.disabled = true;
     try { const r = await fn(); toast(o?.ok || 'تم', 'ok'); if (refresh) await refresh(); return r; }
     catch (e) { toast(e.message, 'error'); } finally { b.disabled = false; }
