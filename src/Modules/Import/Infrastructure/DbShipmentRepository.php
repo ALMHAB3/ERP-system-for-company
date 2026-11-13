@@ -46,7 +46,28 @@ final class DbShipmentRepository implements ShipmentRepository
 
     public function lock(int $id): ?Shipment
     {
-        $s = $this->db->table('shipments')->where('id', $id)->lockForUpdate()->first();
+        return $this->load($id, true);
+    }
+
+    public function find(int $id): ?Shipment
+    {
+        return $this->load($id, false);
+    }
+
+    public function allocations(int $shipmentId): array
+    {
+        $out = [];
+        foreach ($this->db->table('landed_cost_allocations')->where('shipment_id', $shipmentId)->orderBy('id')->get() as $a) {
+            $out[(int) $a->shipment_line_id][$a->component] = (string) Fixed::units((int) $a->amount);
+        }
+
+        return $out;
+    }
+
+    private function load(int $id, bool $lock): ?Shipment
+    {
+        $query = $this->db->table('shipments')->where('id', $id);
+        $s = ($lock ? $query->lockForUpdate() : $query)->first();
         if (! $s) {
             return null;
         }

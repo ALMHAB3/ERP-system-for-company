@@ -74,6 +74,17 @@ final class LandedCostService
         });
     }
 
+    public function find(int $shipmentId): ?Shipment
+    {
+        return $this->shipments->find($shipmentId);
+    }
+
+    /** @return array<int, array<string,string>> */
+    public function allocations(int $shipmentId): array
+    {
+        return $this->shipments->allocations($shipmentId);
+    }
+
     private function load(int $shipmentId): Shipment
     {
         return $this->shipments->lock($shipmentId) ?? throw new DomainException("Shipment {$shipmentId} not found.");

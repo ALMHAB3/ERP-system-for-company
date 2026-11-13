@@ -11,6 +11,11 @@ interface ShipmentRepository
     /** Loads a shipment under a row lock. */
     public function lock(int $id): ?Shipment;
 
+    public function find(int $id): ?Shipment;
+
+    /** @return array<int, array<string,string>> line id => component => amount */
+    public function allocations(int $shipmentId): array;
+
     public function saveAllocations(int $shipmentId, LandedCostResult $result): void;
 
     public function setStatus(int $shipmentId, string $status): void;

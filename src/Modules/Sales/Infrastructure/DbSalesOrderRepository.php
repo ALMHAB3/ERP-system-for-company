@@ -39,7 +39,18 @@ final class DbSalesOrderRepository implements SalesOrderRepository
 
     public function lock(int $id): ?SalesOrder
     {
-        $o = $this->db->table('sales_orders')->where('id', $id)->lockForUpdate()->first();
+        return $this->load($id, true);
+    }
+
+    public function find(int $id): ?SalesOrder
+    {
+        return $this->load($id, false);
+    }
+
+    private function load(int $id, bool $lock): ?SalesOrder
+    {
+        $query = $this->db->table('sales_orders')->where('id', $id);
+        $o = ($lock ? $query->lockForUpdate() : $query)->first();
         if (! $o) {
             return null;
         }

@@ -102,6 +102,11 @@ final class SalesOrderService
         });
     }
 
+    public function find(int $orderId): ?SalesOrder
+    {
+        return $this->orders->find($orderId);
+    }
+
     private function load(int $orderId, string $expected): SalesOrder
     {
         $order = $this->orders->lock($orderId) ?? throw new InvalidOrderState("Sales order {$orderId} not found.");

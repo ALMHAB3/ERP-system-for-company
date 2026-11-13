@@ -1,7 +1,9 @@
 <?php
 
 use App\Providers\AppServiceProvider;
+use Modules\Audit\AuditServiceProvider;
 use Modules\Finance\FinanceServiceProvider;
+use Modules\Identity\IdentityServiceProvider;
 use Modules\Import\ImportServiceProvider;
 use Modules\Inventory\InventoryServiceProvider;
 use Modules\Procurement\ProcurementServiceProvider;
@@ -16,4 +18,6 @@ return [
     ImportServiceProvider::class,
     ProcurementServiceProvider::class,
     SalesServiceProvider::class,
+    IdentityServiceProvider::class,
+    AuditServiceProvider::class,
 ];

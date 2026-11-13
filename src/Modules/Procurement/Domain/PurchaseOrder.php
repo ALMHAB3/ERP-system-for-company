@@ -18,6 +18,7 @@ final readonly class PurchaseOrder
         public PurchaseOrderStatus $status,
         public int $requiredApprovalLevel,
         public array $lines,
+        public ?int $createdBy = null,
     ) {}
 
     /** Order total in base currency. */
@@ -33,6 +34,6 @@ final readonly class PurchaseOrder
 
     public function withStatus(PurchaseOrderStatus $status): self
     {
-        return new self($this->id, $this->number, $this->supplier, $this->currency, $this->exchangeRate, $status, $this->requiredApprovalLevel, $this->lines);
+        return new self($this->id, $this->number, $this->supplier, $this->currency, $this->exchangeRate, $status, $this->requiredApprovalLevel, $this->lines, $this->createdBy);
     }
 }

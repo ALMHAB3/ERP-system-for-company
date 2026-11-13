@@ -25,11 +25,11 @@ final class PurchaseOrderService
     ) {}
 
     /** @param list<PurchaseOrderLine> $lines */
-    public function draft(string $number, string $supplier, string $currency, Fixed $exchangeRate, array $lines): PurchaseOrder
+    public function draft(string $number, string $supplier, string $currency, Fixed $exchangeRate, array $lines, int $createdBy): PurchaseOrder
     {
         $order = new PurchaseOrder(null, $number, $supplier, $currency, $exchangeRate, PurchaseOrderStatus::Draft, 1, $lines);
         $order = new PurchaseOrder(null, $number, $supplier, $currency, $exchangeRate, PurchaseOrderStatus::Draft,
-            $this->policy->requiredLevel($order->total()), $lines);
+            $this->policy->requiredLevel($order->total()), $lines, $createdBy);
 
         return $this->tx->run(fn () => $this->orders->create($order));
     }
@@ -39,11 +39,11 @@ final class PurchaseOrderService
         $this->transition($id, PurchaseOrderStatus::Draft, PurchaseOrderStatus::PendingApproval);
     }
 
-    public function approve(int $id, int $approverId, int $approverLevel, int $creatorId): void
+    public function approve(int $id, int $approverId, int $approverLevel): void
     {
-        $this->tx->run(function () use ($id, $approverId, $approverLevel, $creatorId): void {
+        $this->tx->run(function () use ($id, $approverId, $approverLevel): void {
             $order = $this->loadIn($id, PurchaseOrderStatus::PendingApproval);
-            if ($approverId === $creatorId) {
+            if ($approverId === $order->createdBy) {
                 throw new InvalidPurchaseOrderTransition('The creator of a purchase order cannot approve it.');
             }
             if ($approverLevel < $order->requiredApprovalLevel) {
@@ -67,6 +67,11 @@ final class PurchaseOrderService
             }
             $this->orders->setStatus($id, PurchaseOrderStatus::Received);
         });
+    }
+
+    public function find(int $id): ?PurchaseOrder
+    {
+        return $this->orders->find($id);
     }
 
     private function transition(int $id, PurchaseOrderStatus $from, PurchaseOrderStatus $to): void

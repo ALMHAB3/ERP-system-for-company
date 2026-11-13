@@ -20,7 +20,7 @@ final class DbPurchaseOrderRepository implements PurchaseOrderRepository
         $id = $this->db->table('purchase_orders')->insertGetId([
             'number' => $order->number, 'supplier' => $order->supplier, 'currency' => $order->currency,
             'exchange_rate' => $order->exchangeRate->units, 'status' => $order->status->value,
-            'required_approval_level' => $order->requiredApprovalLevel,
+            'required_approval_level' => $order->requiredApprovalLevel, 'created_by' => $order->createdBy,
             'created_at' => now(), 'updated_at' => now(),
         ]);
         $lines = [];
@@ -33,12 +33,23 @@ final class DbPurchaseOrderRepository implements PurchaseOrderRepository
         }
 
         return new PurchaseOrder($id, $order->number, $order->supplier, $order->currency, $order->exchangeRate,
-            $order->status, $order->requiredApprovalLevel, $lines);
+            $order->status, $order->requiredApprovalLevel, $lines, $order->createdBy);
     }
 
     public function lock(int $id): ?PurchaseOrder
     {
-        $o = $this->db->table('purchase_orders')->where('id', $id)->lockForUpdate()->first();
+        return $this->load($id, true);
+    }
+
+    public function find(int $id): ?PurchaseOrder
+    {
+        return $this->load($id, false);
+    }
+
+    private function load(int $id, bool $lock): ?PurchaseOrder
+    {
+        $query = $this->db->table('purchase_orders')->where('id', $id);
+        $o = ($lock ? $query->lockForUpdate() : $query)->first();
         if (! $o) {
             return null;
         }
@@ -46,7 +57,8 @@ final class DbPurchaseOrderRepository implements PurchaseOrderRepository
             ->map(static fn ($l) => new PurchaseOrderLine((int) $l->id, (int) $l->product_id, Fixed::units((int) $l->quantity), Fixed::units((int) $l->unit_price)))->all();
 
         return new PurchaseOrder((int) $o->id, $o->number, $o->supplier, $o->currency, Fixed::units((int) $o->exchange_rate),
-            PurchaseOrderStatus::from($o->status), (int) $o->required_approval_level, $lines);
+            PurchaseOrderStatus::from($o->status), (int) $o->required_approval_level, $lines,
+            $o->created_by === null ? null : (int) $o->created_by);
     }
 
     public function setStatus(int $id, PurchaseOrderStatus $status, ?int $approvedBy = null): void

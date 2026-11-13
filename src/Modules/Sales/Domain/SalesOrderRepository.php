@@ -12,6 +12,8 @@ interface SalesOrderRepository
 
     public function lock(int $id): ?SalesOrder;
 
+    public function find(int $id): ?SalesOrder;
+
     public function recordShipment(int $orderId, array $costByLineId): void;
 
     public function setStatus(int $orderId, string $status): void;

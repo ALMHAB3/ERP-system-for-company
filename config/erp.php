@@ -35,6 +35,4 @@ return [
     // Selling below cost x (1 + this margin) flags the quote for approval.
     'min_margin' => env('ERP_MIN_MARGIN', '0.0500'),
 
-    // API access token for the thin HTTP layer (replace with Sanctum/OIDC in your environment).
-    'api_token' => env('ERP_API_TOKEN'),
 ];

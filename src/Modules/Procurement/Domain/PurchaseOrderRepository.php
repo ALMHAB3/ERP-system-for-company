@@ -10,5 +10,7 @@ interface PurchaseOrderRepository
 
     public function lock(int $id): ?PurchaseOrder;
 
+    public function find(int $id): ?PurchaseOrder;
+
     public function setStatus(int $id, PurchaseOrderStatus $status, ?int $approvedBy = null): void;
 }
