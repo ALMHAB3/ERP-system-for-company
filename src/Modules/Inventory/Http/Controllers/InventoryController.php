@@ -24,7 +24,7 @@ final class InventoryController extends ApiController
         $f = $request->validate(['product_id' => ['integer'], 'warehouse_id' => ['integer']]);
         $userId = $this->userId($request);
         if (isset($f['warehouse_id'])) {
-            $this->warehouse($request, $f['warehouse_id']);
+            $this->warehouse($request, (int) $f['warehouse_id']);
         }
         $showCost = $this->can($request, Permission::InventoryViewCost);
 
@@ -101,9 +101,9 @@ final class InventoryController extends ApiController
     public function atp(Request $request, AtpService $atp): JsonResponse
     {
         $d = $request->validate(['product_id' => ['required', 'integer'], 'warehouse_id' => ['required', 'integer']]);
-        $this->warehouse($request, $d['warehouse_id']);
+        $this->warehouse($request, (int) $d['warehouse_id']);
 
-        return response()->json(['available_to_promise' => (string) $atp->availableToPromise($d['product_id'], $d['warehouse_id'])]);
+        return response()->json(['available_to_promise' => (string) $atp->availableToPromise((int) $d['product_id'], (int) $d['warehouse_id'])]);
     }
 
     /** @return array<string,mixed> */

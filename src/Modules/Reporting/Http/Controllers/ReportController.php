@@ -23,14 +23,14 @@ final class ReportController extends ApiController
     {
         $d = $request->validate(['days' => ['integer', 'between:1,730']]);
 
-        return response()->json(['data' => $q->expiring($d['days'] ?? 90, new DateTimeImmutable)]);
+        return response()->json(['data' => $q->expiring((int) ($d['days'] ?? 90), new DateTimeImmutable)]);
     }
 
     public function slowMoving(Request $request, ReportQueries $q): JsonResponse
     {
         $d = $request->validate(['days' => ['integer', 'between:30,730']]);
 
-        return response()->json(['data' => $q->slowMoving($d['days'] ?? 90, new DateTimeImmutable)]);
+        return response()->json(['data' => $q->slowMoving((int) ($d['days'] ?? 90), new DateTimeImmutable)]);
     }
 
     public function productProfit(Request $request, ReportQueries $q): JsonResponse
@@ -52,16 +52,16 @@ final class ReportController extends ApiController
     {
         $d = $request->validate(['product_id' => ['required', 'integer', 'exists:products,id'], 'horizon' => ['integer', 'between:1,12']]);
 
-        return response()->json($planning->forecast($d['product_id'], $d['horizon'] ?? 3));
+        return response()->json($planning->forecast((int) $d['product_id'], (int) ($d['horizon'] ?? 3)));
     }
 
     public function reorder(Request $request, PlanningService $planning): JsonResponse
     {
         $d = $request->validate(['warehouse_id' => ['nullable', 'integer']]);
         if (isset($d['warehouse_id'])) {
-            $this->warehouse($request, $d['warehouse_id']);
+            $this->warehouse($request, (int) $d['warehouse_id']);
         }
 
-        return response()->json(['data' => $planning->reorderSuggestions($d['warehouse_id'] ?? null)]);
+        return response()->json(['data' => $planning->reorderSuggestions(isset($d['warehouse_id']) ? (int) $d['warehouse_id'] : null)]);
     }
 }
