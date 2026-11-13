@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Hub Alreeh ERP
+Comment=Start and open the ERP
+Exec=bash -c 'cd "$(dirname "$(readlink -f "%k")")" && ./start-erp.sh'
+Icon=utilities-terminal
+Terminal=false
+Categories=Office;
