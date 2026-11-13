@@ -7,6 +7,7 @@ use Modules\Identity\IdentityServiceProvider;
 use Modules\Import\ImportServiceProvider;
 use Modules\Inventory\InventoryServiceProvider;
 use Modules\Procurement\ProcurementServiceProvider;
+use Modules\Reporting\ReportingServiceProvider;
 use Modules\Sales\SalesServiceProvider;
 use Modules\Shared\SharedServiceProvider;
 
@@ -20,4 +21,5 @@ return [
     SalesServiceProvider::class,
     IdentityServiceProvider::class,
     AuditServiceProvider::class,
+    ReportingServiceProvider::class,
 ];

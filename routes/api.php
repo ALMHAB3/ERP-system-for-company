@@ -11,6 +11,7 @@ use Modules\Inventory\Http\Controllers\InventoryController;
 use Modules\Inventory\Http\Controllers\MasterDataController;
 use Modules\Procurement\Http\Controllers\PayablesController;
 use Modules\Procurement\Http\Controllers\PurchaseOrderController;
+use Modules\Reporting\Http\Controllers\ReportController;
 use Modules\Sales\Http\Controllers\CustomerController;
 use Modules\Sales\Http\Controllers\ReceivablesController;
 use Modules\Sales\Http\Controllers\SalesOrderController;
@@ -79,6 +80,16 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
         Route::get('ageing', [ReceivablesController::class, 'ageing'])->middleware('permission:reports.view')->name('ageing');
     });
     Route::post('sales-orders/{order}/credit-notes', [ReceivablesController::class, 'creditNote'])->whereNumber('order')->middleware('permission:sales.return')->name('sales_orders.credit_note');
+
+    Route::prefix('reports')->name('reports.')->middleware('permission:reports.view')->group(function () {
+        Route::get('dashboard', [ReportController::class, 'dashboard'])->name('dashboard');
+        Route::get('expiring', [ReportController::class, 'expiring'])->name('expiring');
+        Route::get('slow-moving', [ReportController::class, 'slowMoving'])->name('slow');
+        Route::get('product-profitability', [ReportController::class, 'productProfit'])->name('product_profit');
+        Route::get('shipment-profitability', [ReportController::class, 'shipmentProfit'])->name('shipment_profit');
+        Route::get('forecast', [ReportController::class, 'forecast'])->name('forecast');
+        Route::get('reorder-suggestions', [ReportController::class, 'reorder'])->name('reorder');
+    });
 
     Route::get('finance/trial-balance', [FinanceController::class, 'trialBalance'])->middleware('permission:finance.view')->name('finance.trial_balance');
 

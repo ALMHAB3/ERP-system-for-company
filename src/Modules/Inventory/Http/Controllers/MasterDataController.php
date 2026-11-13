@@ -19,9 +19,11 @@ final class MasterDataController
             'sku' => ['required', 'string', 'max:64', 'unique:products,sku'],
             'name' => ['required', 'string', 'max:200'],
             'base_uom' => ['string', 'max:16'],
+            'lead_time_days' => ['integer', 'between:0,365'],
+            'cover_days' => ['integer', 'between:1,365'],
         ]);
         $id = DB::transaction(function () use ($d) {
-            $id = DB::table('products')->insertGetId($d + ['base_uom' => 'PCS', 'created_at' => now(), 'updated_at' => now()]);
+            $id = DB::table('products')->insertGetId($d + ['base_uom' => 'PCS', 'lead_time_days' => 45, 'cover_days' => 30, 'created_at' => now(), 'updated_at' => now()]);
             $this->audit->record('product.created', 'product', $id, $d);
 
             return $id;
