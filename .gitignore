@@ -28,3 +28,4 @@ Thumbs.db
 /database/*.sqlite
 /.phpunit.cache
 .phpunit.result.cache
+/backups/*.dump*

@@ -64,6 +64,10 @@ PHP 8.3 + Laravel 13 · **Modular Monolith** · PostgreSQL 16
 
 ## التشغيل
 
+**التشغيل الفعلي داخل الشركة:** راجع [`docs/LOCAL-DEPLOYMENT.md`](docs/LOCAL-DEPLOYMENT.md) (سيرفر محلي، HTTPS داخلي، نسخ احتياطي يومي واختبار استرجاع).
+
+للتطوير:
+
 ```bash
 composer install
 cp .env.example .env && php artisan key:generate

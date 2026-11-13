@@ -1,0 +1,22 @@
+# Internal HTTPS for the office network. Caddy issues certificates from its own local CA
+# (install its root certificate on client devices once, see docs/LOCAL-DEPLOYMENT.md).
+{
+	auto_https disable_redirects
+}
+
+{$ERP_HOST:erp.local} {
+	tls internal
+	root * /var/www/html/public
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		-Server
+	}
+	@hidden path /.* /storage/* /vendor/*
+	respond @hidden 404
+	php_fastcgi app:9000
+	file_server
+}
