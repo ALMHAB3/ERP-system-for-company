@@ -10,7 +10,7 @@ use Modules\Finance\Domain\PostingRule;
 use Modules\Hr\Domain\Events\PayrollApproved;
 use Modules\Shared\Domain\DomainEvent;
 
-/** Dr Salaries expense + Employer social expense / Cr Salaries payable (net) + Social security payable + Employee advances (repaid). */
+/** Dr Salaries expense / Cr Salaries payable (net) + Employee advances (repaid). */
 final class PayrollApprovedRule implements PostingRule
 {
     public function handles(DomainEvent $event): bool
@@ -23,13 +23,7 @@ final class PayrollApprovedRule implements PostingRule
         /** @var PayrollApproved $event */
         $a = config('erp.accounts');
         $lines = [JournalLineData::debit($a['payroll_expense'], $event->expense, "payroll {$event->period}")];
-        if ($event->employerSocial->isPositive()) {
-            $lines[] = JournalLineData::debit($a['employer_social_expense'], $event->employerSocial);
-        }
         $lines[] = JournalLineData::credit($a['salaries_payable'], $event->net);
-        if ($event->social->isPositive()) {
-            $lines[] = JournalLineData::credit($a['social_payable'], $event->social);
-        }
         if ($event->advances->isPositive()) {
             $lines[] = JournalLineData::credit($a['employee_advances'], $event->advances, 'advance repayments');
         }

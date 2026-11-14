@@ -21,7 +21,6 @@ final class HrPayrollApiTest extends ApiTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config(['erp.payroll.social_employee_rate' => '0.0375', 'erp.payroll.social_employer_rate' => '0.1125']);
         $this->hr = $this->userWith(['hr_manager']);
         $this->finance = $this->userWith(['finance_manager']);
         $this->period = CarbonImmutable::today()->subMonth()->format('Y-m');
@@ -70,9 +69,8 @@ final class HrPayrollApiTest extends ApiTestCase
         $l = $this->as($this->hr)->getJson("/api/hr/payroll/{$run}")->assertOk()->json('lines.0');
         $this->assertSame('3000.0000', $l['base']);
         $this->assertSame('200.0000', $l['absence_deduction']);          // 2 days x 3000 / 30
-        $this->assertSame('112.5000', $l['social_employee']);
         $this->assertSame('200.0000', $l['advance_repayment']);
-        $this->assertSame('2607.5000', $l['net']);
+        $this->assertSame('2720.0000', $l['net']);   // 2920 earned - 200 advance instalment
 
         $this->as($this->hr)->postJson("/api/hr/payroll/{$run}/pay", ['method' => 'cash', 'paid_on' => $day2])->assertForbidden();   // HR cannot pay
         $this->as($this->finance)->postJson("/api/hr/payroll/{$run}/pay", ['method' => 'cash', 'paid_on' => $day2])->assertUnprocessable();   // not approved yet
@@ -80,15 +78,13 @@ final class HrPayrollApiTest extends ApiTestCase
         $this->as($this->hr)->postJson("/api/hr/payroll/{$run}/recalculate")->assertUnprocessable();   // locked once approved
 
         $this->assertSame('2920.0000', (string) $this->balance('5500'));
-        $this->assertSame('337.5000', (string) $this->balance('5510'));
-        $this->assertSame('-2607.5000', (string) $this->balance('2300'));
-        $this->assertSame('-450.0000', (string) $this->balance('2310'));
+        $this->assertSame('-2720.0000', (string) $this->balance('2300'));
         $this->assertSame('400.0000', (string) $this->balance('1350'));   // 600 given - 200 recovered
         $this->assertSame('400.0000', (string) Fixed::units((int) DB::table('employee_advances')->value('balance')));
 
         $this->as($this->finance)->postJson("/api/hr/payroll/{$run}/pay", ['method' => 'cash', 'paid_on' => $day2])->assertNoContent();
         $this->assertSame('0.0000', (string) $this->balance('2300'));
-        $this->assertSame('-3207.5000', (string) $this->balance('1110'));   // 600 advance + 2607.5 salary out of the till
+        $this->assertSame('-3320.0000', (string) $this->balance('1110'));   // 600 advance + 2720 salary out of the till
         $this->as($this->finance)->postJson("/api/hr/payroll/{$run}/pay", ['method' => 'cash', 'paid_on' => $day2])->assertUnprocessable();   // paid once only
         $debits = array_sum(array_map(fn ($r) => (int) Fixed::parse($r['debit'])->units, app(JournalRepository::class)->trialBalance()));
         $credits = array_sum(array_map(fn ($r) => (int) Fixed::parse($r['credit'])->units, app(JournalRepository::class)->trialBalance()));

@@ -6,9 +6,7 @@ return [
     'company_name' => str_contains((string) env('COMPANY_NAME', ''), '?') || env('COMPANY_NAME', '') === '' ? 'شركة هب الريح لعوازل الأسطح ومواد البناء' : env('COMPANY_NAME'),
     // Printed on every invoice (e-invoice seller block). Fill in the real registration data before real use.
     'company' => ['tax_id' => env('COMPANY_TAX_ID', ''), 'address' => env('COMPANY_ADDRESS', ''), 'phone' => env('COMPANY_PHONE', '')],
-    // Payroll. The social-security rates are LEFT AT 0 on purpose: your accountant must set the legal rates (as fractions, e.g. 0.0375).
-    // Absence is deducted as base salary / 30 per day.
-    'payroll' => ['social_employee_rate' => env('PAYROLL_SOCIAL_EMPLOYEE_RATE', '0.0000'), 'social_employer_rate' => env('PAYROLL_SOCIAL_EMPLOYER_RATE', '0.0000')],
+    // Payroll: absence is deducted as base salary / 30 per day.
     // Outgoing webhooks: refuse targets that resolve to link-local/metadata addresses (set true only to allow every private address).
     'webhooks' => ['allow_private' => env('WEBHOOKS_ALLOW_PRIVATE', true), 'max_attempts' => 6],
 
@@ -39,9 +37,7 @@ return [
         'purchase_variance' => '5300',
         'employee_advances' => '1350',
         'salaries_payable' => '2300',
-        'social_payable' => '2310',
         'payroll_expense' => '5500',
-        'employer_social_expense' => '5510',
     ],
 
     // Purchase-order approval ladder: [upper limit of order total, approval level required].

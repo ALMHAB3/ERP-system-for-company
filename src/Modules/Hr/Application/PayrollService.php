@@ -17,7 +17,7 @@ use Modules\Shared\Domain\Fixed;
 
 /**
  * Monthly payroll: draft (calculated, editable by recalculating) -> approved (books the expense, recovers advances) -> paid.
- * net = base (prorated if hired/left mid-month) + allowances + bonuses - absence - other deductions - employee social security - advance repayment.
+ * net = base (prorated if hired/left mid-month) + allowances + bonuses - absence - other deductions - advance repayment.
  * Absence = (absent days + approved unpaid-leave days) x base / 30.
  */
 final class PayrollService
@@ -51,8 +51,6 @@ final class PayrollService
             DB::table('payroll_lines')->where('payroll_run_id', $runId)->delete();
             $start = CarbonImmutable::createFromFormat('Y-m', $run->period)->startOfMonth();
             $end = $start->endOfMonth()->startOfDay();
-            $rateE = Fixed::parse((string) config('erp.payroll.social_employee_rate'));
-            $rateP = Fixed::parse((string) config('erp.payroll.social_employer_rate'));
             $total = 0;
             $employees = DB::table('employees')->where('hire_date', '<=', $end->toDateString())
                 ->where(fn ($q) => $q->whereNull('terminated_on')->orWhere('terminated_on', '>=', $start->toDateString()))->orderBy('id')->get();
@@ -69,13 +67,11 @@ final class PayrollService
                 $unpaid = $this->unpaidLeaveDays((int) $e->id, $start, $end);
                 $absence = min(Fixed::mulDiv($full, $absent + $unpaid, 30), max(0, $base + $allow + $bonus - $other));
                 $earned = $base + $allow + $bonus - $absence - $other;
-                $socE = Fixed::units($base)->mul($rateE)->units;
-                $socP = Fixed::units($base)->mul($rateP)->units;
-                $installment = min((int) DB::table('employee_advances')->where('employee_id', $e->id)->where('balance', '>', 0)->selectRaw('sum(case when balance < repay_per_month then balance else repay_per_month end) as s')->value('s'), max(0, $earned - $socE));
-                $net = $earned - $socE - $installment;
+                $installment = min((int) DB::table('employee_advances')->where('employee_id', $e->id)->where('balance', '>', 0)->selectRaw('sum(case when balance < repay_per_month then balance else repay_per_month end) as s')->value('s'), max(0, $earned));
+                $net = $earned - $installment;
                 DB::table('payroll_lines')->insert([
                     'payroll_run_id' => $runId, 'employee_id' => $e->id, 'base' => $base, 'allowances' => $allow, 'bonuses' => $bonus, 'absence_deduction' => $absence,
-                    'other_deductions' => $other, 'social_employee' => $socE, 'social_employer' => $socP, 'advance_repayment' => $installment, 'net' => $net, 'absent_days' => $absent + $unpaid,
+                    'other_deductions' => $other, 'advance_repayment' => $installment, 'net' => $net, 'absent_days' => $absent + $unpaid,
                 ]);
                 $total += $net;
             }
@@ -100,8 +96,7 @@ final class PayrollService
             $sum = fn (string $k) => (int) $lines->sum($k);
             $expense = $sum('base') + $sum('allowances') + $sum('bonuses') - $sum('absence_deduction') - $sum('other_deductions');
             DB::table('payroll_runs')->where('id', $runId)->update(['status' => 'approved', 'approved_by' => $userId, 'total_net' => $sum('net'), 'updated_at' => now()]);
-            $this->events->dispatch(new PayrollApproved($runId, $run->period, Fixed::units($expense), Fixed::units($sum('social_employer')), Fixed::units($sum('net')),
-                Fixed::units($sum('social_employee') + $sum('social_employer')), Fixed::units($sum('advance_repayment'))));
+            $this->events->dispatch(new PayrollApproved($runId, $run->period, Fixed::units($expense), Fixed::units($sum('net')), Fixed::units($sum('advance_repayment'))));
             $this->audit->record('payroll.approved', 'payroll_run', $runId, ['period' => $run->period, 'net' => (string) Fixed::units($sum('net'))]);
         });
     }

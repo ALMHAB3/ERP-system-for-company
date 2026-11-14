@@ -3105,10 +3105,6 @@ export const EN_PAIRS = [
 "Other deductions"
 ],
 [
-"الضمان الاجتماعي (حصة الموظف)",
-"Social security (employee share)"
-],
-[
 "قسط السلفة",
 "Advance instalment"
 ],
@@ -3135,10 +3131,6 @@ export const EN_PAIRS = [
 [
 "خصومات",
 "Deductions"
-],
-[
-"ضمان",
-"Social sec."
 ],
 [
 "كشف الراتب",
@@ -3191,10 +3183,6 @@ export const EN_PAIRS = [
 [
 "كشف رواتب شهر جديد",
 "New month payroll"
-],
-[
-"يحسب النظام: الراتب الأساسي + البدلات + المكافآت − الغياب − الخصومات − الضمان الاجتماعي − أقساط السلف. أضف البدلات والمكافآت والخصومات للشهر أولاً ثم أنشئ الكشف (أو أعد حسابه).",
-"The system computes: base salary + allowances + bonuses − absence − deductions − social security − advance instalments. Add the month's allowances, bonuses and deductions first, then create the payroll (or recalculate it)."
 ],
 [
 "الشهر (YYYY-MM)",
@@ -3255,5 +3243,9 @@ export const EN_PAIRS = [
 [
 "سلفة",
 "Advance"
+],
+[
+"يحسب النظام: الراتب الأساسي + البدلات + المكافآت − الغياب − الخصومات − أقساط السلف. أضف البدلات والمكافآت والخصومات للشهر أولاً ثم أنشئ الكشف (أو أعد حسابه).",
+"The system computes: base salary + allowances + bonuses − absence − deductions − advance instalments. Add the month's allowances, bonuses and deductions first, then create the payroll (or recalculate it)."
 ]
 ];

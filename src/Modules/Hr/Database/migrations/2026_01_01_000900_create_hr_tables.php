@@ -95,8 +95,6 @@ return new class extends Migration
             $t->bigInteger('bonuses')->default(0);
             $t->bigInteger('absence_deduction')->default(0);
             $t->bigInteger('other_deductions')->default(0);
-            $t->bigInteger('social_employee')->default(0);
-            $t->bigInteger('social_employer')->default(0);
             $t->bigInteger('advance_repayment')->default(0);
             $t->bigInteger('net');
             $t->decimal('absent_days', 6, 1)->default(0);

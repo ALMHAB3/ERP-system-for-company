@@ -31,8 +31,7 @@ final class PayrollController extends ApiController
         $lines = DB::table('payroll_lines as l')->join('employees as e', 'e.id', '=', 'l.employee_id')->where('l.payroll_run_id', $run)->orderBy('e.name')
             ->get(['l.*', 'e.name', 'e.code', 'e.job_title'])->map(fn ($l) => [
                 'employee_id' => (int) $l->employee_id, 'code' => $l->code, 'name' => $l->name, 'job_title' => $l->job_title, 'base' => $f($l->base), 'allowances' => $f($l->allowances), 'bonuses' => $f($l->bonuses),
-                'absence_deduction' => $f($l->absence_deduction), 'absent_days' => (string) $l->absent_days, 'other_deductions' => $f($l->other_deductions), 'social_employee' => $f($l->social_employee),
-                'social_employer' => $f($l->social_employer), 'advance_repayment' => $f($l->advance_repayment), 'net' => $f($l->net),
+                'absence_deduction' => $f($l->absence_deduction), 'absent_days' => (string) $l->absent_days, 'other_deductions' => $f($l->other_deductions), 'advance_repayment' => $f($l->advance_repayment), 'net' => $f($l->net),
             ]);
 
         return response()->json(['id' => (int) $r->id, 'period' => $r->period, 'status' => $r->status, 'total_net' => $f($r->total_net), 'paid_on' => $r->paid_on, 'lines' => $lines]);
