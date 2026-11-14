@@ -36,5 +36,9 @@ Run docker compose run --rm app php artisan erp:create-admin $e
 Write-Host "`n6/6 Sample data (TEST data: start from an empty database before real data)"
 $l = Read-Host 'Load sample data and demo users now? [Y/n]'
 if (-not $l -or $l -match '^[Yy]') { Run docker compose run --rm app php artisan erp:demo-data --with-users; New-Item .demo-installed -ItemType File -Force | Out-Null }
-Start-Sleep 3; docker compose cp web:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt 2>$null
+Start-Sleep 3
+$ErrorActionPreference = 'Continue'   # docker prints progress on stderr; that is not a failure
+docker compose cp web:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt *> $null
+$ErrorActionPreference = 'Stop'
+if (Test-Path caddy-root.crt) { Write-Host 'Saved caddy-root.crt (install it once on each device that opens the system).' }
 Write-Host "`nReady: https://$h   (install caddy-root.crt on each device once). See docs\QUICKSTART.md"
