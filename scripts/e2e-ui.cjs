@@ -18,7 +18,7 @@ const { chromium } = require('playwright');
 
   await step('rep-sees-sales-and-customers-not-admin', async () => { await login('sales@demo.test'); const n = await nav(); console.log('      nav:', n.join(' | ')); if (!n.includes('المبيعات') || !n.includes('العملاء والديون') || n.some((x) => x.includes('المستخدمون'))) throw new Error('bad nav'); const h1 = await page.locator('nav.side h1').innerText(); if (!h1.includes('هب الريح')) throw new Error('company name: ' + h1); });
   const row = (n) => page.locator('.sale-table tbody tr:nth-child(' + n + ')');
-  const fillLine = async (n, text, qtyText) => { await pick(row(n).locator('input[role=combobox]'), text); if (qtyText) await page.keyboard.type(qtyText); };
+  const fillLine = async (n, text, qtyText) => { await pick(row(n).locator('td.code input'), text); if (qtyText) await page.keyboard.type(qtyText); };
   const issue = () => page.getByRole('button', { name: 'إتمام البيع وإصدار الفاتورة' }).click();
   await step('rep-sale-table-enter-flow-prices-totals-and-invoice', async () => {
     await go('sales'); await page.waitForSelector('text=إتمام البيع');
@@ -27,11 +27,18 @@ const { chromium } = require('playwright');
     if ((await page.locator('.rownum-cell').allInnerTexts()).join() !== '1,2') throw new Error('rows are not numbered 1,2');
     if (await page.getByText('+ إضافة سطر').count()) throw new Error('add-line button still there');
     await page.waitForFunction(() => document.querySelector('.sale-table tbody tr:nth-child(2) td:nth-child(5)').textContent.trim() !== '');   // piece price arrives
-    const name = await row(1).locator('td.name').innerText(); if (!name.trim()) throw new Error('name column empty');
+    const name = await row(1).locator('td.name input').inputValue(); if (!name.trim()) throw new Error('name column empty');
     const grand = await page.locator('tr.grand td.num').innerText(); if (/^0\.00$/.test(grand.trim())) throw new Error('total is zero');
     await page.screenshot({ path: SH + 'y-newsale.png' });
     await issue(); await page.waitForSelector('.print-sheet'); const t = await page.locator('.print-sheet').innerText(); if (!t.includes('غير معروف')) throw new Error('buyer not unknown: ' + t.slice(0, 200));
     await page.waitForTimeout(700); await page.screenshot({ path: SH + 'y-invoice.png' }); await page.keyboard.press('Escape');
+  });
+  await step('rep-typing-the-name-or-the-exact-code-fills-the-other-box', async () => {
+    await go('sales'); await page.waitForSelector('text=إتمام البيع');
+    await pick(row(1).locator('td.name input'), 'Cementitious'); const code = await row(1).locator('td.code input').inputValue(); if (code !== 'CEM-WP-25') throw new Error('code not filled from name: ' + code);
+    await page.keyboard.press('Control+A'); await page.keyboard.type('1'); await page.keyboard.press('Enter');
+    await row(2).locator('td.code input').fill('MEMB-SBS3'); await row(2).locator('td.code input').press('Tab');          // exact code + Tab resolves by itself
+    await page.waitForFunction(() => document.querySelector('.sale-table tbody tr:nth-child(2) td.name input').value.includes('SBS'));
   });
   await step('rep-discount-lowers-the-total', async () => {
     await page.waitForTimeout(500); await fillLine(1, 'SBS3', '2'); await page.waitForFunction(() => !/^0\.00$/.test(document.querySelector('tr.grand td.num').textContent.trim()));

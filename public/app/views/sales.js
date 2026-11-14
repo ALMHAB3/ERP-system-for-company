@@ -103,15 +103,31 @@ function newOrder() {
     const r = { product: null, price: 0 };
     r.no = h('td', { class: 'rownum-cell' }, '');
     r.code = h('input', { autocomplete: 'off', placeholder: 'كود الصنف أو اسمه', role: 'combobox', dir: 'ltr' });
-    r.nameCell = h('td', { class: 'name' }, '');
+    r.nameInput = h('input', { autocomplete: 'off', placeholder: 'اسم الصنف أو كوده', role: 'combobox' });   // typing in either box fills the other
     r.qty = h('input', { inputmode: 'decimal', dir: 'ltr', placeholder: '0', class: 'qty' });
     r.priceCell = h('td', { class: 'num' }, ''); r.lineCell = h('td', { class: 'num strong' }, '');
-    const list = attachSearch(r.code, products, { onPick: (p) => {
-      r.product = p; r.code.value = p.sku; r.nameCell.textContent = p.name;
+    const choose = (p) => {
+      r.product = p; r.code.value = p.sku; r.nameInput.value = p.name;
       if (!r.qty.value.trim()) r.qty.value = '1';
       quote(r); r.qty.focus(); r.qty.select();
-    } });
-    r.code.addEventListener('input', () => { if (r.product && r.code.value !== r.product.sku) { r.product = null; r.nameCell.textContent = ''; quote(r); recalc(); } });
+    };
+    const codeList = attachSearch(r.code, products, { onPick: choose }), nameList = attachSearch(r.nameInput, products, { onPick: choose });
+    // Whatever was typed (code, name, or part of either) is resolved when the box is left or Enter is pressed: an exact code, an exact name, or the only match.
+    const resolve = (text) => {
+      const q = text.trim().toLowerCase();
+      if (!q) return null;
+      const hits = products.filter((p) => p.sku.toLowerCase() === q || p.name.toLowerCase() === q);
+      if (hits.length === 1) return hits[0];
+      const part = products.filter((p) => p.label.toLowerCase().includes(q));
+      return part.length === 1 ? part[0] : null;
+    };
+    for (const box of [r.code, r.nameInput]) {
+      box.addEventListener('input', () => {
+        if (r.product && box.value !== (box === r.code ? r.product.sku : r.product.name)) { r.product = null; (box === r.code ? r.nameInput : r.code).value = ''; quote(r); recalc(); }
+      });
+      box.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.defaultPrevented) { e.preventDefault(); if (!r.product) { const p = resolve(box.value); if (p) choose(p); } else r.qty.focus(); } });
+      box.addEventListener('blur', () => setTimeout(() => { if (!r.product && box.value.trim()) { const p = resolve(box.value); if (p) { r.product = p; r.code.value = p.sku; r.nameInput.value = p.name; if (!r.qty.value.trim()) r.qty.value = '1'; quote(r); } } }, 160));
+    }
     r.qty.addEventListener('input', () => { quote(r); recalc(); });
     r.qty.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
@@ -119,9 +135,9 @@ function newOrder() {
       if (!r.product || num(r.qty.value) <= 0) return;
       const next = rows[rows.indexOf(r) + 1] || addRow(); next.code.focus();   // Enter on the quantity goes to the next numbered line
     });
-    const tr = h('tr', null, r.no, h('td', { class: 'code' }, h('div', { class: 'searchbox' }, r.code, list)), r.nameCell, h('td', null, r.qty), r.priceCell, r.lineCell,
+    const tr = h('tr', null, r.no, h('td', { class: 'code' }, h('div', { class: 'searchbox' }, r.code, codeList)), h('td', { class: 'name' }, h('div', { class: 'searchbox' }, r.nameInput, nameList)), h('td', null, r.qty), r.priceCell, r.lineCell,
       h('td', null, h('button', { class: 'btn danger small', type: 'button', title: 'حذف السطر', onclick: () => {
-        if (rows.length === 1) { r.product = null; r.code.value = ''; r.qty.value = ''; r.nameCell.textContent = ''; quote(r); recalc(); return; }
+        if (rows.length === 1) { r.product = null; r.code.value = ''; r.qty.value = ''; r.nameInput.value = ''; quote(r); recalc(); return; }
         tr.remove(); rows.splice(rows.indexOf(r), 1); renumber(); recalc();
       } }, '✕')));
     r.tr = tr; rows.push(r); tbody.append(tr); renumber();
@@ -162,7 +178,7 @@ function newOrder() {
   const vatRow = h('tr', null, h('td', { colspan: 5, class: 'lbl' }, 'الضريبة'), vatCell, h('td'));
   const reset = () => {
     while (rows.length > 1) { rows.pop().tr.remove(); }
-    const r = rows[0]; r.product = null; r.code.value = ''; r.qty.value = ''; r.nameCell.textContent = ''; r.priceCell.textContent = ''; r.lineCell.textContent = '';
+    const r = rows[0]; r.product = null; r.code.value = ''; r.qty.value = ''; r.nameInput.value = ''; r.priceCell.textContent = ''; r.lineCell.textContent = '';
     buyerName.value = ''; customerBox.value = ''; customerId = null; reference.value = ''; discount.value = ''; paid.value = ''; paidTouched = false; method.value = 'cash'; renumber(); recalc(); r.code.focus();
   };
   const submit = h('button', { class: 'btn', type: 'button', onclick: async (e) => {

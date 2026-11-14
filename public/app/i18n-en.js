@@ -3435,5 +3435,9 @@ export const EN_PAIRS = [
 [
 "تعديل خصائص صنف (التخطيط والصلاحية)",
 "Edit product properties (planning and expiry)"
+],
+[
+"اسم الصنف أو كوده",
+"Item name or code"
 ]
 ];
