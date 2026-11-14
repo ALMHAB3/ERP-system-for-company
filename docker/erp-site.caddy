@@ -10,6 +10,7 @@ header {
 	-Server
 }
 @app path /app/*
+header @app Cache-Control "no-cache"   # the browser must re-check the interface files on every visit, so an update never mixes old and new scripts
 header @app Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 @hidden path /.* /storage/* /vendor/*
 respond @hidden 404
