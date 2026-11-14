@@ -15,5 +15,8 @@ header @app Content-Security-Policy "default-src 'self'; script-src 'self'; styl
 respond @hidden 404
 # The real client address for rate limiting and the audit log (never trust a header sent by the browser itself)
 request_header X-Forwarded-For {client_ip}
+# /app/ is a static folder (the web interface): serve its index page instead of handing the request to Laravel
+@appdir path /app /app/
+rewrite @appdir /app/index.html
 php_fastcgi app:9000
 file_server
