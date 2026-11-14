@@ -1,4 +1,4 @@
-import { h, get, post, put, download, form, table, tabs, panel, act, can, modal, badge, toast, state, opts } from '../ui.js';
+import { h, get, post, put, download, form, table, tabs, panel, act, can, modal, badge, toast, state, opts, reloadLookups } from '../ui.js';
 
 function users() {
   return panel(async (refresh) => {
@@ -79,6 +79,18 @@ function integrations() {
   });
 }
 
+const WH_TYPES = [['main', 'رئيسي'], ['branch', 'فرع'], ['transit', 'ترانزيت'], ['returns', 'مرتجعات'], ['damaged', 'تالف']];
+
+function branches() {
+  return panel(async (refresh) => h('div', null,
+    h('div', { class: 'card' }, h('h3', null, 'إضافة فرع أو مستودع'),
+      h('p', { class: 'hint' }, 'لكل فرع مخزونه ومبيعاته. بعد إضافته أعطِ المستخدمين صلاحية العمل فيه من تبويب «المستخدمون».'),
+      form([{ name: 'code', label: 'الرمز (مثل BR2)', type: 'text', required: true }, { name: 'name', label: 'اسم الفرع', type: 'text', required: true },
+        { name: 'type', label: 'النوع', type: 'select', value: 'branch', options: WH_TYPES.map(([value, label]) => ({ value, label })) }],
+      'إضافة', async (v, f) => { await post('warehouses', v); await reloadLookups(); toast('تمت الإضافة', 'ok'); f.reset(); refresh(); })),
+    table([{ label: 'الرمز', render: (w) => h('span', { class: 'ltr' }, w.code) }, { label: 'الاسم', key: 'name' }, { label: 'النوع', render: (w) => WH_TYPES.find(([k]) => k === w.type)?.[1] || w.type }], state.lookups.warehouses, 'لا توجد فروع')));
+}
+
 export default async function () {
-  return tabs([...(can('users.manage') ? [{ label: 'المستخدمون', render: async () => users() }] : []), ...(can('audit.view') ? [{ label: 'سجل التدقيق', render: async () => audit() }] : []), ...(can('integrations.manage') ? [{ label: 'التكاملات', render: async () => integrations() }] : [])]);
+  return tabs([...(can('users.manage') ? [{ label: 'المستخدمون', render: async () => users() }, { label: 'الفروع والمستودعات', render: async () => branches() }] : []), ...(can('audit.view') ? [{ label: 'سجل التدقيق', render: async () => audit() }] : []), ...(can('integrations.manage') ? [{ label: 'التكاملات', render: async () => integrations() }] : [])]);
 }

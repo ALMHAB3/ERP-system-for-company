@@ -14,27 +14,31 @@ final class RoleCatalog
         $P = Permission::class;
 
         return [
-            'admin' => ['label' => 'System administrator', 'approval_level' => 3, 'permissions' => $all],
-            'general_manager' => ['label' => 'General manager', 'approval_level' => 3, 'permissions' => array_values(array_filter(
-                $all, static fn (Permission $p) => $p !== Permission::UsersManage && $p !== Permission::IntegrationsManage,
+            'admin' => ['label' => 'مدير النظام', 'approval_level' => 3, 'permissions' => array_values(array_filter($all, static fn (Permission $p) => $p !== Permission::SalesCreate))],
+            'general_manager' => ['label' => 'المدير العام', 'approval_level' => 3, 'permissions' => array_values(array_filter(
+                $all, static fn (Permission $p) => $p !== Permission::UsersManage && $p !== Permission::IntegrationsManage && $p !== Permission::SalesCreate,
             ))],
-            'finance_manager' => ['label' => 'Finance manager', 'approval_level' => 2, 'permissions' => [
+            'finance_manager' => ['label' => 'المدير المالي', 'approval_level' => 2, 'permissions' => [
                 Permission::FinanceView, Permission::AuditView, Permission::SalesInvoice, Permission::PurchaseOrdersApprove,
                 Permission::ShipmentsCost, Permission::InventoryView, Permission::InventoryViewCost, Permission::WarehousesAll,
                 Permission::SupplierInvoicesRecord, Permission::SupplierPaymentsMake, Permission::GrIrClear, Permission::ReceiptsRecord,
                 Permission::SalesReturn, Permission::SalesOverrideCredit, Permission::ReportsView, Permission::SuppliersManage,
                 Permission::CurrenciesManage, Permission::ShipmentsSettle, Permission::BanksManage,
             ]],
-            'purchasing_manager' => ['label' => 'Purchasing manager', 'approval_level' => 1, 'permissions' => [
+            'accountant' => ['label' => 'محاسب', 'approval_level' => 1, 'permissions' => [
+                Permission::FinanceView, Permission::ReceiptsRecord, Permission::SupplierInvoicesRecord, Permission::SalesInvoice,
+                Permission::InventoryView, Permission::WarehousesAll, Permission::ReportsView,
+            ]],
+            'purchasing_manager' => ['label' => 'مدير المشتريات', 'approval_level' => 1, 'permissions' => [
                 Permission::PurchaseOrdersCreate, Permission::PurchaseOrdersApprove, Permission::ShipmentsManage,
                 Permission::MasterDataManage, Permission::InventoryView, Permission::InventoryViewCost, Permission::WarehousesAll,
                 Permission::SuppliersManage, Permission::ReportsView,
             ]],
-            'warehouse_clerk' => ['label' => 'Warehouse clerk', 'approval_level' => 0, 'permissions' => [
+            'warehouse_clerk' => ['label' => 'أمين المخزن / عامل', 'approval_level' => 0, 'permissions' => [
                 Permission::InventoryView, Permission::InventoryAdjust, Permission::InventoryTransfer,
                 Permission::ShipmentsReceive, Permission::PurchaseOrdersReceive, Permission::SalesShip,
             ]],
-            'sales_rep' => ['label' => 'Sales representative', 'approval_level' => 0, 'permissions' => [
+            'sales_rep' => ['label' => 'مندوب مبيعات', 'approval_level' => 0, 'permissions' => [
                 Permission::SalesCreate, Permission::SalesCancel, Permission::InventoryView, Permission::SalesReturn,
             ]],
         ];

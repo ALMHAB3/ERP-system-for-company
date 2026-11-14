@@ -34,7 +34,7 @@ final class EInvoiceService
     {
         $i = DB::table('sales_invoices as i')->join('sales_orders as o', 'o.id', '=', 'i.sales_order_id')->join('customers as c', 'c.id', '=', 'o.customer_id')
             ->where('i.id', $invoiceId)
-            ->first(['i.*', 'o.number as order_number', 'o.payment_method', 'o.payment_reference', 'c.name as customer', 'c.tax_id as customer_tax_id', 'c.address as customer_address'])
+            ->first(['i.*', 'o.number as order_number', 'o.payment_method', 'o.payment_reference', 'o.customer_name', 'c.name as customer', 'c.tax_id as customer_tax_id', 'c.address as customer_address'])
             ?? throw new DomainException("Invoice {$invoiceId} not found.");
         $lines = $this->lines((int) $i->sales_order_id)->map(fn ($l) => [
             'sku' => $l->sku, 'name' => $l->name, 'uom' => $l->base_uom, 'quantity' => (string) Fixed::units((int) $l->quantity),
@@ -47,7 +47,7 @@ final class EInvoiceService
             'number' => $i->number, 'type' => 'invoice', 'issued_at' => $issued, 'due_date' => $i->due_date, 'currency' => config('erp.base_currency'),
             'order' => $i->order_number, 'payment_method' => $i->payment_method, 'payment_reference' => $i->payment_reference,
             'seller' => ['name' => config('erp.company_name'), 'tax_id' => $company['tax_id'] ?? '', 'address' => $company['address'] ?? '', 'phone' => $company['phone'] ?? ''],
-            'buyer' => ['name' => $i->customer, 'tax_id' => $i->customer_tax_id, 'address' => $i->customer_address],
+            'buyer' => ['name' => $i->customer_name ?? $i->customer, 'tax_id' => $i->customer_tax_id, 'address' => $i->customer_address],
             'lines' => $lines,
             'totals' => ['net' => (string) Fixed::units((int) $i->net), 'tax' => (string) Fixed::units((int) $i->tax), 'gross' => (string) Fixed::units((int) $i->gross), 'vat_rate' => config('erp.vat_rate')],
             'fingerprint' => $i->fingerprint, 'previous_fingerprint' => $i->prev_fingerprint,

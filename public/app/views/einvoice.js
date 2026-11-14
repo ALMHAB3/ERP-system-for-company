@@ -1,7 +1,7 @@
 import { h, get, modal, toast, money, qty } from '../ui.js';
 // window.qrcode comes from /app/lib/qrcode.js (MIT, Kazuhiko Arase), loaded as a classic script in index.html; the QR is drawn as a data: image so the strict CSP still holds
 
-const METHOD = { cash: 'نقداً', transfer: 'تحويل مصرفي', credit: 'بالأجل' };
+const METHOD = { cash: 'نقداً', transfer: 'تحويل مصرفي', credit: 'دين على العميل' };
 
 // The printable invoice. Arabic company name is data-no-translate: it never changes with the language.
 export async function einvoiceView(invoiceId) {

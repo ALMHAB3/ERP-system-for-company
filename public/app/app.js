@@ -5,6 +5,8 @@ import inventory from './views/inventory.js';
 import imports from './views/imports.js';
 import purchasing from './views/purchasing.js';
 import sales from './views/sales.js';
+import customers from './views/customers.js';
+import suppliers from './views/suppliers.js';
 import finance from './views/finance.js';
 import reports from './views/reports.js';
 import admin from './views/admin.js';
@@ -13,8 +15,10 @@ const SECTIONS = [
   { id: 'dashboard', label: 'لوحة المؤشرات', perms: [], view: dashboard },
   { id: 'inventory', label: 'المخزون', perms: ['inventory.view'], view: inventory },
   { id: 'imports', label: 'الاستيراد والشحنات', perms: ['shipments.manage', 'shipments.cost', 'shipments.receive'], view: imports },
-  { id: 'purchasing', label: 'المشتريات والموردون', perms: ['purchase_orders.create', 'purchase_orders.approve', 'purchase_orders.receive', 'supplier_invoices.record', 'supplier_payments.make', 'suppliers.manage', 'finance.view'], view: purchasing },
-  { id: 'sales', label: 'المبيعات والعملاء', perms: ['sales.create', 'sales.ship', 'sales.invoice', 'receipts.record', 'finance.view'], view: sales },
+  { id: 'sales', label: 'المبيعات', perms: ['sales.create', 'sales.ship', 'sales.invoice', 'reports.view'], view: sales },
+  { id: 'customers', label: 'العملاء والديون', perms: ['sales.create', 'receipts.record', 'finance.view', 'master_data.manage'], view: customers },
+  { id: 'purchasing', label: 'المشتريات', perms: ['purchase_orders.create', 'purchase_orders.approve', 'purchase_orders.receive', 'shipments.settle', 'finance.view'], view: purchasing },
+  { id: 'suppliers', label: 'الموردون', perms: ['supplier_invoices.record', 'supplier_payments.make', 'suppliers.manage', 'finance.view'], view: suppliers },
   { id: 'finance', label: 'المحاسبة', perms: ['finance.view'], view: finance },
   { id: 'reports', label: 'التقارير والتخطيط', perms: ['reports.view'], view: reports },
   { id: 'admin', label: 'المستخدمون والتدقيق', perms: ['users.manage', 'audit.view', 'integrations.manage'], view: admin },
@@ -27,6 +31,8 @@ const companyName = (tag, cls) => h(tag, { class: cls, 'data-no-translate': '' }
 const ICONS = {
   dashboard: ['M3 3h7v9H3z', 'M14 3h7v5h-7z', 'M14 12h7v9h-7z', 'M3 16h7v5H3z'],
   inventory: ['M21 8l-9-5-9 5v8l9 5 9-5V8z', 'M3 8l9 5 9-5', 'M12 13v8'],
+  customers: ['M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M4 21c0-4 3.5-7 8-7s8 3 8 7'],
+  suppliers: ['M3 7h11v9H3z', 'M14 10h4l3 3v3h-7z', 'M7 19.5h.01', 'M17 19.5h.01'],
   imports: ['M3 17l2 3h14l2-3', 'M5 17v-6h14v6', 'M9 11V7h6v4', 'M12 3v4'],
   purchasing: ['M3 4h2l2.5 11h10L20 7H6', 'M9 19.5h.01', 'M17 19.5h.01'],
   sales: ['M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2V3z', 'M9 8h6', 'M9 12h6'],

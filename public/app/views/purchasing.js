@@ -32,7 +32,7 @@ function newOrder() {
   });
 }
 
-function suppliers() {
+export function suppliers() {
   return panel(async (refresh) => h('div', null,
     can('suppliers.manage') ? h('div', { class: 'card' }, h('h3', null, 'إضافة مورد'), form([
       { name: 'name', label: 'الاسم', type: 'text', required: true }, { name: 'country', label: 'الدولة (رمز من حرفين)', type: 'text' },
@@ -41,7 +41,7 @@ function suppliers() {
     table([{ label: 'المورد', key: 'name' }, { label: 'الدولة', key: 'country' }, { label: 'العملة', key: 'currency' }, { label: 'مدة السداد', num: true, key: 'terms_days' }], (await get('payables/suppliers')).data)));
 }
 
-async function bills() {
+export async function bills() {
   const [shipments, orders] = await Promise.all([can('shipments.manage', 'shipments.cost', 'shipments.receive') ? get('shipments') : { data: [] }, can('purchase_orders.create', 'purchase_orders.approve', 'purchase_orders.receive') ? get('purchase-orders') : { data: [] }]);
   const refs = [{ value: '', label: '— (للمصروفات العامة فقط) —' }, ...shipments.data.map((s) => ({ value: 'shipment:' + s.reference, label: 'شحنة ' + s.reference })), ...orders.data.map((o) => ({ value: 'po:' + o.number, label: 'أمر شراء ' + o.number }))];
   return panel(async (refresh) => {
@@ -66,7 +66,7 @@ async function bills() {
   });
 }
 
-function pay() {
+export function pay() {
   return panel(async (refresh) => {
     const supplierBox = h('div');
     const picker = form([{ name: 'supplier_id', label: 'المورد', type: 'select', options: [{ value: '', label: '— اختر —' }, ...opts.suppliers()] }], 'عرض فواتيره المفتوحة', async (v) => {
@@ -134,7 +134,7 @@ function settlement() {
   });
 }
 
-function ageing() {
+export function ageing() {
   return panel(async () => {
     const r = await get('payables/ageing');
     return h('div', null, h('div', { class: 'cards' }, Object.entries(r.buckets).map(([k, v]) => h('div', { class: 'kpi' }, h('div', { class: 'l' }, k === 'current' ? 'غير مستحق' : k + ' يوم تأخير'), h('div', { class: 'v' }, money(v))))),
@@ -146,11 +146,7 @@ export default async function () {
   return tabs([
     ...(can('purchase_orders.create', 'purchase_orders.approve', 'purchase_orders.receive') ? [{ label: 'أوامر الشراء', render: async () => orders() }] : []),
     ...(can('purchase_orders.create') ? [{ label: 'أمر شراء جديد', render: async () => newOrder() }] : []),
-    { label: 'الموردون', render: async () => suppliers() },
-    ...(can('finance.view', 'supplier_invoices.record') ? [{ label: 'فواتير الموردين', render: bills }] : []),
-    ...(can('supplier_payments.make') ? [{ label: 'دفع للموردين', render: async () => pay() }] : []),
     ...(can('finance.view') ? [{ label: 'مطابقة المستلم والمفوتر (GR/IR)', render: async () => grir() }] : []),
     ...(can('shipments.settle') ? [{ label: 'التكلفة النهائية للشحنة', render: async () => settlement() }] : []),
-    ...(can('reports.view') ? [{ label: 'أعمار ديون الموردين', render: async () => ageing() }] : []),
   ]);
 }

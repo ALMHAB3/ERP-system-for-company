@@ -2559,5 +2559,257 @@ export const EN_PAIRS = [
 [
 "تفعيل",
 "Activate"
+],
+[
+"العملاء والديون",
+"Customers & debts"
+],
+[
+"المشتريات",
+"Purchasing"
+],
+[
+"الديون المطلوبة من العملاء",
+"Debts owed by customers"
+],
+[
+"أعمار الديون: لنا (على العملاء) وعلينا (للموردين)",
+"Debt ageing: owed to us (customers) and by us (suppliers)"
+],
+[
+"الديون المطلوبة للموردين",
+"Debts owed to suppliers"
+],
+[
+"أعمار الديون",
+"Debt ageing"
+],
+[
+"له تاريخ انتهاء صلاحية (يُطلب تاريخه عند الاستلام)",
+"Has an expiry date (the date is required on receipt)"
+],
+[
+"له تاريخ انتهاء صلاحية",
+"Has an expiry date"
+],
+[
+"تعديل خصائص صنف (التخطيط، الأرقام التسلسلية، الصلاحية)",
+"Edit product properties (planning, serial numbers, expiry)"
+],
+[
+"أسعار البيع",
+"Selling prices"
+],
+[
+"سعر الشراء للوحدة (بعملة الشحنة)",
+"Purchase price per unit (shipment currency)"
+],
+[
+"سعر الشراء",
+"Purchase price"
+],
+[
+"سعر البيع للوحدة بالدينار (يُعتمد عند الاستلام)",
+"Selling price per unit in dinar (applied on receipt)"
+],
+[
+"سعر البيع",
+"Selling price"
+],
+[
+"تاريخ انتهاء الصلاحية",
+"Expiry date"
+],
+[
+"المبيعات (اليوم / الأسبوع / الشهر)",
+"Sales (today / week / month)"
+],
+[
+"اليوم",
+"Today"
+],
+[
+"آخر 7 أيام",
+"Last 7 days"
+],
+[
+"آخر 30 يوماً",
+"Last 30 days"
+],
+[
+"عدد الفواتير",
+"Number of invoices"
+],
+[
+"إجمالي المبيعات",
+"Total sales"
+],
+[
+"الصافي قبل الضريبة",
+"Net before tax"
+],
+[
+"حسب مندوب المبيعات",
+"By sales representative"
+],
+[
+"المندوب",
+"Sales rep"
+],
+[
+"حسب طريقة الدفع",
+"By payment method"
+],
+[
+"الطريقة",
+"Method"
+],
+[
+"نقداً",
+"Cash"
+],
+[
+"غير معروف",
+"Unknown"
+],
+[
+"تحصيل الديون والفواتير",
+"Collect debts & invoices"
+],
+[
+"الفروع والمستودعات",
+"Branches & warehouses"
+],
+[
+"دين على العميل (لعملاء مسجَّلين فقط)",
+"Debt on the customer (registered customers only)"
+],
+[
+"دين على العميل",
+"Debt on the customer"
+],
+[
+"اسم الزبون (اختياري — إن تُرك فارغاً يُسجَّل «غير معروف»)",
+"Customer name (optional — if left empty it is recorded as “Unknown”)"
+],
+[
+"العميل المسجَّل (الدين يكون على عميل مسجَّل فقط)",
+"Registered customer (a debt can only be on a registered customer)"
+],
+[
+"عميل جديد؟ سجّله أولاً من شاشة «العملاء».",
+"New customer? Register them first on the “Customers” screen."
+],
+[
+"الأصناف (السعر يحسبه النظام من قائمة الأسعار)",
+"Items (the system takes the price from the price list)"
+],
+[
+"الأرقام التسلسلية (للأصناف المتتبَّعة فقط، رقم في كل سطر)",
+"Serial numbers (tracked items only, one per line)"
+],
+[
+"إتمام البيع وإصدار الفاتورة",
+"Complete the sale and issue the invoice"
+],
+[
+"لا توجد حسابات مصرفية: يضيفها المحاسب من «المحاسبة ← الحسابات المصرفية»",
+"No bank accounts: the accountant adds them in “Accounting ← Bank accounts”"
+],
+[
+"الدين لا يكون إلا على عميل مسجَّل: اختر العميل، أو سجّله من شاشة العملاء",
+"A debt can only be on a registered customer: choose one, or register them on the Customers screen"
+],
+[
+"تمت عملية البيع — الفاتورة ",
+"Sale completed — invoice "
+],
+[
+" بإجمالي ",
+" total "
+],
+[
+"مبيعاتي",
+"My sales"
+],
+[
+"بيع جديد",
+"New sale"
+],
+[
+"عرض الفاتورة",
+"View invoice"
+],
+[
+"لا توجد مبيعات بعد",
+"No sales yet"
+],
+[
+"لا توجد مبيعات في هذه الفترة",
+"No sales in this period"
+],
+[
+"الفروع",
+"Branches"
+],
+[
+"لكل فرع مخزونه ومبيعاته. بعد إضافته أعطِ المستخدمين صلاحية العمل فيه من تبويب «المستخدمون».",
+"Each branch has its own stock and sales. After adding it, give users access to it in the “Users” tab."
+],
+[
+"إضافة فرع أو مستودع",
+"Add a branch or warehouse"
+],
+[
+"الرمز (مثل BR2)",
+"Code (e.g. BR2)"
+],
+[
+"اسم الفرع",
+"Branch name"
+],
+[
+"فرع",
+"Branch"
+],
+[
+"لا توجد فروع",
+"No branches"
+],
+[
+"مدير النظام",
+"System administrator"
+],
+[
+"المدير العام",
+"General manager"
+],
+[
+"المدير المالي",
+"Finance manager"
+],
+[
+"مدير المشتريات",
+"Purchasing manager"
+],
+[
+"أمين المخزن / عامل",
+"Warehouse keeper / worker"
+],
+[
+"مندوب مبيعات",
+"Sales representative"
+],
+[
+"محاسب",
+"Accountant"
+],
+[
+"البيع بدين على العميل لا يتم إلا لعميل مسجَّل لدينا. أضفه أولاً من شاشة العملاء.",
+"A debt sale is only for a customer registered with us. Add them first on the Customers screen."
+],
+[
+"الصنف {sku} له تاريخ صلاحية",
+"Product has an expiry date"
 ]
 ];

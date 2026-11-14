@@ -117,7 +117,7 @@ final class DemoDataCommand extends Command
             ['GEOTEX-200', 'Geotextile fabric roll 200g - قماش جيوتكستايل 200 جم', 41, 5, 0, 50, 'ROLL'], ['SEAL-310', 'Silicone sealant carton of 24 - سيليكون مانع تسرب كرتون', 31, 10, 12, 50, 'CTN'],
             ['TILEADH-25', 'Tile adhesive 25kg - لاصق بلاط 25 كجم', 4.1, 5, 12, 45, 'BAG'], ['JOINT-TAPE', 'Expansion joint tape roll - شريط فواصل تمدد', 9.4, 5, 0, 50, 'ROLL'],
         ] as [$sku, $name, $usd, $duty, $shelf, $lead, $uom]) {
-            $id = DB::table('products')->insertGetId(['sku' => $sku, 'name' => $name, 'base_uom' => $uom, 'lead_time_days' => $lead, 'cover_days' => 30, 'created_at' => $now, 'updated_at' => $now]);
+            $id = DB::table('products')->insertGetId(['sku' => $sku, 'name' => $name, 'base_uom' => $uom, 'lead_time_days' => $lead, 'cover_days' => 30, 'has_expiry' => $shelf > 0, 'created_at' => $now, 'updated_at' => $now]);
             $products[$sku] = ['id' => $id, 'usd' => $usd, 'duty' => $duty, 'shelf' => $shelf];
         }
         $supplier = fn (string $name, string $cur, string $country) => DB::table('suppliers')->insertGetId(['name' => $name, 'country' => $country, 'currency' => $cur, 'terms_days' => 30, 'active' => true, 'created_at' => $now, 'updated_at' => $now]);
@@ -357,10 +357,14 @@ final class DemoDataCommand extends Command
     {
         $access = app(AccessRepository::class);
         $wh = (int) DB::table('warehouses')->where('code', 'MAIN')->value('id');
-        foreach ([['manager', 'general_manager', []], ['finance', 'finance_manager', []], ['purchasing', 'purchasing_manager', []], ['warehouse', 'warehouse_clerk', [$wh]], ['sales', 'sales_rep', [$wh]]] as [$name, $role, $warehouses]) {
+        foreach ([['manager', 'general_manager', []], ['finance', 'finance_manager', []], ['purchasing', 'purchasing_manager', []], ['warehouse', 'warehouse_clerk', [$wh]], ['sales', 'sales_rep', [$wh]], ['accountant', 'accountant', []]] as [$name, $role, $warehouses]) {
             $user = User::query()->create(['name' => 'Demo '.$name, 'email' => $name.'@demo.test', 'password' => self::DEMO_PASSWORD, 'active' => true]);
             $access->replaceAccess($user->id, [$role], $warehouses);
         }
-        $this->line('Demo users (password '.self::DEMO_PASSWORD.'): manager@, finance@, purchasing@, warehouse@, sales@ demo.test');
+        // the demo sales were made through the services: attribute them to the demo sales representative
+        $rep = (int) User::query()->where('email', 'sales@demo.test')->value('id');
+        DB::table('sales_orders')->whereNull('created_by')->update(['created_by' => $rep]);
+        DB::table('sales_orders')->whereIn('customer_id', DB::table('customers')->where('is_walk_in', true)->select('id'))->whereNull('customer_name')->update(['customer_name' => 'غير معروف']);
+        $this->line('Demo users (password '.self::DEMO_PASSWORD.'): manager@, finance@, purchasing@, warehouse@, sales@, accountant@ demo.test  (administrator: the account you created)');
     }
 }

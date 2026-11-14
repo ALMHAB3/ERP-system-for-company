@@ -64,9 +64,9 @@ final class ReceivablesController extends ApiController
             ->when(isset($f['customer_id']), fn ($q) => $q->where('o.customer_id', $f['customer_id']))
             ->when(! empty($f['open']), fn ($q) => $q->whereRaw('i.gross - i.paid - i.credited > 0'))
             ->orderByDesc('i.id')->limit(500)
-            ->get(['i.id', 'i.number', 'c.id as customer_id', 'c.name as customer', 'o.number as order_number', 'i.due_date', 'i.net', 'i.tax', 'i.gross', 'i.paid', 'i.credited', 'i.created_at'])
+            ->get(['i.id', 'i.number', 'c.id as customer_id', 'c.name as customer', 'o.customer_name', 'o.number as order_number', 'i.due_date', 'i.net', 'i.tax', 'i.gross', 'i.paid', 'i.credited', 'i.created_at'])
             ->map(fn ($r) => [
-                'id' => (int) $r->id, 'number' => $r->number, 'customer_id' => (int) $r->customer_id, 'customer' => $r->customer, 'order' => $r->order_number,
+                'id' => (int) $r->id, 'number' => $r->number, 'customer_id' => (int) $r->customer_id, 'customer' => $r->customer_name ?? $r->customer, 'order' => $r->order_number,
                 'issued' => $r->created_at, 'due_date' => $r->due_date, 'net' => (string) Fixed::units((int) $r->net), 'tax' => (string) Fixed::units((int) $r->tax),
                 'gross' => (string) Fixed::units((int) $r->gross), 'paid' => (string) Fixed::units((int) $r->paid), 'credited' => (string) Fixed::units((int) $r->credited),
                 'balance' => (string) Fixed::units((int) $r->gross - (int) $r->paid - (int) $r->credited),

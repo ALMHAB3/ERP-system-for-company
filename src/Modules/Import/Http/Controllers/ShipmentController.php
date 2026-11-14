@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Modules\Import\Http\Controllers;
 
+use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Modules\Finance\Application\ExchangeRates;
 use Modules\Import\Application\LandedCostService;
+use Modules\Import\Application\ShipmentPricing;
 use Modules\Import\Domain\CostBasis;
 use Modules\Import\Domain\CostItem;
 use Modules\Import\Domain\LandedCostResult;
@@ -35,6 +38,7 @@ final class ShipmentController extends ApiController
             'lines.*.duty_rate' => ['required', Decimal::RULE],
             'lines.*.lot_no' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9._-]+$/'],
             'lines.*.expiry_date' => ['nullable', 'date_format:Y-m-d'],
+            'lines.*.sale_price' => ['nullable', Decimal::RULE],
             'costs' => ['array', 'max:50'],
             'costs.*.code' => ['required', 'string', 'max:40', 'not_in:PURCHASE,DUTY'],
             'costs.*.amount' => ['required', Decimal::RULE],
@@ -42,6 +46,13 @@ final class ShipmentController extends ApiController
             'costs.*.in_customs_value' => ['boolean'],
         ]);
 
+        // A product that has an expiry date needs one on every shipment line (a product without one simply leaves it empty).
+        $expiring = DB::table('products')->where('has_expiry', true)->whereIn('id', array_column($d['lines'], 'product_id'))->pluck('sku', 'id');
+        foreach ($d['lines'] as $l) {
+            if (isset($expiring[$l['product_id']]) && empty($l['expiry_date'])) {
+                throw new DomainException("الصنف {$expiring[$l['product_id']]} له تاريخ صلاحية: أدخل تاريخ انتهاء الصلاحية لهذا البند.");
+            }
+        }
         $shipment = $service->open(new Shipment(
             null, $d['reference'], strtoupper($d['currency']), $rates->resolve($d['currency'], $d['exchange_rate'] ?? null, isset($d['rate_date']) ? new \DateTimeImmutable($d['rate_date']) : null), 'open',
             array_map(fn ($l) => new ShipmentLine(
@@ -54,6 +65,12 @@ final class ShipmentController extends ApiController
             ), $d['lines']),
             array_map(fn ($c) => new CostItem($c['code'], Decimal::of($c['amount']), CostBasis::from($c['basis']), (bool) ($c['in_customs_value'] ?? false)), $d['costs'] ?? []),
         ));
+
+        foreach ($shipment->lines as $i => $line) {
+            if (! empty($d['lines'][$i]['sale_price'])) {
+                DB::table('shipment_lines')->where('id', $line->id)->update(['sale_price' => Decimal::of($d['lines'][$i]['sale_price'])->units]);
+            }
+        }
 
         return response()->json(['id' => $shipment->id, 'status' => $shipment->status], 201);
     }
@@ -79,6 +96,7 @@ final class ShipmentController extends ApiController
         $d = $request->validate(['warehouse_id' => ['required', 'integer', 'exists:warehouses,id']]);
         $this->warehouse($request, $d['warehouse_id']);
         $service->receive($shipment, $d['warehouse_id']);
+        app(ShipmentPricing::class)->apply($shipment);
 
         return response()->json(['id' => $shipment, 'status' => 'received']);
     }

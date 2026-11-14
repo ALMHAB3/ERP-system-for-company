@@ -30,7 +30,7 @@ final class ListController extends ApiController
             'currency' => config('erp.base_currency'),
             'currencies' => collect($rates->latest())->map(fn ($r, $code) => ['code' => $code, 'name' => config('erp.currencies')[$code] ?? $code, 'rate' => $r['rate'], 'rate_date' => $r['date']])->values(),
             'vat_rate' => (string) config('erp.vat_rate'),
-            'products' => DB::table('products')->where('active', true)->orderBy('sku')->limit(5000)->get(['id', 'sku', 'name', 'base_uom', 'lead_time_days', 'cover_days', 'tracks_serials']),
+            'products' => DB::table('products')->where('active', true)->orderBy('sku')->limit(5000)->get(['id', 'sku', 'name', 'base_uom', 'lead_time_days', 'cover_days', 'tracks_serials', 'has_expiry']),
             'warehouses' => DB::table('warehouses')->where('active', true)->orderBy('code')->get(['id', 'code', 'name', 'type'])
                 ->filter(fn ($w) => $this->access->canUseWarehouse($userId, (int) $w->id))->values(),
             'customers' => DB::table('customers')->orderBy('is_walk_in', 'desc')->orderBy('name')->limit(5000)->get(['id', 'name', 'category', 'credit_limit', 'terms_days', 'is_walk_in', 'tax_id', 'address'])
@@ -46,7 +46,7 @@ final class ListController extends ApiController
     {
         $rows = DB::table('shipments as s')->orderByDesc('s.id')->limit(300)->get()->map(function ($s) {
             $lines = DB::table('shipment_lines as l')->join('products as p', 'p.id', '=', 'l.product_id')->where('l.shipment_id', $s->id)->orderBy('l.id')
-                ->get(['l.id', 'p.sku', 'p.name', 'l.quantity', 'l.unit_price', 'l.lot_no', 'l.expiry_date', 'l.duty_rate']);
+                ->get(['l.id', 'p.sku', 'p.name', 'l.quantity', 'l.unit_price', 'l.lot_no', 'l.expiry_date', 'l.duty_rate', 'l.sale_price']);
             $costs = DB::table('shipment_cost_items')->where('shipment_id', $s->id)->orderBy('id')->get(['code', 'amount', 'basis', 'in_customs_value']);
             $alloc = DB::table('landed_cost_allocations')->where('shipment_id', $s->id)->selectRaw('shipment_line_id, sum(amount) as total')->groupBy('shipment_line_id')->pluck('total', 'shipment_line_id');
 
@@ -54,7 +54,7 @@ final class ListController extends ApiController
                 'id' => (int) $s->id, 'reference' => $s->reference, 'currency' => $s->currency, 'exchange_rate' => (string) Fixed::units((int) $s->exchange_rate), 'status' => $s->status,
                 'lines' => $lines->map(fn ($l) => [
                     'sku' => $l->sku, 'name' => $l->name, 'quantity' => (string) Fixed::units((int) $l->quantity), 'unit_price' => (string) Fixed::units((int) $l->unit_price),
-                    'lot_no' => $l->lot_no, 'expiry_date' => $l->expiry_date, 'duty_rate' => (string) Fixed::units((int) $l->duty_rate),
+                    'lot_no' => $l->lot_no, 'expiry_date' => $l->expiry_date, 'sale_price' => $l->sale_price !== null ? (string) Fixed::units((int) $l->sale_price) : null, 'duty_rate' => (string) Fixed::units((int) $l->duty_rate),
                     'landed_total' => isset($alloc[$l->id]) ? (string) Fixed::units((int) $alloc[$l->id]) : null,
                     'landed_unit' => isset($alloc[$l->id]) ? (string) Fixed::units((int) $alloc[$l->id])->div(Fixed::units((int) $l->quantity)) : null,
                 ])->all(),
@@ -89,7 +89,7 @@ final class ListController extends ApiController
         $userId = $this->userId($request);
         $showCost = $this->can($request, Permission::InventoryViewCost);
         $rows = DB::table('sales_orders as o')->join('customers as c', 'c.id', '=', 'o.customer_id')->orderByDesc('o.id')->limit(300)
-            ->get(['o.id', 'o.number', 'o.status', 'o.warehouse_id', 'o.created_at', 'c.name as customer'])
+            ->get(['o.id', 'o.number', 'o.status', 'o.warehouse_id', 'o.created_at', 'o.created_by', 'o.customer_name', 'c.name as customer'])
             ->filter(fn ($o) => $this->access->canUseWarehouse($userId, (int) $o->warehouse_id))->values()
             ->map(function ($o) use ($showCost) {
                 $lines = DB::table('sales_order_lines as l')->join('products as p', 'p.id', '=', 'l.product_id')->where('l.sales_order_id', $o->id)->orderBy('l.id')
@@ -100,7 +100,8 @@ final class ListController extends ApiController
                 }
 
                 return [
-                    'id' => (int) $o->id, 'number' => $o->number, 'status' => $o->status, 'customer' => $o->customer, 'warehouse_id' => (int) $o->warehouse_id,
+                    'id' => (int) $o->id, 'number' => $o->number, 'status' => $o->status, 'customer' => $o->customer_name ?? $o->customer,
+                    'invoice_id' => ($inv = DB::table('sales_invoices')->where('sales_order_id', $o->id)->value('id')) ? (int) $inv : null, 'warehouse_id' => (int) $o->warehouse_id,
                     'created_at' => $o->created_at, 'net' => (string) $net,
                     'lines' => $lines->map(fn ($l) => array_filter([
                         'id' => (int) $l->id, 'sku' => $l->sku, 'name' => $l->name, 'tracks_serials' => (bool) $l->tracks_serials,
@@ -146,7 +147,7 @@ final class ListController extends ApiController
     public function updateProduct(Request $request, int $product, AuditLogger $audit): JsonResponse
     {
         $d = $request->validate([
-            'name' => ['string', 'max:200'], 'active' => ['boolean'], 'tracks_serials' => ['boolean'],
+            'name' => ['string', 'max:200'], 'active' => ['boolean'], 'tracks_serials' => ['boolean'], 'has_expiry' => ['boolean'],
             'lead_time_days' => ['integer', 'between:0,365'], 'cover_days' => ['integer', 'between:1,365'],
         ]);
         abort_unless(DB::table('products')->where('id', $product)->exists(), 404);

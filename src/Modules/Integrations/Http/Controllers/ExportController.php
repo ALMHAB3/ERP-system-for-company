@@ -18,10 +18,10 @@ final class ExportController
         $f = $request->validate(['from' => ['date_format:Y-m-d'], 'to' => ['date_format:Y-m-d']]);
         $q = DB::table('sales_invoices as i')->join('sales_orders as o', 'o.id', '=', 'i.sales_order_id')->join('customers as c', 'c.id', '=', 'o.customer_id')
             ->when(isset($f['from']), fn ($q) => $q->where('i.created_at', '>=', $f['from'].' 00:00:00'))->when(isset($f['to']), fn ($q) => $q->where('i.created_at', '<=', $f['to'].' 23:59:59'))
-            ->orderBy('i.id')->select(['i.number', 'i.created_at', 'c.name as customer', 'c.tax_id', 'o.payment_method', 'i.net', 'i.tax', 'i.gross', 'i.paid', 'i.credited', 'i.fingerprint']);
+            ->orderBy('i.id')->select(['i.number', 'i.created_at', 'o.customer_name', 'c.name as customer', 'c.tax_id', 'o.payment_method', 'i.net', 'i.tax', 'i.gross', 'i.paid', 'i.credited', 'i.fingerprint']);
 
         return $this->csv('invoices', ['number', 'issued', 'customer', 'customer_tax_id', 'payment_method', 'net', 'tax', 'gross', 'paid', 'credited', 'fingerprint'], $q,
-            fn ($r) => [$r->number, $r->created_at, $r->customer, $r->tax_id, $r->payment_method, ...array_map(fn ($u) => (string) Fixed::units((int) $u), [$r->net, $r->tax, $r->gross, $r->paid, $r->credited]), $r->fingerprint]);
+            fn ($r) => [$r->number, $r->created_at, $r->customer_name ?? $r->customer, $r->tax_id, $r->payment_method, ...array_map(fn ($u) => (string) Fixed::units((int) $u), [$r->net, $r->tax, $r->gross, $r->paid, $r->credited]), $r->fingerprint]);
     }
 
     public function products(): StreamedResponse

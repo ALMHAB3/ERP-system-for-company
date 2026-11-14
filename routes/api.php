@@ -18,10 +18,12 @@ use Modules\Procurement\Http\Controllers\PayablesController;
 use Modules\Procurement\Http\Controllers\PurchaseOrderController;
 use Modules\Reporting\Http\Controllers\ListController;
 use Modules\Reporting\Http\Controllers\ReportController;
+use Modules\Reporting\Http\Controllers\SalesSummaryController;
 use Modules\Reporting\Http\Controllers\ShipmentPreviewController;
 use Modules\Sales\Http\Controllers\CustomerController;
 use Modules\Sales\Http\Controllers\EInvoiceController;
 use Modules\Sales\Http\Controllers\PricingController;
+use Modules\Sales\Http\Controllers\QuickSaleController;
 use Modules\Sales\Http\Controllers\ReceivablesController;
 use Modules\Sales\Http\Controllers\SalesOrderController;
 
@@ -47,10 +49,10 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
         Route::put('users/{user}/access', [UserAdminController::class, 'updateAccess'])->whereNumber('user')->name('admin.users.access');
     });
 
+    Route::post('customers', [CustomerController::class, 'store'])->middleware('permission:master_data.manage|sales.create')->name('customers.store');   // the sales representative registers customers too
     Route::middleware('permission:master_data.manage')->group(function () {
         Route::post('products', [MasterDataController::class, 'storeProduct'])->name('products.store');
         Route::post('warehouses', [MasterDataController::class, 'storeWarehouse'])->name('warehouses.store');
-        Route::post('customers', [CustomerController::class, 'store'])->name('customers.store');
         Route::put('prices', [CustomerController::class, 'setPrice'])->name('prices.set');
         Route::get('pricing/suggestions', [PricingController::class, 'suggestions'])->name('pricing.suggestions');
         Route::post('pricing/apply', [PricingController::class, 'apply'])->name('pricing.apply');
@@ -78,6 +80,8 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
         Route::post('{order}/receive', [PurchaseOrderController::class, 'receive'])->middleware('permission:purchase_orders.receive')->name('receive');
     });
 
+    Route::post('sales/quick', [QuickSaleController::class, 'store'])->middleware('permission:sales.create')->name('sales.quick');
+    Route::get('reports/sales-summary', SalesSummaryController::class)->middleware('permission:reports.view')->name('reports.sales_summary');
     Route::prefix('sales-orders')->name('sales_orders.')->whereNumber('order')->group(function () {
         Route::post('/', [SalesOrderController::class, 'store'])->middleware('permission:sales.create')->name('store');
         Route::get('{order}', [SalesOrderController::class, 'show'])->middleware('permission:sales.create')->name('show');
@@ -123,8 +127,8 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
         Route::get('ageing', [ReceivablesController::class, 'ageing'])->middleware('permission:reports.view')->name('ageing');
     });
     Route::get('sales-invoices/verify-chain', [EInvoiceController::class, 'verify'])->middleware('permission:finance.view')->name('einvoice.verify');
-    Route::get('sales-invoices/{invoice}', [EInvoiceController::class, 'show'])->whereNumber('invoice')->middleware('permission:finance.view|sales.invoice')->name('einvoice.show');
-    Route::get('sales-invoices/{invoice}/ubl', [EInvoiceController::class, 'ubl'])->whereNumber('invoice')->middleware('permission:finance.view|sales.invoice')->name('einvoice.ubl');
+    Route::get('sales-invoices/{invoice}', [EInvoiceController::class, 'show'])->whereNumber('invoice')->middleware('permission:finance.view|sales.invoice|sales.create')->name('einvoice.show');
+    Route::get('sales-invoices/{invoice}/ubl', [EInvoiceController::class, 'ubl'])->whereNumber('invoice')->middleware('permission:finance.view|sales.invoice|sales.create')->name('einvoice.ubl');
     Route::post('sales-orders/{order}/credit-notes', [ReceivablesController::class, 'creditNote'])->whereNumber('order')->middleware('permission:sales.return')->name('sales_orders.credit_note');
 
     Route::prefix('reports')->name('reports.')->middleware('permission:reports.view')->group(function () {

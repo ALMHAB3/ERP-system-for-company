@@ -2,7 +2,8 @@
 
 return [
     // The company's name. It is Arabic in every language of the interface (never translated).
-    'company_name' => env('COMPANY_NAME', 'شركة هب الريح لعوازل الأسطح ومواد البناء'),
+    // An .env written in the wrong encoding turns Arabic into '?': never show that, fall back to the real name.
+    'company_name' => str_contains((string) env('COMPANY_NAME', ''), '?') || env('COMPANY_NAME', '') === '' ? 'شركة هب الريح لعوازل الأسطح ومواد البناء' : env('COMPANY_NAME'),
     // Printed on every invoice (e-invoice seller block). Fill in the real registration data before real use.
     'company' => ['tax_id' => env('COMPANY_TAX_ID', ''), 'address' => env('COMPANY_ADDRESS', ''), 'phone' => env('COMPANY_PHONE', '')],
     // Outgoing webhooks: refuse targets that resolve to link-local/metadata addresses (set true only to allow every private address).

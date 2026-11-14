@@ -61,13 +61,18 @@ function master() {
       { name: 'base_uom', label: 'وحدة القياس', type: 'text', value: 'PCS' },
       { name: 'lead_time_days', label: 'مدة التوريد (يوم)', type: 'number', value: '45' }, { name: 'cover_days', label: 'تغطية الطلب الواحد (يوم)', type: 'number', value: '30' },
       { name: 'tracks_serials', label: 'يُتتبَّع بأرقام تسلسلية (كل وحدة لها رقم)', type: 'checkbox' },
+      { name: 'has_expiry', label: 'له تاريخ انتهاء صلاحية (يُطلب تاريخه عند الاستلام)', type: 'checkbox' },
     ], 'إضافة', async (v, f) => { await post('products', { ...v, lead_time_days: +v.lead_time_days, cover_days: +v.cover_days }); await reloadLookups(); toast('تمت إضافة الصنف', 'ok'); f.reset(); }),
-    h('h3', null, 'تعديل مدد التخطيط لصنف'),
+    h('h3', null, 'تعديل خصائص صنف (التخطيط، الأرقام التسلسلية، الصلاحية)'),
     form([
-      { name: 'product_id', label: 'الصنف', type: 'ref', items: refItems.products(), required: true },
+      { name: 'product_id', label: 'الصنف', type: 'ref', items: refItems.products(), required: true, onChange: (label, bag) => {
+        const p = state.lookups.products.find((x) => x.sku + ' — ' + x.name === label.trim());   // show the product's current settings
+        if (p) { bag.lead_time_days.input.value = p.lead_time_days; bag.cover_days.input.value = p.cover_days; bag.tracks_serials.input.checked = !!p.tracks_serials; bag.has_expiry.input.checked = !!p.has_expiry; }
+      } },
       { name: 'lead_time_days', label: 'مدة التوريد (يوم)', type: 'number', required: true }, { name: 'cover_days', label: 'تغطية الطلب (يوم)', type: 'number', required: true },
       { name: 'tracks_serials', label: 'يُتتبَّع بأرقام تسلسلية', type: 'checkbox' },
-    ], 'حفظ', async (v) => { await put('products/' + v.product_id, { lead_time_days: +v.lead_time_days, cover_days: +v.cover_days, tracks_serials: !!v.tracks_serials }); await reloadLookups(); toast('تم الحفظ', 'ok'); }),
+      { name: 'has_expiry', label: 'له تاريخ انتهاء صلاحية', type: 'checkbox' },
+    ], 'حفظ', async (v) => { await put('products/' + v.product_id, { lead_time_days: +v.lead_time_days, cover_days: +v.cover_days, tracks_serials: !!v.tracks_serials, has_expiry: !!v.has_expiry }); await reloadLookups(); toast('تم الحفظ', 'ok'); }),
     h('h3', null, 'إضافة مستودع'),
     form([
       { name: 'code', label: 'الرمز', type: 'text', required: true }, { name: 'name', label: 'الاسم', type: 'text', required: true },

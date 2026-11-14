@@ -36,7 +36,7 @@ final class DemoDataTest extends TestCase
         $this->assertGreaterThanOrEqual(1, DB::table('shipments')->where('status', 'received')->count());
         $this->assertSame(2, DB::table('bank_accounts')->count());
         $this->assertTrue(DB::table('system_flags')->where('name', 'demo_data')->exists());
-        $this->assertSame(5, DB::table('users')->count());
+        $this->assertSame(6, DB::table('users')->count());
         $this->assertSame(1, DB::table('customers')->where('is_walk_in', true)->count());
 
         // today's date is back after the time travel

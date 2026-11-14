@@ -164,7 +164,8 @@ export function stagger(root) {
 export function form(fields, submitLabel, onSubmit, opts) {
   const inputs = {};
   const el = h('form', { class: 'f', novalidate: true });
-  const build = (f, bag) => {
+  const build = (f, bag) => { const el = buildRaw(f, bag); if (f.hidden) el.hidden = true; return el; };   // f.hidden: start hidden (shown later by code)
+  const buildRaw = (f, bag) => {
     const id = 'f' + Math.random().toString(36).slice(2, 9);
     let input;
     if (f.type === 'select') {
@@ -266,7 +267,7 @@ export function wireBank(f, methodName = 'method', bankName = 'bank_account_id')
   return f;
 }
 export const PAY_METHODS = [{ value: 'cash', label: 'نقداً (كاش)' }, { value: 'transfer', label: 'تحويل مصرفي' }, { value: 'cheque', label: 'شيك' }];
-export const SALE_METHODS = { cash: ['نقداً (كاش)', 'ok'], transfer: ['تحويل مصرفي', 'ok'], credit: ['بالأجل (آجل)', 'warn'] };
+export const SALE_METHODS = { cash: ['نقداً (كاش)', 'ok'], transfer: ['تحويل مصرفي', 'ok'], credit: ['دين على العميل', 'warn'] };
 export const dl = (o) => h('div', { class: 'card' }, Object.entries(o).map(([k, v]) => h('div', null, h('span', { class: 'muted' }, k + ': '), v)));
 
 // A self-refreshing block: build(refresh) returns the node; actions call refresh() to reload it in place.

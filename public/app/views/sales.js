@@ -3,7 +3,34 @@ import { h, get, post, put, download, form, table, tabs, panel, act, can, modal,
 
 const CATS = [['wholesale', 'جملة'], ['retail', 'تجزئة'], ['direct', 'مبيعات مباشرة']].map(([value, label]) => ({ value, label }));
 
-function orders() {
+const METHOD_LABEL = { cash: 'نقداً', transfer: 'تحويل مصرفي', credit: 'دين على العميل' };
+const methodBadge = (m) => { const [t, c] = SALE_METHODS[m] || [m, '']; return h('span', { class: 'badge ' + c }, t); };
+
+// Managers (reports.view) see what was sold today / last 7 / last 30 days; the sales representative sees their own sales.
+function managerSummary() {
+  const box = h('div'); let period = 'today';
+  const label = { today: 'اليوم', week: 'آخر 7 أيام', month: 'آخر 30 يوماً' };
+  const bar = h('div', { class: 'toolbar' }, Object.entries(label).map(([k, l]) => h('button', { class: 'btn secondary small', type: 'button', onclick: () => { period = k; load(); } }, l)));
+  const load = async () => {
+    box.replaceChildren(h('div', { class: 'card empty' }, '…'));
+    const r = await get('reports/sales-summary', { period });
+    box.replaceChildren(
+      h('div', { class: 'cards' },
+        h('div', { class: 'kpi' }, h('div', { class: 'l' }, 'عدد الفواتير (' + label[period] + ')'), h('div', { class: 'v' }, String(r.totals.count))),
+        h('div', { class: 'kpi' }, h('div', { class: 'l' }, 'إجمالي المبيعات'), h('div', { class: 'v' }, money(r.totals.gross), h('span', { class: 'muted' }, ' ' + state.lookups.currency))),
+        h('div', { class: 'kpi' }, h('div', { class: 'l' }, 'الصافي قبل الضريبة'), h('div', { class: 'v' }, money(r.totals.net)))),
+      h('h3', null, 'حسب مندوب المبيعات'), table([{ label: 'المندوب', render: (x) => x.name }, { label: 'عدد الفواتير', num: true, render: (x) => x.count }, { label: 'الإجمالي', num: true, render: (x) => money(x.gross) }], r.by_rep, 'لا توجد مبيعات في هذه الفترة'),
+      h('h3', null, 'حسب طريقة الدفع'), table([{ label: 'الطريقة', render: (x) => METHOD_LABEL[x.name] || x.name }, { label: 'عدد الفواتير', num: true, render: (x) => x.count }, { label: 'الإجمالي', num: true, render: (x) => money(x.gross) }], r.by_method, 'لا توجد مبيعات'),
+      h('h3', null, 'الفواتير'), table([{ label: 'الفاتورة', key: 'number' }, { label: 'الوقت', render: (x) => x.issued }, { label: 'العميل', key: 'customer' }, { label: 'المندوب', render: (x) => x.rep || '—' },
+        { label: 'طريقة الدفع', render: (x) => methodBadge(x.payment_method) }, { label: 'الإجمالي', num: true, render: (x) => money(x.gross) },
+        { label: '', render: (x) => h('button', { class: 'btn secondary small', onclick: () => einvoiceView(x.invoice_id) }, 'عرض الفاتورة') }], r.invoices, 'لا توجد فواتير', { csv: 'sales-' + period }));
+  };
+  load();
+  return h('div', null, bar, box);
+}
+
+function history() {
+  if (can('reports.view')) return managerSummary();
   return panel(async (refresh) => {
     const r = await get('sales-orders');
     const creditNote = (o) => {
@@ -18,16 +45,16 @@ function orders() {
     };
     return table([
       { label: 'الطلب', key: 'number' }, { label: 'العميل', key: 'customer' }, { label: 'الحالة', render: (o) => badge(o.status) },
-      { label: 'طريقة الدفع', render: (o) => { const [t, c] = SALE_METHODS[o.payment_method] || [o.payment_method, '']; return h('span', { class: 'badge ' + c }, t); } },
-      { label: 'الصافي', num: true, render: (o) => money(o.net) },
-      { label: 'البنود', render: (o) => o.lines.map((l) => `${l.sku} × ${qty(l.quantity)} @ ${money(l.unit_price)}${Number(l.discount_rate) ? ' (خصم ' + pct(l.discount_rate) + ')' : ''}`).join('، ') },
+      { label: 'طريقة الدفع', render: (o) => methodBadge(o.payment_method) }, { label: 'الصافي', num: true, render: (o) => money(o.net) },
+      { label: 'البنود', render: (o) => o.lines.map((l) => `${l.sku} × ${qty(l.quantity)} @ ${money(l.unit_price)}`).join('، ') },
       { label: '', render: (o) => h('div', { class: 'row-actions' },
+        o.invoice_id ? h('button', { class: 'btn secondary small', onclick: () => einvoiceView(o.invoice_id) }, 'عرض الفاتورة') : null,
         o.status === 'reserved' && can('sales.create') && o.lines.some((l) => l.tracks_serials) ? h('button', { class: 'btn secondary small', onclick: () => serialPicker(o, refresh) }, 'الأرقام التسلسلية') : null,
         o.status === 'reserved' && can('sales.ship') ? act('تسليم', () => post(`sales-orders/${o.id}/ship`), refresh, { confirm: 'تسليم الطلب ' + o.number + ' (صرف من المخزون)؟', ok: 'تم التسليم' }) : null,
         o.status === 'shipped' && can('sales.invoice') ? act('إصدار فاتورة', () => post(`sales-orders/${o.id}/invoice`), refresh, { ok: 'تم إصدار الفاتورة' }) : null,
         o.status === 'reserved' && can('sales.cancel') ? act('إلغاء', () => post(`sales-orders/${o.id}/cancel`), refresh, { cls: 'danger', confirm: 'إلغاء الطلب وتحرير الحجز؟', ok: 'تم الإلغاء' }) : null,
         o.status === 'invoiced' && can('sales.return') ? h('button', { class: 'btn secondary small', onclick: () => creditNote(o) }, 'مرتجع / إشعار دائن') : null) },
-    ], r.data, 'لا توجد طلبات');
+    ], r.data, 'لا توجد مبيعات بعد');
   });
 }
 
@@ -45,45 +72,47 @@ function serialPicker(o, refresh) {
     } }, 'حفظ')));
 }
 
+// ONE screen: pick the goods, say how it is paid, press once. The system reserves, issues from stock, and issues the invoice.
 function newOrder() {
-  const walkIn = state.lookups.customers.find((c) => c.is_walk_in);
-  const firstRegistered = state.lookups.customers.find((c) => !c.is_walk_in);
+  const registered = state.lookups.customers.filter((c) => !c.is_walk_in).map((c) => ({ value: c.id, label: c.name }));
+  const onlyWarehouse = state.lookups.warehouses.length === 1 ? state.lookups.warehouses[0].id : '';
   const f = form([
-    { name: 'payment_method', label: 'طريقة الدفع', type: 'select', value: 'cash', options: [{ value: 'cash', label: 'نقداً (كاش) — يُدفع عند البيع' }, { value: 'transfer', label: 'تحويل مصرفي — يُدفع عند البيع' }, { value: 'credit', label: 'بالأجل (آجل) — يُدفع لاحقاً' }] },
-    { name: 'bank_account_id', label: 'المصرف الذي حُوِّل عليه المبلغ', type: 'select', options: opts.banks(), hint: state.lookups.bank_accounts.length ? '' : 'لا توجد حسابات مصرفية: أضفها من المحاسبة ← الحسابات المصرفية' },
+    { name: 'payment_method', label: 'طريقة الدفع', type: 'select', value: 'cash', options: [{ value: 'cash', label: 'نقداً (كاش)' }, { value: 'transfer', label: 'تحويل مصرفي' }, { value: 'credit', label: 'دين على العميل (لعملاء مسجَّلين فقط)' }] },
+    { name: 'bank_account_id', label: 'المصرف الذي حُوِّل عليه المبلغ', type: 'select', options: opts.banks(), hint: state.lookups.bank_accounts.length ? '' : 'لا توجد حسابات مصرفية: يضيفها المحاسب من «المحاسبة ← الحسابات المصرفية»' },
     { name: 'payment_reference', label: 'رقم التحويل / الإيصال (اختياري)', type: 'text' },
-    { name: 'customer_id', label: 'العميل', type: 'select', options: opts.customers(), value: walkIn?.id, hint: 'البيع نقداً أو بالتحويل يمكن أن يكون لـ«عميل نقدي». البيع بالأجل لا يتم إلا لعميل مسجَّل لدى الشركة.' },
-    { name: 'warehouse_id', label: 'المستودع', type: 'select', options: opts.warehouses(), required: true },
-    { name: 'lines', label: 'البنود (السعر والخصم يحسبهما النظام حسب فئة العميل)', type: 'rows', fields: [
-      { name: 'product_id', label: 'الصنف', type: 'ref', items: refItems.products(), required: true }, { name: 'quantity', label: 'الكمية', type: 'number', required: true }] },
-    ...(can('sales.approve_below_margin') ? [{ name: 'allow_below_margin', label: 'السماح بالبيع تحت الحد الأدنى للهامش', type: 'checkbox' }] : []),
-    ...(can('sales.override_credit') ? [{ name: 'override_credit', label: 'تجاوز حد الائتمان', type: 'checkbox' }] : []),
-  ], 'إنشاء الطلب وحجز المخزون', async (v, el) => {
-    if (v.payment_method === 'credit' && state.lookups.customers.find((c) => String(c.id) === String(v.customer_id))?.is_walk_in) throw new Error('البيع بالأجل لا يتم إلا لعميل مسجَّل لدى الشركة');
+    { name: 'customer_name', label: 'اسم الزبون (اختياري — إن تُرك فارغاً يُسجَّل «غير معروف»)', type: 'text' },
+    { name: 'customer_id', label: 'العميل المسجَّل (الدين يكون على عميل مسجَّل فقط)', type: 'select', options: [{ value: '', label: '— اختر —' }, ...registered], hint: 'عميل جديد؟ سجّله أولاً من شاشة «العملاء».' },
+    { name: 'warehouse_id', label: 'المستودع', type: 'select', value: onlyWarehouse, options: [{ value: '', label: '— اختر —' }, ...opts.warehouses()], required: true },
+    { name: 'lines', label: 'الأصناف (السعر يحسبه النظام من قائمة الأسعار)', type: 'rows', fields: [
+      { name: 'product_id', label: 'الصنف', type: 'ref', items: refItems.products(), required: true }, { name: 'quantity', label: 'الكمية', type: 'number', required: true },
+      { name: 'serials', label: 'الأرقام التسلسلية (للأصناف المتتبَّعة فقط، رقم في كل سطر)', type: 'textarea' }] },
+  ], 'إتمام البيع وإصدار الفاتورة', async (v, el) => {
+    if (v.payment_method === 'credit' && !v.customer_id) throw new Error('الدين لا يكون إلا على عميل مسجَّل: اختر العميل، أو سجّله من شاشة العملاء');
     if (v.payment_method === 'transfer' && !v.bank_account_id) throw new Error('اختر المصرف الذي حُوِّل عليه المبلغ');
-    const o = await post('sales-orders', {
-      customer_id: Number(v.customer_id), warehouse_id: Number(v.warehouse_id), payment_method: v.payment_method,
-      bank_account_id: v.payment_method === 'transfer' ? Number(v.bank_account_id) : undefined, payment_reference: v.payment_method === 'credit' ? undefined : v.payment_reference || undefined,
-      allow_below_margin: !!v.allow_below_margin, override_credit: !!v.override_credit, lines: v.lines.map((l) => ({ product_id: Number(l.product_id), quantity: l.quantity })),
+    const credit = v.payment_method === 'credit';
+    const r = await post('sales/quick', {
+      warehouse_id: Number(v.warehouse_id), payment_method: v.payment_method,
+      customer_id: v.customer_id ? Number(v.customer_id) : undefined, customer_name: credit ? undefined : v.customer_name || undefined,
+      bank_account_id: v.payment_method === 'transfer' ? Number(v.bank_account_id) : undefined, payment_reference: credit ? undefined : v.payment_reference || undefined,
+      lines: v.lines.map((l) => ({ product_id: Number(l.product_id), quantity: l.quantity, serials: l.serials ? l.serials.split('\n').map((x) => x.trim()).filter(Boolean) : undefined })),
     });
-    toast(`تم إنشاء الطلب ${o.number} (صافي ${money(o.net)}) وحُجز المخزون`, 'ok'); el.reset(); sync();
+    toast(`تمت عملية البيع — الفاتورة ${r.invoice_number} بإجمالي ${money(r.gross)}`, 'ok'); el.reset(); I.warehouse_id.input.value = onlyWarehouse; sync(); einvoiceView(r.invoice_id);   // reset() forgets the pre-selected branch
   });
   const I = f._inputs;
   const sync = () => {
     const m = I.payment_method.input.value;
     I.bank_account_id.input.closest('.field').hidden = m !== 'transfer';
     I.payment_reference.input.closest('.field').hidden = m === 'credit';
-    const current = state.lookups.customers.find((c) => String(c.id) === String(I.customer_id.input.value));
-    if (m === 'credit' && current?.is_walk_in && firstRegistered) { I.customer_id.input.value = firstRegistered.id; toast('البيع بالأجل لعميل مسجَّل فقط — اختر العميل', 'ok'); }
-    if (m !== 'credit' && !current && walkIn) I.customer_id.input.value = walkIn.id;
+    I.customer_name.input.closest('.field').hidden = m === 'credit';
+    I.customer_id.input.closest('.field').hidden = m !== 'credit';
   };
   f.addEventListener('change', sync); sync();
   return f;
 }
 
-function customers() {
+export function customers() {
   return panel(async (refresh) => h('div', null,
-    can('master_data.manage') ? h('div', { class: 'card' }, h('h3', null, 'إضافة عميل'), form([
+    can('master_data.manage', 'sales.create') ? h('div', { class: 'card' }, h('h3', null, 'إضافة عميل'), form([
       { name: 'name', label: 'الاسم', type: 'text', required: true }, { name: 'category', label: 'الفئة', type: 'select', options: CATS },
       { name: 'credit_limit', label: 'حد الائتمان (0 = بلا حد)', type: 'number', value: '0' }, { name: 'terms_days', label: 'مدة السداد (يوم)', type: 'number', value: '0' },
       { name: 'tax_id', label: 'الرقم الضريبي (يظهر في الفاتورة)', type: 'text' }, { name: 'address', label: 'العنوان', type: 'text' },
@@ -96,7 +125,7 @@ function customers() {
       } }, 'تعديل') : null }], state.lookups.customers)));
 }
 
-function prices() {
+export function prices() {
   return h('div', null, h('p', { class: 'hint' }, 'ترتيب التسعير: سعر العميل التعاقدي ← قائمة أسعار الفئة ← القائمة الافتراضية. خصم الكمية يُطبَّق على عملاء الجملة تلقائياً.'),
     form([
       { name: 'product_id', label: 'الصنف', type: 'ref', items: refItems.products(), required: true }, { name: 'price', label: 'السعر', type: 'number', required: true },
@@ -109,7 +138,7 @@ function prices() {
     }));
 }
 
-function suggestions() {
+export function suggestions() {
   const out = h('div');
   const picker = form([
     { name: 'category', label: 'فئة العملاء', type: 'select', options: CATS },
@@ -139,7 +168,7 @@ function suggestions() {
   return h('div', null, picker, out);
 }
 
-function receivables() {
+export function receivables() {
   return panel(async (refresh) => {
     const inv = (await get('receivables/invoices')).data;
     const box = h('div');
@@ -164,7 +193,7 @@ function receivables() {
   });
 }
 
-function ageing() {
+export function ageing() {
   return panel(async () => {
     const r = await get('receivables/ageing');
     return h('div', null, h('div', { class: 'cards' }, Object.entries(r.buckets).map(([k, v]) => h('div', { class: 'kpi' }, h('div', { class: 'l' }, k === 'current' ? 'غير مستحق' : k + ' يوم تأخير'), h('div', { class: 'v' }, money(v))))),
@@ -174,12 +203,7 @@ function ageing() {
 
 export default async function () {
   return tabs([
-    ...(can('sales.create', 'sales.ship', 'sales.invoice') ? [{ label: 'طلبات البيع', render: async () => orders() }] : []),
-    ...(can('sales.create') ? [{ label: 'طلب بيع جديد', render: async () => newOrder() }] : []),
-    { label: 'العملاء', render: async () => customers() },
-    ...(can('master_data.manage') ? [{ label: 'الأسعار', render: async () => prices() }] : []),
-    ...(can('master_data.manage') && can('inventory.view_cost') ? [{ label: 'اقتراح الأسعار (مقرَّبة)', render: async () => suggestions() }] : []),
-    ...(can('finance.view') ? [{ label: 'الفواتير والتحصيل', render: async () => receivables() }] : []),
-    ...(can('reports.view') ? [{ label: 'أعمار ذمم العملاء', render: async () => ageing() }] : []),
+    ...(can('sales.create') ? [{ label: 'بيع جديد', render: async () => newOrder() }] : []),
+    { label: can('reports.view') ? 'المبيعات (اليوم / الأسبوع / الشهر)' : 'مبيعاتي', render: async () => history() },
   ]);
 }

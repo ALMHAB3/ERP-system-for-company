@@ -6,7 +6,7 @@ function GetEnv($k) { if (Test-Path .env) { $l = Select-String -Path .env -Patte
 function SetEnv($k, $v) {
   $lines = if (Test-Path .env) { Get-Content .env } else { @() }
   if ($lines | Where-Object { $_ -match "^$k=" }) { $lines = $lines | ForEach-Object { if ($_ -match "^$k=") { "$k=$v" } else { $_ } } } else { $lines += "$k=$v" }
-  Set-Content -Path .env -Value $lines -Encoding ascii
+  [IO.File]::WriteAllLines((Join-Path (Get-Location) '.env'), [string[]]$lines, (New-Object Text.UTF8Encoding($false)))   # UTF-8 without BOM: the Arabic company name must survive
 }
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { throw 'Docker Desktop is not installed.' }
 # Every docker call must succeed, otherwise stop (a native command failing does not stop PowerShell by itself).
