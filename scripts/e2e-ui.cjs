@@ -13,13 +13,16 @@ const { chromium } = require('playwright');
   const go = async (id) => { await page.evaluate((i) => (location.hash = '#/' + i), id); await page.waitForTimeout(700); };
   const tab = async (t) => { await page.locator('.tabs button', { hasText: t }).first().click(); await page.waitForTimeout(600); };
   const login = async (email) => { await page.goto('' + (process.env.BASE_URL || 'http://127.0.0.1:8099') + '/app/'); await page.evaluate(() => sessionStorage.clear()); await page.reload(); await page.getByLabel('البريد الإلكتروني').fill(email); await page.getByLabel('كلمة المرور').fill('Demo-Passw0rd-123'); await page.getByRole('button', { name: 'دخول' }).click(); await page.waitForSelector('nav.side'); };
+  const pick = async (loc, text) => { await loc.fill(text); await loc.locator('xpath=..').locator('.search-results li:not(.none)').first().waitFor(); await loc.press('Enter'); };   // type, matches appear, Enter picks the first
   const nav = async () => (await page.locator('nav.side a').allInnerTexts()).map((t) => t.trim());
 
   await step('rep-sees-sales-and-customers-not-admin', async () => { await login('sales@demo.test'); const n = await nav(); console.log('      nav:', n.join(' | ')); if (!n.includes('المبيعات') || !n.includes('العملاء والديون') || n.some((x) => x.includes('المستخدمون'))) throw new Error('bad nav'); const h1 = await page.locator('nav.side h1').innerText(); if (!h1.includes('هب الريح')) throw new Error('company name: ' + h1); });
   await step('rep-one-click-cash-sale-unknown-buyer-shows-invoice', async () => {
     await go('sales'); await page.waitForSelector('text=إتمام البيع');
-    const opt = await page.locator('datalist option').first().getAttribute('value');
-    await page.locator('.subrow input[list]').first().fill(opt); await page.locator('.subrow input').nth(1).fill('1');
+    await pick(page.locator('.subrow input[role=combobox]').first(), 'SBS3'); await page.keyboard.type('2'); await page.keyboard.press('Enter');   // Enter after the quantity opens line 2
+    await page.waitForSelector('.subrow:nth-child(2) .rownum'); await pick(page.locator('.subrow:nth-child(2) input[role=combobox]'), 'CEM-WP'); await page.keyboard.type('1');
+    if ((await page.locator('.subrow .rownum').allInnerTexts()).join() !== '1,2') throw new Error('rows are not numbered 1,2');
+    if (await page.getByText('+ إضافة سطر').count()) throw new Error('add-line button still there');
     await page.screenshot({ path: SH + 'y-newsale.png' });
     await page.getByRole('button', { name: 'إتمام البيع وإصدار الفاتورة' }).click();
     await page.waitForSelector('.print-sheet'); const t = await page.locator('.print-sheet').innerText(); if (!t.includes('غير معروف')) throw new Error('buyer not unknown: ' + t.slice(0, 200));
@@ -27,20 +30,26 @@ const { chromium } = require('playwright');
   });
   await step('rep-typed-name-transfer-needs-bank', async () => {
     await page.waitForTimeout(500); await page.getByLabel('طريقة الدفع').selectOption('transfer');
-    const opt = await page.locator('datalist option').first().getAttribute('value');
-    await page.locator('.subrow input[list]').first().fill(opt); await page.locator('.subrow input').nth(1).fill('1');
+    await pick(page.locator('.subrow input[role=combobox]').first(), 'SBS3'); await page.locator('.subrow input').nth(1).fill('1');
     await page.getByLabel(/اسم الزبون/).fill('زبون تجربة'); await page.getByLabel(/المصرف الذي/).selectOption({ index: 1 });
     await page.getByRole('button', { name: 'إتمام البيع وإصدار الفاتورة' }).click();
     await page.waitForSelector('.print-sheet, .toast.error'); if (await page.locator('.toast.error').count()) throw new Error('toast: ' + (await page.locator('.toast.error').last().innerText())); const t = await page.locator('.print-sheet').innerText(); if (!t.includes('زبون تجربة')) throw new Error('typed name missing'); await page.keyboard.press('Escape');
   });
   await step('rep-debt-without-registered-customer-is-refused', async () => {
     await page.waitForTimeout(500); await page.getByLabel('طريقة الدفع').selectOption('credit');
-    const opt = await page.locator('datalist option').first().getAttribute('value');
-    await page.locator('.subrow input[list]').first().fill(opt); await page.locator('.subrow input').nth(1).fill('1');
+    await pick(page.locator('.subrow input[role=combobox]').first(), 'SBS3'); await page.locator('.subrow input').nth(1).fill('1');
     await page.getByRole('button', { name: 'إتمام البيع وإصدار الفاتورة' }).click(); await page.waitForSelector('.toast.error');
   });
+  await step('rep-can-register-customer', async () => { await go('customers'); await page.getByLabel('اسم العميل').first().fill('مقاول الصحراء'); await page.getByLabel('رقم الهاتف').fill('0912345678');
+    if (await page.getByLabel(/الرقم الضريبي/).count()) throw new Error('tax id field still on the customer form');
+    await pick(page.getByLabel(/المدينة/), 'طرا'); if ((await page.getByLabel(/المدينة/).inputValue()) !== 'طرابلس') throw new Error('city not picked');
+    await page.getByRole('button', { name: 'إضافة', exact: true }).click(); await page.waitForSelector('.toast.ok'); await page.waitForSelector('td >> text=مقاول الصحراء'); });
+  await step('rep-debt-sale-to-registered-customer-found-by-search', async () => {
+    await go('sales'); await page.waitForSelector('text=إتمام البيع'); await page.getByLabel('طريقة الدفع').selectOption('credit');
+    await pick(page.getByLabel(/العميل المسجَّل/), 'الصحراء'); await pick(page.locator('.subrow input[role=combobox]').first(), 'SBS3'); await page.keyboard.type('1');
+    await page.getByRole('button', { name: 'إتمام البيع وإصدار الفاتورة' }).click(); await page.waitForSelector('.print-sheet'); const t = await page.locator('.print-sheet').innerText(); if (!t.includes('مقاول الصحراء')) throw new Error('buyer'); await page.keyboard.press('Escape');
+  });
   await step('rep-my-sales-lists-them', async () => { await tab('مبيعاتي'); await page.waitForSelector('text=عرض الفاتورة'); });
-  await step('rep-can-register-customer', async () => { await go('customers'); await page.getByLabel('الاسم').first().fill('مقاول الصحراء'); await page.getByRole('button', { name: 'إضافة', exact: true }).click(); await page.waitForSelector('.toast.ok'); });
 
   await step('manager-cannot-sell-but-sees-period-summary', async () => {
     await login('manager@demo.test'); await go('sales'); const tabs = await page.locator('.tabs button').allInnerTexts(); if (tabs.some((t) => t.includes('بيع جديد'))) throw new Error('manager can sell');

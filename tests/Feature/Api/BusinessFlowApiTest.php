@@ -16,7 +16,7 @@ final class BusinessFlowApiTest extends ApiTestCase
         $clerk = $this->userWith(['warehouse_clerk'], [$this->warehouse]);
         $rep = $this->userWith(['sales_rep'], [$this->warehouse]);
 
-        $customer = $this->as($buyer)->postJson('/api/customers', ['name' => 'Al Noor', 'category' => 'wholesale'])->assertCreated()->json('id');
+        $customer = $this->as($buyer)->postJson('/api/customers', ['name' => 'Al Noor', 'category' => 'wholesale', 'phone' => '0912345678', 'city' => 'طرابلس'])->assertCreated()->json('id');
         $this->as($buyer)->putJson('/api/prices', ['product_id' => $this->product, 'category' => 'wholesale', 'price' => '20'])->assertNoContent();
 
         $shipment = $this->as($buyer)->postJson('/api/shipments', [

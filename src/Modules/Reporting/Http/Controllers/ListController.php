@@ -33,8 +33,8 @@ final class ListController extends ApiController
             'products' => DB::table('products')->where('active', true)->orderBy('sku')->limit(5000)->get(['id', 'sku', 'name', 'base_uom', 'lead_time_days', 'cover_days', 'tracks_serials', 'has_expiry']),
             'warehouses' => DB::table('warehouses')->where('active', true)->orderBy('code')->get(['id', 'code', 'name', 'type'])
                 ->filter(fn ($w) => $this->access->canUseWarehouse($userId, (int) $w->id))->values(),
-            'customers' => DB::table('customers')->orderBy('is_walk_in', 'desc')->orderBy('name')->limit(5000)->get(['id', 'name', 'category', 'credit_limit', 'terms_days', 'is_walk_in', 'tax_id', 'address'])
-                ->map(fn ($c) => ['id' => (int) $c->id, 'name' => $c->name, 'category' => $c->category, 'credit_limit' => (string) Fixed::units((int) $c->credit_limit), 'terms_days' => (int) $c->terms_days, 'is_walk_in' => (bool) $c->is_walk_in, 'tax_id' => $c->tax_id, 'address' => $c->address]),
+            'customers' => DB::table('customers')->orderBy('is_walk_in', 'desc')->orderBy('name')->limit(5000)->get(['id', 'name', 'category', 'credit_limit', 'terms_days', 'is_walk_in', 'phone', 'email', 'city', 'address'])
+                ->map(fn ($c) => ['id' => (int) $c->id, 'name' => $c->name, 'category' => $c->category, 'credit_limit' => (string) Fixed::units((int) $c->credit_limit), 'terms_days' => (int) $c->terms_days, 'is_walk_in' => (bool) $c->is_walk_in, 'phone' => $c->phone, 'email' => $c->email, 'city' => $c->city, 'address' => $c->address]),
             'bank_accounts' => DB::table('bank_accounts')->where('active', true)->orderBy('id')->get(['id', 'name', 'account_number', 'currency', 'gl_account']),
             'suppliers' => DB::table('suppliers')->where('active', true)->orderBy('name')->get(['id', 'name', 'currency', 'terms_days']),
             'accounts' => DB::table('accounts')->orderBy('code')->get(['code', 'name', 'type']),
@@ -164,7 +164,7 @@ final class ListController extends ApiController
         $d = $request->validate([
             'name' => ['string', 'max:200'], 'category' => ['in:wholesale,retail,direct'],
             'credit_limit' => [Decimal::RULE], 'terms_days' => ['integer', 'between:0,365'],
-            'tax_id' => ['nullable', 'string', 'max:40'], 'address' => ['nullable', 'string', 'max:250'],
+            'phone' => ['sometimes', 'string', 'max:40'], 'email' => ['nullable', 'email', 'max:150'], 'city' => ['sometimes', 'string', 'max:80'], 'address' => ['nullable', 'string', 'max:250'],
         ]);
         abort_unless(DB::table('customers')->where('id', $customer)->exists(), 404);
         $values = $d;

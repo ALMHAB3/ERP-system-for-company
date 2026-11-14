@@ -202,3 +202,11 @@ nav.side h1[data-no-translate]{font-size:15px;line-height:1.5}
   .modal > h3, .modal .formbar { display: none !important; }
   .print-sheet { border: 0; }
 }
+
+/* search box (customers, products, cities): matches appear under the box only after typing */
+.searchbox{position:relative}
+.search-results{position:absolute;inset-inline-start:0;min-width:100%;width:max-content;max-width:min(520px,90vw);top:100%;z-index:30;list-style:none;margin:3px 0 0;padding:4px;background:#fff;border:1px solid #b9c5d1;border-radius:8px;box-shadow:0 8px 24px rgba(15,38,64,.16);max-height:280px;overflow:auto}
+.search-results li{padding:8px 10px;border-radius:6px;cursor:pointer}
+.search-results li.on,.search-results li:hover{background:#e6effa}
+.search-results li.none{color:var(--ink-2);cursor:default}
+.rownum{align-self:center;justify-self:start;width:28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}

@@ -3271,5 +3271,73 @@ export const EN_PAIRS = [
 [
 "يحسب النظام: الراتب الأساسي + العلاوة الشهرية الثابتة + العلاوات والمكافآت الإضافية − الغياب − الخصومات − أقساط السلف. أضف العلاوات والمكافآت والخصومات الإضافية للشهر أولاً ثم أنشئ الكشف (أو أعد حسابه).",
 "The system computes: base salary + fixed monthly allowance + extra allowances and bonuses − absence − deductions − advance instalments. Add the month's extra allowances, bonuses and deductions first, then create the payroll (or recalculate it)."
+],
+[
+"اضغط Enter في خانة الكمية لإضافة صنف آخر",
+"Press Enter in the quantity box to add another item"
+],
+[
+"لا توجد نتائج",
+"No results"
+],
+[
+"اسم العميل",
+"Customer name"
+],
+[
+"رقم الهاتف",
+"Phone number"
+],
+[
+"البريد الإلكتروني (اختياري)",
+"E-mail (optional)"
+],
+[
+"المدينة (ابحث في القائمة أو اكتبها بنفسك)",
+"City (search the list or type it yourself)"
+],
+[
+"موقع الشركة أو المحل (اختياري)",
+"Location of the company or shop (optional)"
+],
+[
+"المبلغ الذي يستطيع أخذه بالدين (0 = بلا حد)",
+"Amount the customer may take on debt (0 = no limit)"
+],
+[
+"مدة السداد بالأيام",
+"Payment period in days"
+],
+[
+"الموقع",
+"Location"
+],
+[
+"يستطيع الدين حتى",
+"May owe up to"
+],
+[
+"فوري",
+"Immediate"
+],
+[
+"لا يوجد عملاء",
+"No customers"
+],
+[
+"أضف صنفاً واحداً على الأقل",
+"Add at least one item"
+],
+[
+" من نتائج البحث",
+" from the search results"
+],
+[
+"الأرقام التسلسلية (رقم في كل سطر)",
+"Serial numbers (one per line)"
+],
+[
+"المدينة",
+"City"
 ]
 ];

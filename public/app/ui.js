@@ -171,9 +171,33 @@ export function form(fields, submitLabel, onSubmit, opts) {
     if (f.type === 'select') {
       input = h('select', { id }, f.options.map((o) => h('option', { value: o.value, selected: String(o.value) === String(f.value ?? '') }, o.label)));
     } else if (f.type === 'ref') {
-      const list = h('datalist', { id: id + 'l' }, f.items.map((i) => h('option', { value: i.label })));
-      input = h('input', { id, list: id + 'l', autocomplete: 'off', placeholder: f.placeholder || 'اكتب للبحث…' });
-      input._items = f.items; input._list = list;
+      // Search box: nothing is listed until something is typed; matches appear under the box (arrows + Enter, or click).
+      // f.free: any typed text is accepted (e.g. a city that is not in the list).
+      input = h('input', { id, autocomplete: 'off', placeholder: f.placeholder || 'اكتب للبحث…', role: 'combobox' });
+      input._items = f.items; input._free = !!f.free;
+      input.value = f.value ?? '';
+      const list = h('ul', { class: 'search-results', hidden: true, role: 'listbox' });
+      input._list = list;
+      let active = -1, shown = [];
+      const hide = () => { list.hidden = true; active = -1; };
+      const paint = () => [...list.children].forEach((li, i) => li.classList.toggle('on', i === active));
+      const pick = (item) => { input.value = item.label; hide(); input.dispatchEvent(new Event('change', { bubbles: true })); input.dispatchEvent(new CustomEvent('picked', { bubbles: true })); };
+      const show = () => {
+        const q = input.value.trim().toLowerCase();
+        if (!q) return hide();
+        shown = f.items.filter((i) => i.label.toLowerCase().includes(q)).slice(0, 8);
+        list.replaceChildren(...(shown.length ? shown.map((i) => h('li', { onmousedown: (e) => { e.preventDefault(); pick(i); } }, i.label)) : f.free ? [] : [h('li', { class: 'none' }, 'لا توجد نتائج')]));
+        active = shown.length ? 0 : -1; list.hidden = list.children.length === 0; paint();
+      };
+      input.addEventListener('input', show);
+      input.addEventListener('blur', () => setTimeout(hide, 120));
+      input.addEventListener('keydown', (e) => {
+        if (list.hidden) return;
+        if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(shown.length - 1, active + 1); paint(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(0, active - 1); paint(); }
+        else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); e.stopPropagation(); pick(shown[active]); }
+        else if (e.key === 'Escape') { e.stopPropagation(); hide(); }
+      });
     } else if (f.type === 'textarea') input = h('textarea', { id, rows: 3 });
     else if (f.type === 'checkbox') input = h('input', { id, type: 'checkbox', checked: !!f.value });
     else input = h('input', { id, type: f.type === 'number' ? 'text' : f.type || 'text', inputmode: f.type === 'number' ? 'decimal' : null, value: f.value ?? '', placeholder: f.placeholder, dir: ['number', 'date', 'password'].includes(f.type) ? 'ltr' : null, autocomplete: f.type === 'password' ? 'new-password' : 'off' });
@@ -182,17 +206,20 @@ export function form(fields, submitLabel, onSubmit, opts) {
     const err = h('div', { class: 'err' });
     bag[f.name].err = err;
     if (f.type === 'checkbox') return h('div', { class: 'field check' + (f.wide ? ' wide' : '') }, input, h('label', { for: id }, f.label));
-    return h('div', { class: 'field' + (f.wide ? ' wide' : '') }, h('label', { for: id }, f.label + (f.required ? ' *' : '')), input, input._list, (bag[f.name].hintEl = f.hint ? h('div', { class: 'muted' }, f.hint) : null), err);
+    return h('div', { class: 'field' + (f.wide ? ' wide' : '') }, h('label', { for: id }, f.label + (f.required ? ' *' : '')), input._list ? h('div', { class: 'searchbox' }, input, input._list) : input, (bag[f.name].hintEl = f.hint ? h('div', { class: 'muted' }, f.hint) : null), err);
   };
+  // a row where nothing was typed (only selects / checkboxes may be set) counts as empty
+  const isBlank = (bag) => Object.values(bag).every(({ f, input }) => f.type === 'select' || f.type === 'checkbox' || !input.value.trim());
   const read = (bag, loose) => {
     const out = {};
     for (const [name, { f, input }] of Object.entries(bag)) {
-      if (f.type === 'rows') { out[name] = input._rows.map((r) => read(r, loose)).filter((r) => r !== null); continue; }
+      if (f.type === 'rows') { out[name] = input._rows.filter((r) => !(f.skipBlank && isBlank(r))).map((r) => read(r, loose)).filter((r) => r !== null); continue; }
       let v;
       if (f.type === 'checkbox') v = input.checked;
+      else if (f.type === 'ref' && input._free) v = input.value.trim();
       else if (f.type === 'ref') {
         const item = input._items.find((i) => i.label === input.value.trim());
-        if (input.value.trim() && !item && !loose) throw new Error('اختر ' + f.label + ' من القائمة');
+        if (input.value.trim() && !item && !loose) throw new Error('اختر ' + f.label + ' من نتائج البحث');
         v = item ? item.id : '';
       } else v = input.value.trim();
       if (!loose && f.required && (v === '' || v === null)) throw new Error('الحقل مطلوب: ' + f.label);
@@ -203,15 +230,35 @@ export function form(fields, submitLabel, onSubmit, opts) {
   for (const f of fields) {
     if (f.type === 'rows') {
       const holder = h('div', { class: 'subrows' });
-      const rows = [];
+      const rows = [], rowEls = [];
+      const renumber = () => rowEls.forEach((r, i) => { r.querySelector('.rownum').textContent = String(i + 1); });
+      const focusable = (row) => [...row.querySelectorAll('.field input, .field select')].filter((x) => !x.closest('[hidden]'));
       const add = () => {
         const bag = {};
-        const row = h('div', { class: 'subrow' }, f.fields.map((sf) => build(sf, bag)),
-          h('button', { class: 'btn danger small', type: 'button', onclick: () => { row.remove(); rows.splice(rows.indexOf(bag), 1); } }, 'حذف'));
-        rows.push(bag); holder.append(row);
+        const row = h('div', { class: 'subrow' }, h('span', { class: 'rownum' }, ''), f.fields.map((sf) => build(sf, bag)),
+          h('button', { class: 'btn danger small', type: 'button', onclick: () => {
+            if (rows.length === 1) { Object.values(bag).forEach(({ input }) => { if (input.type !== 'checkbox' && input.tagName !== 'SELECT') input.value = ''; }); return; }
+            row.remove(); rows.splice(rows.indexOf(bag), 1); rowEls.splice(rowEls.indexOf(row), 1); renumber();
+          } }, 'حذف'));
+        if (f.enterNext) {
+          // Enter moves to the next field; Enter in the field marked `last` (the quantity) opens the next numbered line.
+          row.addEventListener('picked', () => { const l = focusable(row); const i = l.indexOf(document.activeElement); l[i + 1]?.focus(); });
+          row.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' || ['TEXTAREA', 'BUTTON'].includes(e.target.tagName)) return;
+            e.preventDefault();
+            const lastField = f.fields.find((x) => x.last);
+            if (lastField && bag[lastField.name].input === e.target) {
+              if (!e.target.value.trim()) return;
+              const next = add(); focusable(next)[0]?.focus();
+            } else { const l = focusable(row); l[l.indexOf(e.target) + 1]?.focus(); }
+          });
+        }
+        rows.push(bag); rowEls.push(row); holder.append(row); renumber();
+        return row;
       };
       for (let i = 0; i < (f.min ?? 1); i++) add();
-      const bag = {}; const wrap = h('div', { class: 'field wide' }, h('label', null, f.label), holder, h('div', null, h('button', { class: 'btn secondary small', type: 'button', onclick: add }, '+ إضافة سطر')));
+      holder._reset = () => { while (rows.length > (f.min ?? 1)) { rowEls.pop().remove(); rows.pop(); } renumber(); };
+      const bag = {}; const wrap = h('div', { class: 'field wide' }, h('label', null, f.label), holder, f.enterNext ? h('div', { class: 'muted' }, 'اضغط Enter في خانة الكمية لإضافة صنف آخر') : h('div', null, h('button', { class: 'btn secondary small', type: 'button', onclick: add }, '+ إضافة سطر')));
       holder._rows = rows; bag.input = holder;
       inputs[f.name] = { f, input: holder }; holder._rows = rows;
       el.append(wrap);
@@ -232,6 +279,9 @@ export function form(fields, submitLabel, onSubmit, opts) {
   return el;
 }
 
+// Libyan cities and towns (a customer's city may also be typed freely)
+export const LY_CITIES = ['طرابلس', 'بنغازي', 'مصراتة', 'البيضاء', 'الزاوية', 'زليتن', 'صبراتة', 'الخمس', 'ترهونة', 'غريان', 'يفرن', 'الجميل', 'رقدالين', 'زوارة', 'العجيلات', 'صرمان', 'سرت', 'أجدابيا', 'البريقة', 'راس لانوف', 'بن جواد', 'النوفلية', 'مرادة', 'الزويتينة', 'طبرق', 'درنة', 'المرج', 'شحات', 'سوسة', 'القبة', 'توكرة', 'سلوق', 'قمينس', 'بنينا', 'الأبيار', 'الكفرة', 'جالو', 'أوجلة', 'اجخرة', 'سبها', 'أوباري', 'مرزق', 'القطرون', 'تراغن', 'غات', 'براك الشاطئ', 'ودان', 'هون', 'سوكنة', 'زلة', 'الجفرة', 'بني وليد', 'مزدة', 'العزيزية', 'الأصابعة', 'القريات', 'القربولي', 'تاجوراء', 'جنزور', 'سوق الجمعة', 'عين زارة', 'قصر بن غشير', 'وادي الربيع', 'نالوت', 'الرحيبات', 'جادو', 'كاباو', 'الشقيقة', 'تاورغاء', 'بئر الغنم', 'ككلة', 'الرجبان', 'ربيانة', 'تازربو'];
+export const cityItems = () => [...new Set(LY_CITIES)].map((c) => ({ id: c, label: c }));
 export const refItems = {
   products: () => state.lookups.products.map((p) => ({ id: p.id, label: p.sku + ' — ' + p.name })),
   customers: () => state.lookups.customers.map((c) => ({ id: c.id, label: c.name })),

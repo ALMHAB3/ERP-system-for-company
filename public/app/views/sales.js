@@ -1,5 +1,5 @@
 import { einvoiceView } from './einvoice.js';
-import { h, get, post, put, download, form, table, tabs, panel, act, can, modal, money, qty, pct, badge, toast, state, opts, refItems, reloadLookups, today, wireBank, PAY_METHODS, SALE_METHODS } from '../ui.js';
+import { cityItems, h, get, post, put, download, form, table, tabs, panel, act, can, modal, money, qty, pct, badge, toast, state, opts, refItems, reloadLookups, today, wireBank, PAY_METHODS, SALE_METHODS } from '../ui.js';
 
 const CATS = [['wholesale', 'جملة'], ['retail', 'تجزئة'], ['direct', 'مبيعات مباشرة']].map(([value, label]) => ({ value, label }));
 
@@ -74,19 +74,23 @@ function serialPicker(o, refresh) {
 
 // ONE screen: pick the goods, say how it is paid, press once. The system reserves, issues from stock, and issues the invoice.
 function newOrder() {
-  const registered = state.lookups.customers.filter((c) => !c.is_walk_in).map((c) => ({ value: c.id, label: c.name }));
+  const registered = state.lookups.customers.filter((c) => !c.is_walk_in).map((c) => ({ id: c.id, label: c.name }));
   const onlyWarehouse = state.lookups.warehouses.length === 1 ? state.lookups.warehouses[0].id : '';
   const f = form([
     { name: 'payment_method', label: 'طريقة الدفع', type: 'select', value: 'cash', options: [{ value: 'cash', label: 'نقداً (كاش)' }, { value: 'transfer', label: 'تحويل مصرفي' }, { value: 'credit', label: 'دين على العميل (لعملاء مسجَّلين فقط)' }] },
     { name: 'bank_account_id', label: 'المصرف الذي حُوِّل عليه المبلغ', type: 'select', options: opts.banks(), hint: state.lookups.bank_accounts.length ? '' : 'لا توجد حسابات مصرفية: يضيفها المحاسب من «المحاسبة ← الحسابات المصرفية»' },
     { name: 'payment_reference', label: 'رقم التحويل / الإيصال (اختياري)', type: 'text' },
     { name: 'customer_name', label: 'اسم الزبون (اختياري — إن تُرك فارغاً يُسجَّل «غير معروف»)', type: 'text' },
-    { name: 'customer_id', label: 'العميل المسجَّل (الدين يكون على عميل مسجَّل فقط)', type: 'select', options: [{ value: '', label: '— اختر —' }, ...registered], hint: 'عميل جديد؟ سجّله أولاً من شاشة «العملاء».' },
+    { name: 'customer_id', label: 'العميل المسجَّل (الدين يكون على عميل مسجَّل فقط)', type: 'ref', items: registered, hint: 'عميل جديد؟ سجّله أولاً من شاشة «العملاء».' },
     { name: 'warehouse_id', label: 'المستودع', type: 'select', value: onlyWarehouse, options: [{ value: '', label: '— اختر —' }, ...opts.warehouses()], required: true },
-    { name: 'lines', label: 'الأصناف (السعر يحسبه النظام من قائمة الأسعار)', type: 'rows', fields: [
-      { name: 'product_id', label: 'الصنف', type: 'ref', items: refItems.products(), required: true }, { name: 'quantity', label: 'الكمية', type: 'number', required: true },
-      { name: 'serials', label: 'الأرقام التسلسلية (للأصناف المتتبَّعة فقط، رقم في كل سطر)', type: 'textarea' }] },
+    { name: 'lines', label: 'الأصناف (السعر يحسبه النظام من قائمة الأسعار)', type: 'rows', enterNext: true, skipBlank: true, fields: [
+      { name: 'product_id', label: 'الصنف', type: 'ref', items: refItems.products(), required: true, onChange: (label, bag) => {
+        const p = state.lookups.products.find((x) => x.sku + ' — ' + x.name === label.trim());   // serial numbers are asked only for products that track them
+        bag.serials.input.closest('.field').hidden = !p?.tracks_serials;
+      } }, { name: 'quantity', label: 'الكمية', type: 'number', required: true, last: true },
+      { name: 'serials', label: 'الأرقام التسلسلية (رقم في كل سطر)', type: 'textarea', hidden: true }] },
   ], 'إتمام البيع وإصدار الفاتورة', async (v, el) => {
+    if (!v.lines.length) throw new Error('أضف صنفاً واحداً على الأقل');
     if (v.payment_method === 'credit' && !v.customer_id) throw new Error('الدين لا يكون إلا على عميل مسجَّل: اختر العميل، أو سجّله من شاشة العملاء');
     if (v.payment_method === 'transfer' && !v.bank_account_id) throw new Error('اختر المصرف الذي حُوِّل عليه المبلغ');
     const credit = v.payment_method === 'credit';
@@ -96,7 +100,7 @@ function newOrder() {
       bank_account_id: v.payment_method === 'transfer' ? Number(v.bank_account_id) : undefined, payment_reference: credit ? undefined : v.payment_reference || undefined,
       lines: v.lines.map((l) => ({ product_id: Number(l.product_id), quantity: l.quantity, serials: l.serials ? l.serials.split('\n').map((x) => x.trim()).filter(Boolean) : undefined })),
     });
-    toast(`تمت عملية البيع — الفاتورة ${r.invoice_number} بإجمالي ${money(r.gross)}`, 'ok'); el.reset(); I.warehouse_id.input.value = onlyWarehouse; sync(); einvoiceView(r.invoice_id);   // reset() forgets the pre-selected branch
+    toast(`تمت عملية البيع — الفاتورة ${r.invoice_number} بإجمالي ${money(r.gross)}`, 'ok'); el.reset(); I.lines.input._reset(); I.warehouse_id.input.value = onlyWarehouse; sync(); I.lines.input._rows[0].product_id.input.focus(); einvoiceView(r.invoice_id);   // reset() forgets the pre-selected branch
   });
   const I = f._inputs;
   const sync = () => {
@@ -111,18 +115,32 @@ function newOrder() {
 }
 
 export function customers() {
-  return panel(async (refresh) => h('div', null,
-    can('master_data.manage', 'sales.create') ? h('div', { class: 'card' }, h('h3', null, 'إضافة عميل'), form([
-      { name: 'name', label: 'الاسم', type: 'text', required: true }, { name: 'category', label: 'الفئة', type: 'select', options: CATS },
-      { name: 'credit_limit', label: 'حد الائتمان (0 = بلا حد)', type: 'number', value: '0' }, { name: 'terms_days', label: 'مدة السداد (يوم)', type: 'number', value: '0' },
-      { name: 'tax_id', label: 'الرقم الضريبي (يظهر في الفاتورة)', type: 'text' }, { name: 'address', label: 'العنوان', type: 'text' },
-    ], 'إضافة', async (v) => { await post('customers', { ...v, terms_days: +v.terms_days }); await reloadLookups(); toast('تمت إضافة العميل', 'ok'); refresh(); })) : null,
-    table([{ label: 'العميل', render: (c) => h('span', null, c.name, c.is_walk_in ? h('span', { class: 'badge walk' }, 'بدون تسجيل — نقداً/تحويل فقط') : null) }, { label: 'الفئة', render: (c) => CATS.find((x) => x.value === c.category)?.label }, { label: 'حد الائتمان', num: true, render: (c) => (Number(c.credit_limit) ? money(c.credit_limit) : 'بلا حد') }, { label: 'مدة السداد', num: true, key: 'terms_days' },
-      { label: '', render: (c) => can('master_data.manage') && !c.is_walk_in ? h('button', { class: 'btn secondary small', onclick: () => {
-        const m = modal('تعديل ' + c.name, form([
-          { name: 'category', label: 'الفئة', type: 'select', options: CATS, value: c.category }, { name: 'credit_limit', label: 'حد الائتمان', type: 'number', value: c.credit_limit }, { name: 'terms_days', label: 'مدة السداد', type: 'number', value: String(c.terms_days) },
-        ], 'حفظ', async (v) => { await put('customers/' + c.id, { category: v.category, credit_limit: v.credit_limit, terms_days: +v.terms_days }); await reloadLookups(); toast('تم الحفظ', 'ok'); m.close(); refresh(); }));
-      } }, 'تعديل') : null }], state.lookups.customers)));
+  const fields = (c) => [
+    { name: 'name', label: 'اسم العميل', type: 'text', required: true, value: c?.name },
+    { name: 'phone', label: 'رقم الهاتف', type: 'text', required: true, value: c?.phone || '' },
+    { name: 'email', label: 'البريد الإلكتروني (اختياري)', type: 'text', value: c?.email || '' },
+    { name: 'city', label: 'المدينة (ابحث في القائمة أو اكتبها بنفسك)', type: 'ref', free: true, items: cityItems(), required: true, value: c?.city || '' },
+    { name: 'address', label: 'موقع الشركة أو المحل (اختياري)', type: 'text', value: c?.address || '' },
+    { name: 'category', label: 'الفئة', type: 'select', options: CATS, value: c?.category },
+    { name: 'credit_limit', label: 'المبلغ الذي يستطيع أخذه بالدين (0 = بلا حد)', type: 'number', value: c ? c.credit_limit.replace(/\.?0+$/, '') || '0' : '0' },
+    { name: 'terms_days', label: 'مدة السداد بالأيام', type: 'number', value: c ? String(c.terms_days) : '0' },
+  ];
+  const body = (v) => ({ name: v.name, phone: v.phone, email: v.email || null, city: v.city, address: v.address || null, category: v.category, credit_limit: v.credit_limit || '0', terms_days: +v.terms_days });
+  return panel(async (refresh) => {
+    const canEdit = can('master_data.manage');
+    return h('div', null,
+      can('master_data.manage', 'sales.create') ? h('div', { class: 'card' }, h('h3', null, 'إضافة عميل'), (() => {
+        const f = form(fields(), 'إضافة', async (v) => { await post('customers', body(v)); await reloadLookups(); toast('تمت إضافة العميل', 'ok'); refresh(); });
+        return f;
+      })()) : null,
+      table([{ label: 'العميل', render: (c) => h('span', null, c.name, c.is_walk_in ? h('span', { class: 'badge walk' }, 'بدون تسجيل — نقداً/تحويل فقط') : null) },
+        { label: 'الهاتف', render: (c) => (c.phone ? h('span', { class: 'ltr' }, c.phone) : '—') }, { label: 'المدينة', render: (c) => c.city || '—' }, { label: 'الموقع', render: (c) => c.address || '—' },
+        { label: 'الفئة', render: (c) => CATS.find((x) => x.value === c.category)?.label }, { label: 'يستطيع الدين حتى', num: true, render: (c) => (Number(c.credit_limit) ? money(c.credit_limit) : 'بلا حد') },
+        { label: 'مدة السداد', num: true, render: (c) => (c.terms_days ? c.terms_days + ' يوم' : 'فوري') },
+        { label: '', render: (c) => canEdit && !c.is_walk_in ? h('button', { class: 'btn secondary small', onclick: () => {
+          const m = modal('تعديل ' + c.name, form(fields(c), 'حفظ', async (v) => { await put('customers/' + c.id, body(v)); await reloadLookups(); toast('تم الحفظ', 'ok'); m.close(); refresh(); }));
+        } }, 'تعديل') : null }], state.lookups.customers, 'لا يوجد عملاء', { csv: 'customers' }));
+  });
 }
 
 export function prices() {
@@ -130,7 +148,7 @@ export function prices() {
     form([
       { name: 'product_id', label: 'الصنف', type: 'ref', items: refItems.products(), required: true }, { name: 'price', label: 'السعر', type: 'number', required: true },
       { name: 'category', label: 'قائمة الفئة', type: 'select', options: [{ value: '', label: 'القائمة الافتراضية' }, ...CATS] },
-      { name: 'customer_id', label: 'أو سعر خاص لعميل (يلغي الفئة)', type: 'select', options: [{ value: '', label: '—' }, ...opts.customers()] },
+      { name: 'customer_id', label: 'أو سعر خاص لعميل (يلغي الفئة)', type: 'ref', items: refItems.customers() },
     ], 'حفظ السعر', async (v) => {
       const body = { product_id: Number(v.product_id), price: v.price };
       if (v.customer_id) body.customer_id = Number(v.customer_id); else if (v.category) body.category = v.category;
@@ -172,7 +190,7 @@ export function receivables() {
   return panel(async (refresh) => {
     const inv = (await get('receivables/invoices')).data;
     const box = h('div');
-    const picker = can('receipts.record') ? form([{ name: 'customer_id', label: 'تحصيل من عميل', type: 'select', options: [{ value: '', label: '— اختر —' }, ...opts.customers()] }], 'عرض فواتيره المفتوحة', (v) => {
+    const picker = can('receipts.record') ? form([{ name: 'customer_id', label: 'تحصيل من عميل', type: 'ref', items: refItems.customers().filter((c) => !state.lookups.customers.find((x) => x.id === c.id)?.is_walk_in), required: true }], 'عرض فواتيره المفتوحة', (v) => {
       const open = inv.filter((i) => String(i.customer_id) === String(v.customer_id) && Number(i.balance) > 0);
       if (!open.length) return box.replaceChildren(h('div', { class: 'card empty' }, 'لا توجد فواتير مفتوحة'));
       const amounts = {};

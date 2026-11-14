@@ -21,14 +21,16 @@ final class CustomerController
             'category' => ['required', 'in:wholesale,retail,direct'],
             'credit_limit' => [Decimal::RULE],
             'terms_days' => ['integer', 'between:0,365'],
-            'tax_id' => ['nullable', 'string', 'max:40'],
-            'address' => ['nullable', 'string', 'max:250'],
+            'phone' => ['required', 'string', 'max:40'],
+            'email' => ['nullable', 'email', 'max:150'],
+            'city' => ['required', 'string', 'max:80'],
+            'address' => ['nullable', 'string', 'max:250'],   // location of the company / shop
         ]);
         $id = DB::transaction(function () use ($d) {
             $id = DB::table('customers')->insertGetId([
                 'name' => $d['name'], 'category' => $d['category'],
                 'credit_limit' => isset($d['credit_limit']) ? Decimal::of($d['credit_limit'])->units : 0,
-                'terms_days' => $d['terms_days'] ?? 0, 'tax_id' => $d['tax_id'] ?? null, 'address' => $d['address'] ?? null,
+                'terms_days' => $d['terms_days'] ?? 0, 'phone' => $d['phone'], 'email' => $d['email'] ?? null, 'city' => $d['city'], 'address' => $d['address'] ?? null,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
             $this->audit->record('customer.created', 'customer', $id, $d);
