@@ -7,7 +7,7 @@ export const lang = (() => { try { return localStorage.getItem('erp_lang') === '
 export const setLang = (l) => { try { localStorage.setItem('erp_lang', l); } catch { /* private mode */ } location.reload(); };
 
 const HAS_AR = /[؀-ۿ]/;
-const toEn = new Map(EN_PAIRS);
+const toEn = new Map(EN_PAIRS.filter((e) => Array.isArray(e) && e.length === 2));   // a stray empty slot in the list must never take the interface down
 const enKeys = [...toEn.keys()].sort((a, b) => b.length - a.length);
 
 // English names that come from the server, shown in Arabic when the UI is Arabic (whole-text matches only: SKUs and names stay untouched)

@@ -3243,7 +3243,7 @@ export const EN_PAIRS = [
 [
 "سلفة",
 "Advance"
-],,
+],
 [
 "علاوة",
 "Allowance"
