@@ -210,3 +210,18 @@ nav.side h1[data-no-translate]{font-size:15px;line-height:1.5}
 .search-results li.on,.search-results li:hover{background:#e6effa}
 .search-results li.none{color:var(--ink-2);cursor:default}
 .rownum{align-self:center;justify-self:start;width:28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+
+/* sale screen: invoice-like table + payment bar */
+.sale-head{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:var(--s3);margin-bottom:var(--s3)}
+.sale-table{width:100%}
+.sale-table th,.sale-table td{padding:6px 8px;vertical-align:middle}
+.sale-table td.code{min-width:220px}.sale-table td.name{min-width:200px}
+.sale-table input{width:100%;padding:8px 10px;border:1px solid #b9c5d1;border-radius:6px;background:#fff}
+.sale-table input.qty{max-width:90px}
+.sale-table .rownum-cell{width:40px;font-weight:700;color:var(--brand)}
+.sale-table td.num{text-align:end;white-space:nowrap}.sale-table td.strong{font-weight:700}
+.sale-table tfoot td.lbl{text-align:end;font-weight:600;color:var(--ink-2);border-top:1px solid var(--line)}
+.sale-table tfoot tr.grand td{font-size:1.1rem;font-weight:800;border-top:2px solid var(--ink)}
+.sale-bar{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:flex-end;margin:var(--s3) 0;padding:var(--s3);background:#f4f7fb;border:1px solid var(--line);border-radius:var(--radius)}
+.sale-bar .field{min-width:150px}
+.sale-bar .remaining{flex-basis:100%;color:var(--warn,#9a6b00);font-weight:600}

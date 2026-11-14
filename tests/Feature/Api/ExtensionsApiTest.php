@@ -81,45 +81,6 @@ final class ExtensionsApiTest extends ApiTestCase
         $this->assertNotEmpty($this->as($this->finance)->getJson('/api/sales-invoices/verify-chain')->json('broken'));
     }
 
-    public function test_serial_tracked_units_must_be_named_before_shipping_and_are_traceable(): void
-    {
-        DB::table('products')->where('id', $this->product)->update(['tracks_serials' => true]);
-        $stock = $this->as($this->userWith(['warehouse_clerk'], [$this->warehouse]));
-        $stock->postJson('/api/serials', ['product_id' => $this->product, 'warehouse_id' => $this->warehouse, 'serials' => ['SN-1', 'SN-2', 'SN-3']])->assertCreated()->assertJsonPath('registered', 3);
-        $stock->postJson('/api/serials', ['product_id' => $this->product, 'warehouse_id' => $this->warehouse, 'serials' => ['SN-3']])->assertUnprocessable();   // duplicate
-
-        $id = $this->place('2');
-        $line = (int) DB::table('sales_order_lines')->where('sales_order_id', $id)->value('id');
-        $this->as($this->clerk)->postJson("/api/sales-orders/{$id}/ship")->assertUnprocessable();                       // no serials chosen
-        $this->as($this->rep)->putJson("/api/sales-orders/{$id}/lines/{$line}/serials", ['serials' => ['SN-1']])->assertNoContent();
-        $this->as($this->clerk)->postJson("/api/sales-orders/{$id}/ship")->assertUnprocessable();                       // 1 of 2
-        $this->as($this->rep)->putJson("/api/sales-orders/{$id}/lines/{$line}/serials", ['serials' => ['SN-1', 'SN-2']])->assertNoContent();
-        $this->as($this->clerk)->postJson("/api/sales-orders/{$id}/ship")->assertOk();
-        $this->as($this->finance)->postJson("/api/sales-orders/{$id}/invoice")->assertCreated();
-
-        $t = $this->as($this->userWith(['warehouse_clerk'], [$this->warehouse]))->getJson('/api/serials/trace/SN-2')->assertOk()->json('data.0');
-        $this->assertSame('sold', $t['status']);
-        $this->assertSame('Al Noor Trading', $t['customer']);
-        $this->assertStringStartsWith('INV-', $t['invoice']);
-        $this->assertSame('in_stock', DB::table('product_serials')->where('serial', 'SN-3')->value('status'));
-    }
-
-    public function test_cancelling_an_order_frees_its_serials_and_serials_cannot_exceed_stock(): void
-    {
-        DB::table('products')->where('id', $this->product)->update(['tracks_serials' => true]);
-        $keeper = $this->userWith(['warehouse_clerk'], [$this->warehouse]);
-        $this->as($keeper)->postJson('/api/serials', ['product_id' => $this->product, 'warehouse_id' => $this->warehouse, 'serials' => ['A-1', 'A-2']])->assertCreated();
-        $id = $this->place('1');
-        $line = (int) DB::table('sales_order_lines')->where('sales_order_id', $id)->value('id');
-        $this->as($this->rep)->putJson("/api/sales-orders/{$id}/lines/{$line}/serials", ['serials' => ['A-1']])->assertNoContent();
-        $this->assertSame('reserved', DB::table('product_serials')->where('serial', 'A-1')->value('status'));
-        $this->as($this->rep)->postJson("/api/sales-orders/{$id}/cancel")->assertSuccessful();
-        $this->assertSame('in_stock', DB::table('product_serials')->where('serial', 'A-1')->value('status'));
-
-        DB::table('stock_balances')->where('product_id', $this->product)->update(['on_hand' => 2 * Fixed::FACTOR]);
-        $this->as($keeper)->postJson('/api/serials', ['product_id' => $this->product, 'warehouse_id' => $this->warehouse, 'serials' => ['A-3']])->assertUnprocessable();   // 3 serials > 2 units on hand
-    }
-
     public function test_webhook_is_queued_with_the_sale_and_delivered_signed_with_retry(): void
     {
         $admin = $this->userWith(['admin']);

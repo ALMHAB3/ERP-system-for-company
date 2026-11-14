@@ -15,7 +15,6 @@ use Modules\Integrations\Http\Controllers\ExportController;
 use Modules\Integrations\Http\Controllers\WebhookController;
 use Modules\Inventory\Http\Controllers\InventoryController;
 use Modules\Inventory\Http\Controllers\MasterDataController;
-use Modules\Inventory\Http\Controllers\SerialController;
 use Modules\Procurement\Http\Controllers\PayablesController;
 use Modules\Procurement\Http\Controllers\PurchaseOrderController;
 use Modules\Reporting\Http\Controllers\ListController;
@@ -27,6 +26,7 @@ use Modules\Sales\Http\Controllers\EInvoiceController;
 use Modules\Sales\Http\Controllers\PricingController;
 use Modules\Sales\Http\Controllers\QuickSaleController;
 use Modules\Sales\Http\Controllers\ReceivablesController;
+use Modules\Sales\Http\Controllers\SaleQuoteController;
 use Modules\Sales\Http\Controllers\SalesOrderController;
 
 // Public: only the company name (the login screen shows it before anyone is signed in)
@@ -82,6 +82,7 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
         Route::post('{order}/receive', [PurchaseOrderController::class, 'receive'])->middleware('permission:purchase_orders.receive')->name('receive');
     });
 
+    Route::get('sales/quote', SaleQuoteController::class)->middleware('permission:sales.create')->name('sales.quote');
     Route::post('sales/quick', [QuickSaleController::class, 'store'])->middleware('permission:sales.create')->name('sales.quick');
     Route::get('reports/sales-summary', SalesSummaryController::class)->middleware('permission:reports.view')->name('reports.sales_summary');
     Route::prefix('sales-orders')->name('sales_orders.')->whereNumber('order')->group(function () {
@@ -142,13 +143,6 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
         Route::get('products.csv', [ExportController::class, 'products'])->name('products');
         Route::get('customers.csv', [ExportController::class, 'customers'])->name('customers');
     });
-    Route::prefix('serials')->name('serials.')->group(function () {
-        Route::get('/', [SerialController::class, 'index'])->middleware('permission:inventory.view')->name('index');
-        Route::get('trace/{serial}', [SerialController::class, 'trace'])->where('serial', '[A-Za-z0-9\-_.]+')->middleware('permission:inventory.view')->name('trace');
-        Route::post('/', [SerialController::class, 'register'])->middleware('permission:inventory.adjust')->name('register');
-        Route::post('returned', [SerialController::class, 'returned'])->middleware('permission:sales.return')->name('returned');
-    });
-    Route::put('sales-orders/{order}/lines/{line}/serials', [SerialController::class, 'assign'])->whereNumber(['order', 'line'])->middleware('permission:sales.create')->name('sales_orders.serials');
 
     Route::prefix('receivables')->name('receivables.')->group(function () {
         Route::get('invoices', [ReceivablesController::class, 'invoices'])->middleware('permission:finance.view')->name('invoices.index');

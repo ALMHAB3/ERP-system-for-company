@@ -9,10 +9,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Finance\Application\CashAccounts;
+use Modules\Identity\Domain\Permission;
 use Modules\Sales\Application\OrderLineRequest;
 use Modules\Sales\Application\QuickSaleService;
 use Modules\Sales\Domain\PaymentMethod;
 use Modules\Sales\Domain\PaymentTerms;
+use Modules\Shared\Domain\Fixed;
 use Modules\Shared\Http\ApiController;
 use Modules\Shared\Http\Decimal;
 
@@ -32,8 +34,8 @@ final class QuickSaleController extends ApiController
             'lines' => ['required', 'array', 'min:1', 'max:300'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.quantity' => ['required', Decimal::RULE],
-            'lines.*.serials' => ['nullable', 'array', 'max:500'],
-            'lines.*.serials.*' => ['string', 'max:80'],
+            'discount_pct' => ['nullable', Decimal::RULE],
+            'paid' => ['nullable', Decimal::RULE],
         ]);
         $this->warehouse($request, $d['warehouse_id']);
         $method = PaymentMethod::from($d['payment_method']);
@@ -53,14 +55,20 @@ final class QuickSaleController extends ApiController
         }
         $terms = new PaymentTerms($method, $method === PaymentMethod::Cash ? $cash->resolve('cash', null) : ($method === PaymentMethod::Transfer ? $cash->resolve('transfer', isset($d['bank_account_id']) ? (int) $d['bank_account_id'] : null) : null));
 
-        $serials = [];
-        foreach ($d['lines'] as $i => $l) {
-            if (! empty($l['serials'])) {
-                $serials[$i] = $l['serials'];
+        $discount = null;
+        if (! empty($d['discount_pct']) && Decimal::of($d['discount_pct'])->isPositive()) {
+            if (Decimal::of($d['discount_pct'])->gt(Fixed::of(100))) {
+                throw new DomainException('الخصم لا يمكن أن يتجاوز 100%.');
             }
+            $discount = Decimal::of($d['discount_pct'])->div(Fixed::of(100));
+        }
+        $paid = isset($d['paid']) && $d['paid'] !== '' ? Decimal::of($d['paid']) : null;
+        if ($method === PaymentMethod::Credit && $paid !== null && $paid->isPositive()) {
+            throw new DomainException('البيع بدين لا يحمل دفعة الآن: اختر نقداً أو تحويلاً مصرفياً للدفع الجزئي، أو اترك المدفوع صفراً.');
         }
         $result = $service->sell($customerId, $buyerName, $d['warehouse_id'],
-            array_map(fn ($l) => new OrderLineRequest((int) $l['product_id'], Decimal::of($l['quantity'])), $d['lines']), $serials, $terms, $d['payment_reference'] ?? null, $this->userId($request));
+            array_map(fn ($l) => new OrderLineRequest((int) $l['product_id'], Decimal::of($l['quantity'])), $d['lines']), $terms, $d['payment_reference'] ?? null, $this->userId($request),
+            $discount, $method === PaymentMethod::Credit ? null : $paid, $this->can($request, Permission::SalesApproveBelowMargin));
 
         return response()->json($result, 201);
     }

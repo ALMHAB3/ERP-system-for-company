@@ -3339,5 +3339,101 @@ export const EN_PAIRS = [
 [
 "المدينة",
 "City"
+],
+[
+"كود الصنف",
+"Item code"
+],
+[
+"اسم الصنف",
+"Item name"
+],
+[
+"العدد",
+"Qty"
+],
+[
+"سعر القطعة",
+"Piece price"
+],
+[
+"المجموع",
+"Total"
+],
+[
+"إجمالي الفاتورة",
+"Invoice total"
+],
+[
+"المدفوع",
+"Paid"
+],
+[
+"الخصم %",
+"Discount %"
+],
+[
+"الخصم",
+"Discount"
+],
+[
+"كود الصنف أو اسمه",
+"Item code or name"
+],
+[
+"اختر المستودع",
+"Choose the warehouse"
+],
+[
+"لا يوجد سعر",
+"No price"
+],
+[
+"حذف السطر",
+"Delete the line"
+],
+[
+"اسم الزبون (اختياري — يُسجَّل «غير معروف» إن تُرك فارغاً)",
+"Customer name (optional — recorded as “Unknown” if left empty)"
+],
+[
+"العميل المسجَّل (للدين أو الدفع الجزئي)",
+"Registered customer (for a debt or part payment)"
+],
+[
+"اكتب كود الصنف أو اسمه واضغط Enter، ثم الكمية واضغط Enter للسطر التالي.",
+"Type the item code or name and press Enter, then the quantity and press Enter for the next line."
+],
+[
+"— اختر المصرف —",
+"— Choose the bank —"
+],
+[
+"المتبقي: ",
+"Remaining: "
+],
+[
+" — يُسجَّل ديناً على العميل (لا يكون إلا لعميل مسجَّل)",
+" — recorded as a debt on the customer (only for a registered customer)"
+],
+[
+"أدخل كمية صحيحة لكل صنف",
+"Enter a valid quantity for every item"
+],
+[
+"اختر المستودع",
+"Choose the warehouse"
+],
+[
+"الدين لا يكون إلا على عميل مسجَّل: ابحث عن العميل، أو سجّله من شاشة العملاء",
+"A debt can only be on a registered customer: search for them, or register them on the Customers screen"
+],
+[
+"المدفوع أقل من الإجمالي: الباقي دين على العميل، فابحث عن عميل مسجَّل أو ادفع كامل المبلغ",
+"The amount paid is less than the total: the rest is a debt on the customer, so search for a registered customer or pay in full"
+],
+[
+"تعديل خصائص صنف (التخطيط والصلاحية)",
+"Edit product properties (planning and expiry)"
 ]
 ];

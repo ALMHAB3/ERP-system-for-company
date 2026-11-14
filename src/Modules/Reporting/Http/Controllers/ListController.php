@@ -30,7 +30,7 @@ final class ListController extends ApiController
             'currency' => config('erp.base_currency'),
             'currencies' => collect($rates->latest())->map(fn ($r, $code) => ['code' => $code, 'name' => config('erp.currencies')[$code] ?? $code, 'rate' => $r['rate'], 'rate_date' => $r['date']])->values(),
             'vat_rate' => (string) config('erp.vat_rate'),
-            'products' => DB::table('products')->where('active', true)->orderBy('sku')->limit(5000)->get(['id', 'sku', 'name', 'base_uom', 'lead_time_days', 'cover_days', 'tracks_serials', 'has_expiry']),
+            'products' => DB::table('products')->where('active', true)->orderBy('sku')->limit(5000)->get(['id', 'sku', 'name', 'base_uom', 'lead_time_days', 'cover_days', 'has_expiry']),
             'warehouses' => DB::table('warehouses')->where('active', true)->orderBy('code')->get(['id', 'code', 'name', 'type'])
                 ->filter(fn ($w) => $this->access->canUseWarehouse($userId, (int) $w->id))->values(),
             'customers' => DB::table('customers')->orderBy('is_walk_in', 'desc')->orderBy('name')->limit(5000)->get(['id', 'name', 'category', 'credit_limit', 'terms_days', 'is_walk_in', 'phone', 'email', 'city', 'address'])
@@ -93,7 +93,7 @@ final class ListController extends ApiController
             ->filter(fn ($o) => $this->access->canUseWarehouse($userId, (int) $o->warehouse_id))->values()
             ->map(function ($o) use ($showCost) {
                 $lines = DB::table('sales_order_lines as l')->join('products as p', 'p.id', '=', 'l.product_id')->where('l.sales_order_id', $o->id)->orderBy('l.id')
-                    ->get(['l.id', 'p.sku', 'p.name', 'p.tracks_serials', 'l.quantity', 'l.list_price', 'l.discount_rate', 'l.unit_price', 'l.cost_of_goods']);
+                    ->get(['l.id', 'p.sku', 'p.name', 'l.quantity', 'l.list_price', 'l.discount_rate', 'l.unit_price', 'l.cost_of_goods']);
                 $net = Fixed::zero();
                 foreach ($lines as $l) {
                     $net = $net->add(Fixed::units((int) $l->quantity)->mul(Fixed::units((int) $l->unit_price)));
@@ -104,8 +104,7 @@ final class ListController extends ApiController
                     'invoice_id' => ($inv = DB::table('sales_invoices')->where('sales_order_id', $o->id)->value('id')) ? (int) $inv : null, 'warehouse_id' => (int) $o->warehouse_id,
                     'created_at' => $o->created_at, 'net' => (string) $net,
                     'lines' => $lines->map(fn ($l) => array_filter([
-                        'id' => (int) $l->id, 'sku' => $l->sku, 'name' => $l->name, 'tracks_serials' => (bool) $l->tracks_serials,
-                        'serials' => $l->tracks_serials ? DB::table('product_serials')->where('sales_order_line_id', $l->id)->orderBy('id')->pluck('serial')->all() : [],
+                        'id' => (int) $l->id, 'sku' => $l->sku, 'name' => $l->name,
                         'quantity' => (string) Fixed::units((int) $l->quantity),
                         'list_price' => (string) Fixed::units((int) $l->list_price), 'discount_rate' => (string) Fixed::units((int) $l->discount_rate), 'unit_price' => (string) Fixed::units((int) $l->unit_price),
                         'cost_of_goods' => $showCost && $l->cost_of_goods !== null ? (string) Fixed::units((int) $l->cost_of_goods) : null,
@@ -147,7 +146,7 @@ final class ListController extends ApiController
     public function updateProduct(Request $request, int $product, AuditLogger $audit): JsonResponse
     {
         $d = $request->validate([
-            'name' => ['string', 'max:200'], 'active' => ['boolean'], 'tracks_serials' => ['boolean'], 'has_expiry' => ['boolean'],
+            'name' => ['string', 'max:200'], 'active' => ['boolean'], 'has_expiry' => ['boolean'],
             'lead_time_days' => ['integer', 'between:0,365'], 'cover_days' => ['integer', 'between:1,365'],
         ]);
         abort_unless(DB::table('products')->where('id', $product)->exists(), 404);

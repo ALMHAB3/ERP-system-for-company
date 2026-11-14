@@ -159,6 +159,33 @@ export function stagger(root) {
   });
 }
 
+// Type-ahead search under a text input: nothing is listed until something is typed; arrows + Enter or a click pick a match.
+// Fires `change` and a bubbling `picked` event on the input. items: [{id,label}]. free: typed text that matches nothing is allowed.
+export function attachSearch(input, items, { free = false, onPick, match } = {}) {
+  const list = h('ul', { class: 'search-results', hidden: true, role: 'listbox' });
+  let active = -1, shown = [];
+  const hide = () => { list.hidden = true; active = -1; };
+  const paint = () => [...list.children].forEach((li, i) => li.classList.toggle('on', i === active));
+  const pick = (item) => { input.value = item.label; hide(); onPick?.(item); input.dispatchEvent(new Event('change', { bubbles: true })); input.dispatchEvent(new CustomEvent('picked', { bubbles: true })); };
+  const show = () => {
+    const q = input.value.trim().toLowerCase();
+    if (!q) return hide();
+    shown = items.filter((i) => (match ? match(i, q) : i.label.toLowerCase().includes(q))).slice(0, 8);
+    list.replaceChildren(...(shown.length ? shown.map((i) => h('li', { onmousedown: (e) => { e.preventDefault(); pick(i); } }, i.label)) : free ? [] : [h('li', { class: 'none' }, 'لا توجد نتائج')]));
+    active = shown.length ? 0 : -1; list.hidden = list.children.length === 0; paint();
+  };
+  input.addEventListener('input', show);
+  input.addEventListener('blur', () => setTimeout(hide, 120));
+  input.addEventListener('keydown', (e) => {
+    if (list.hidden) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(shown.length - 1, active + 1); paint(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(0, active - 1); paint(); }
+    else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); e.stopPropagation(); pick(shown[active]); }
+    else if (e.key === 'Escape') { e.stopPropagation(); hide(); }
+  });
+  return list;
+}
+
 // A field is {name,label,type,options,required,value,wide,hint,fields(for rows),items(for ref)}
 // types: text number date password select ref checkbox textarea rows
 export function form(fields, submitLabel, onSubmit, opts) {
@@ -176,28 +203,7 @@ export function form(fields, submitLabel, onSubmit, opts) {
       input = h('input', { id, autocomplete: 'off', placeholder: f.placeholder || 'اكتب للبحث…', role: 'combobox' });
       input._items = f.items; input._free = !!f.free;
       input.value = f.value ?? '';
-      const list = h('ul', { class: 'search-results', hidden: true, role: 'listbox' });
-      input._list = list;
-      let active = -1, shown = [];
-      const hide = () => { list.hidden = true; active = -1; };
-      const paint = () => [...list.children].forEach((li, i) => li.classList.toggle('on', i === active));
-      const pick = (item) => { input.value = item.label; hide(); input.dispatchEvent(new Event('change', { bubbles: true })); input.dispatchEvent(new CustomEvent('picked', { bubbles: true })); };
-      const show = () => {
-        const q = input.value.trim().toLowerCase();
-        if (!q) return hide();
-        shown = f.items.filter((i) => i.label.toLowerCase().includes(q)).slice(0, 8);
-        list.replaceChildren(...(shown.length ? shown.map((i) => h('li', { onmousedown: (e) => { e.preventDefault(); pick(i); } }, i.label)) : f.free ? [] : [h('li', { class: 'none' }, 'لا توجد نتائج')]));
-        active = shown.length ? 0 : -1; list.hidden = list.children.length === 0; paint();
-      };
-      input.addEventListener('input', show);
-      input.addEventListener('blur', () => setTimeout(hide, 120));
-      input.addEventListener('keydown', (e) => {
-        if (list.hidden) return;
-        if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(shown.length - 1, active + 1); paint(); }
-        else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(0, active - 1); paint(); }
-        else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); e.stopPropagation(); pick(shown[active]); }
-        else if (e.key === 'Escape') { e.stopPropagation(); hide(); }
-      });
+      input._list = attachSearch(input, f.items, { free: !!f.free });
     } else if (f.type === 'textarea') input = h('textarea', { id, rows: 3 });
     else if (f.type === 'checkbox') input = h('input', { id, type: 'checkbox', checked: !!f.value });
     else input = h('input', { id, type: f.type === 'number' ? 'text' : f.type || 'text', inputmode: f.type === 'number' ? 'decimal' : null, value: f.value ?? '', placeholder: f.placeholder, dir: ['number', 'date', 'password'].includes(f.type) ? 'ltr' : null, autocomplete: f.type === 'password' ? 'new-password' : 'off' });

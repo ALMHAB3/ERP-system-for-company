@@ -14,7 +14,6 @@ use Modules\Sales\Domain\Exceptions\InvalidOrderState;
 use Modules\Sales\Domain\Exceptions\PricingApprovalRequired;
 use Modules\Sales\Domain\PaymentMethod;
 use Modules\Sales\Domain\PaymentTerms;
-use Modules\Sales\Domain\Ports\SerialTracking;
 use Modules\Sales\Domain\Ports\StockAvailability;
 use Modules\Sales\Domain\Pricing\PricingContext;
 use Modules\Sales\Domain\Pricing\PricingEngineFactory;
@@ -40,22 +39,21 @@ final class SalesOrderService
         private readonly TransactionRunner $tx,
         private readonly EventBus $events,
         private readonly ReceivablesService $receivables,
-        private readonly SerialTracking $serials,
     ) {}
 
     /** @param list<OrderLineRequest> $requests */
-    public function place(int $customerId, int $warehouseId, array $requests, bool $allowBelowMargin = false, bool $overrideCredit = false, ?PaymentTerms $terms = null, ?string $paymentReference = null): SalesOrder
+    public function place(int $customerId, int $warehouseId, array $requests, bool $allowBelowMargin = false, bool $overrideCredit = false, ?PaymentTerms $terms = null, ?string $paymentReference = null, ?Fixed $extraDiscount = null, ?Fixed $paidNow = null): SalesOrder
     {
         if ($requests === []) {
             throw new DomainException('An order needs at least one line.');
         }
 
-        return $this->tx->run(function () use ($customerId, $warehouseId, $requests, $allowBelowMargin, $overrideCredit, $terms, $paymentReference): SalesOrder {
+        return $this->tx->run(function () use ($customerId, $warehouseId, $requests, $allowBelowMargin, $overrideCredit, $terms, $paymentReference, $extraDiscount, $paidNow): SalesOrder {
             $customer = $this->customers->find($customerId) ?? throw new DomainException("Customer {$customerId} not found.");
             $terms ??= new PaymentTerms;
             // Credit means the money comes later: only for a customer the company has registered and can chase.
             if ($terms->method === PaymentMethod::Credit && $customer->isWalkIn) {
-                throw new CreditNeedsRegisteredCustomer('Credit (deferred) sales are only for registered customers. Register the customer first, or sell for cash or bank transfer.');
+                throw new CreditNeedsRegisteredCustomer('البيع بدين على العميل لا يتم إلا لعميل مسجَّل لدينا. سجّل العميل أولاً، أو بِع نقداً أو بتحويل مصرفي.');
             }
             if ($terms->method->isImmediate() && $terms->cashAccount === null) {
                 throw new DomainException('Cash and bank-transfer sales need the cash account or bank account the money goes to.');
@@ -64,21 +62,32 @@ final class SalesOrderService
 
             $lines = [];
             foreach ($requests as $request) {
-                $quote = $engine->quote(new PricingContext($customer->id, $customer->category, $request->productId, $warehouseId, $request->quantity));
-                if ($quote->belowMinimumMargin && ! $allowBelowMargin) {
-                    throw new PricingApprovalRequired("Product {$request->productId} would sell below the minimum margin; manager approval required.");
+                $context = new PricingContext($customer->id, $customer->category, $request->productId, $warehouseId, $request->quantity);
+                $quote = $engine->quote($context);
+                $unit = $quote->unitPrice;
+                $discountRate = $quote->discountRate;
+                $below = $quote->belowMinimumMargin;
+                if ($extraDiscount !== null && $extraDiscount->isPositive()) {   // a discount given at the counter, on top of the price list
+                    $unit = $unit->sub($unit->mul($extraDiscount));
+                    $below = $engine->belowFloor($context, $unit);
+                    $discountRate = $quote->listPrice->isPositive() ? Fixed::of(1)->sub($unit->div($quote->listPrice)) : $discountRate;
+                }
+                if ($below && ! $allowBelowMargin) {
+                    throw new PricingApprovalRequired("سعر الصنف رقم {$request->productId} بعد الخصم أقل من الحد الأدنى للهامش؛ يلزم موافقة من يملك صلاحية البيع تحت الحد الأدنى.");
                 }
                 $reservationId = $this->stock->reserve($request->productId, $warehouseId, $request->quantity, "sales_order:customer:{$customerId}");
-                $lines[] = new SalesOrderLine(null, $request->productId, $request->quantity, $quote->listPrice, $quote->discountRate, $quote->unitPrice, $reservationId);
+                $lines[] = new SalesOrderLine(null, $request->productId, $request->quantity, $quote->listPrice, $discountRate, $unit, $reservationId);
             }
 
             $order = new SalesOrder(null, '', $customerId, $warehouseId, 'reserved', $lines, $terms->method, $terms->cashAccount, $paymentReference);
-            if ($terms->method === PaymentMethod::Credit && $customer->creditLimit->isPositive() && ! $overrideCredit) {   // limit 0 = no limit; paid-now sales add no exposure
-                $net = $order->net();
-                $gross = $net->add($net->mul(Fixed::parse((string) config('erp.vat_rate'))));
+            $net = $order->net();
+            $gross = $net->add($net->mul(Fixed::parse((string) config('erp.vat_rate'))));
+            // what stays owed by the customer: everything on credit, or the unpaid rest of a part-paid cash / transfer sale
+            $owed = $terms->method === PaymentMethod::Credit ? $gross : ($paidNow !== null && $paidNow->lt($gross) ? $gross->sub($paidNow) : Fixed::zero());
+            if ($owed->isPositive() && $customer->creditLimit->isPositive() && ! $overrideCredit) {   // limit 0 = no limit
                 $exposure = $this->receivables->exposure($customerId);
-                if ($exposure->add($gross)->gt($customer->creditLimit)) {
-                    throw new CreditLimitExceeded("Credit limit {$customer->creditLimit} exceeded: open exposure {$exposure} + this order {$gross}.");
+                if ($exposure->add($owed)->gt($customer->creditLimit)) {
+                    throw new CreditLimitExceeded("تجاوز حد الدين المسموح للعميل ({$customer->creditLimit}): المستحق الحالي {$exposure} + هذه العملية {$owed}.");
                 }
             }
 
@@ -90,7 +99,6 @@ final class SalesOrderService
     {
         return $this->tx->run(function () use ($orderId): SalesOrder {
             $order = $this->load($orderId, 'reserved');
-            $this->serials->sellForOrder($orderId);   // a serial-tracked line must name its units before it leaves
             $issues = [];
             foreach ($order->lines as $line) {
                 $issues[$line->id] = $this->stock->issue($line->reservationId, "sales_order:{$order->number}", "sales_order:{$orderId}:line:{$line->id}:ship");
@@ -102,9 +110,9 @@ final class SalesOrderService
         });
     }
 
-    public function invoice(int $orderId, ?string $paymentReference = null): int
+    public function invoice(int $orderId, ?string $paymentReference = null, ?Fixed $paid = null): int
     {
-        return $this->tx->run(function () use ($orderId, $paymentReference): int {
+        return $this->tx->run(function () use ($orderId, $paymentReference, $paid): int {
             $order = $this->load($orderId, 'shipped');
             $net = $order->net();
             $tax = $net->mul(Fixed::parse((string) config('erp.vat_rate')));
@@ -116,8 +124,17 @@ final class SalesOrderService
 
             // Cash and bank-transfer sales are paid at the counter: the receipt is booked with the invoice, into the till or the chosen bank.
             if ($order->paymentMethod->isImmediate()) {
-                $this->receivables->receive($order->customerId, CarbonImmutable::today(), $order->paymentMethod->value,
-                    $paymentReference ?? $order->paymentReference ?? $order->number, [$invoice['id'] => $gross], $order->cashAccount);
+                $amount = $paid ?? $gross;
+                if ($amount->gt($gross)) {
+                    throw new DomainException("المبلغ المدفوع ({$amount}) أكبر من إجمالي الفاتورة ({$gross}).");
+                }
+                if ($amount->lt($gross) && ($this->customers->find($order->customerId)?->isWalkIn ?? true)) {
+                    throw new CreditNeedsRegisteredCustomer('المدفوع أقل من إجمالي الفاتورة: يبقى الباقي ديناً على العميل، ولا يكون الدين إلا على عميل مسجَّل. اختر العميل أو ادفع كامل المبلغ.');
+                }
+                if ($amount->isPositive()) {
+                    $this->receivables->receive($order->customerId, CarbonImmutable::today(), $order->paymentMethod->value,
+                        $paymentReference ?? $order->paymentReference ?? $order->number, [$invoice['id'] => $amount], $order->cashAccount);
+                }
             }
 
             return $invoice['id'];
@@ -128,7 +145,6 @@ final class SalesOrderService
     {
         $this->tx->run(function () use ($orderId): void {
             $order = $this->load($orderId, 'reserved');
-            $this->serials->releaseForOrder($orderId);
             foreach ($order->lines as $line) {
                 $this->stock->release($line->reservationId);
             }

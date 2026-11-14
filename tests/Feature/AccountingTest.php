@@ -200,7 +200,7 @@ final class AccountingTest extends ErpTestCase
             $this->sell('50');           // +1,150 -> 3,450 > 3,000
             $this->fail('credit limit must block this order');
         } catch (CreditLimitExceeded $e) {
-            $this->assertStringContainsString('exceeded', $e->getMessage());
+            $this->assertStringContainsString('تجاوز', $e->getMessage());
         }
         $this->assertSame(1, DB::table('sales_orders')->count());
         $this->assertSame('900.0000', (string) app(StockLedgerRepository::class)->balance($this->product, $this->warehouse)->available());   // rolled-back reservation

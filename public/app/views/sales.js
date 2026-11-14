@@ -1,5 +1,5 @@
 import { einvoiceView } from './einvoice.js';
-import { cityItems, h, get, post, put, download, form, table, tabs, panel, act, can, modal, money, qty, pct, badge, toast, state, opts, refItems, reloadLookups, today, wireBank, PAY_METHODS, SALE_METHODS } from '../ui.js';
+import { attachSearch, cityItems, h, get, post, put, download, form, table, tabs, panel, act, can, modal, money, qty, pct, badge, toast, state, opts, refItems, reloadLookups, today, wireBank, PAY_METHODS, SALE_METHODS } from '../ui.js';
 
 const CATS = [['wholesale', 'جملة'], ['retail', 'تجزئة'], ['direct', 'مبيعات مباشرة']].map(([value, label]) => ({ value, label }));
 
@@ -49,7 +49,6 @@ function history() {
       { label: 'البنود', render: (o) => o.lines.map((l) => `${l.sku} × ${qty(l.quantity)} @ ${money(l.unit_price)}`).join('، ') },
       { label: '', render: (o) => h('div', { class: 'row-actions' },
         o.invoice_id ? h('button', { class: 'btn secondary small', onclick: () => einvoiceView(o.invoice_id) }, 'عرض الفاتورة') : null,
-        o.status === 'reserved' && can('sales.create') && o.lines.some((l) => l.tracks_serials) ? h('button', { class: 'btn secondary small', onclick: () => serialPicker(o, refresh) }, 'الأرقام التسلسلية') : null,
         o.status === 'reserved' && can('sales.ship') ? act('تسليم', () => post(`sales-orders/${o.id}/ship`), refresh, { confirm: 'تسليم الطلب ' + o.number + ' (صرف من المخزون)؟', ok: 'تم التسليم' }) : null,
         o.status === 'shipped' && can('sales.invoice') ? act('إصدار فاتورة', () => post(`sales-orders/${o.id}/invoice`), refresh, { ok: 'تم إصدار الفاتورة' }) : null,
         o.status === 'reserved' && can('sales.cancel') ? act('إلغاء', () => post(`sales-orders/${o.id}/cancel`), refresh, { cls: 'danger', confirm: 'إلغاء الطلب وتحرير الحجز؟', ok: 'تم الإلغاء' }) : null,
@@ -58,60 +57,146 @@ function history() {
   });
 }
 
-function serialPicker(o, refresh) {
-  const boxes = o.lines.filter((l) => l.tracks_serials).map((l) => ({ l, ta: h('textarea', { rows: 4, dir: 'ltr', placeholder: 'SN-001\nSN-002' }, l.serials.join('\n')) }));
-  const m = modal('الأرقام التسلسلية — ' + o.number, h('div', null,
-    h('p', { class: 'hint' }, 'اكتب رقماً تسلسلياً في كل سطر. يجب أن يساوي عددها كمية البند قبل التسليم، وأن تكون مسجلة في مخزون مستودع الطلب.'),
-    boxes.map(({ l, ta }) => h('div', { class: 'field' }, h('label', null, `${l.sku} — ${l.name} (الكمية ${qty(l.quantity)})`), ta)),
-    h('button', { class: 'btn', onclick: async (e) => {
-      e.target.disabled = true;
-      try {
-        for (const { l, ta } of boxes) await put(`sales-orders/${o.id}/lines/${l.id}/serials`, { serials: ta.value.split('\n').map((x) => x.trim()).filter(Boolean) });
-        toast('تم حفظ الأرقام التسلسلية', 'ok'); m.close(); refresh();
-      } catch (err) { toast(err.message, 'error'); e.target.disabled = false; }
-    } }, 'حفظ')));
-}
-
-// ONE screen: pick the goods, say how it is paid, press once. The system reserves, issues from stock, and issues the invoice.
+// ONE screen, like an invoice: a table of lines (no., code, name, quantity, piece price, total), the invoice total under it,
+// then a bar with the payment method, the amount paid and the discount. One button issues the invoice.
 function newOrder() {
+  const products = state.lookups.products.map((p) => ({ id: p.id, sku: p.sku, name: p.name, label: p.sku + ' — ' + p.name }));
   const registered = state.lookups.customers.filter((c) => !c.is_walk_in).map((c) => ({ id: c.id, label: c.name }));
-  const onlyWarehouse = state.lookups.warehouses.length === 1 ? state.lookups.warehouses[0].id : '';
-  const f = form([
-    { name: 'payment_method', label: 'طريقة الدفع', type: 'select', value: 'cash', options: [{ value: 'cash', label: 'نقداً (كاش)' }, { value: 'transfer', label: 'تحويل مصرفي' }, { value: 'credit', label: 'دين على العميل (لعملاء مسجَّلين فقط)' }] },
-    { name: 'bank_account_id', label: 'المصرف الذي حُوِّل عليه المبلغ', type: 'select', options: opts.banks(), hint: state.lookups.bank_accounts.length ? '' : 'لا توجد حسابات مصرفية: يضيفها المحاسب من «المحاسبة ← الحسابات المصرفية»' },
-    { name: 'payment_reference', label: 'رقم التحويل / الإيصال (اختياري)', type: 'text' },
-    { name: 'customer_name', label: 'اسم الزبون (اختياري — إن تُرك فارغاً يُسجَّل «غير معروف»)', type: 'text' },
-    { name: 'customer_id', label: 'العميل المسجَّل (الدين يكون على عميل مسجَّل فقط)', type: 'ref', items: registered, hint: 'عميل جديد؟ سجّله أولاً من شاشة «العملاء».' },
-    { name: 'warehouse_id', label: 'المستودع', type: 'select', value: onlyWarehouse, options: [{ value: '', label: '— اختر —' }, ...opts.warehouses()], required: true },
-    { name: 'lines', label: 'الأصناف (السعر يحسبه النظام من قائمة الأسعار)', type: 'rows', enterNext: true, skipBlank: true, fields: [
-      { name: 'product_id', label: 'الصنف', type: 'ref', items: refItems.products(), required: true, onChange: (label, bag) => {
-        const p = state.lookups.products.find((x) => x.sku + ' — ' + x.name === label.trim());   // serial numbers are asked only for products that track them
-        bag.serials.input.closest('.field').hidden = !p?.tracks_serials;
-      } }, { name: 'quantity', label: 'الكمية', type: 'number', required: true, last: true },
-      { name: 'serials', label: 'الأرقام التسلسلية (رقم في كل سطر)', type: 'textarea', hidden: true }] },
-  ], 'إتمام البيع وإصدار الفاتورة', async (v, el) => {
-    if (!v.lines.length) throw new Error('أضف صنفاً واحداً على الأقل');
-    if (v.payment_method === 'credit' && !v.customer_id) throw new Error('الدين لا يكون إلا على عميل مسجَّل: اختر العميل، أو سجّله من شاشة العملاء');
-    if (v.payment_method === 'transfer' && !v.bank_account_id) throw new Error('اختر المصرف الذي حُوِّل عليه المبلغ');
-    const credit = v.payment_method === 'credit';
-    const r = await post('sales/quick', {
-      warehouse_id: Number(v.warehouse_id), payment_method: v.payment_method,
-      customer_id: v.customer_id ? Number(v.customer_id) : undefined, customer_name: credit ? undefined : v.customer_name || undefined,
-      bank_account_id: v.payment_method === 'transfer' ? Number(v.bank_account_id) : undefined, payment_reference: credit ? undefined : v.payment_reference || undefined,
-      lines: v.lines.map((l) => ({ product_id: Number(l.product_id), quantity: l.quantity, serials: l.serials ? l.serials.split('\n').map((x) => x.trim()).filter(Boolean) : undefined })),
-    });
-    toast(`تمت عملية البيع — الفاتورة ${r.invoice_number} بإجمالي ${money(r.gross)}`, 'ok'); el.reset(); I.lines.input._reset(); I.warehouse_id.input.value = onlyWarehouse; sync(); I.lines.input._rows[0].product_id.input.focus(); einvoiceView(r.invoice_id);   // reset() forgets the pre-selected branch
-  });
-  const I = f._inputs;
-  const sync = () => {
-    const m = I.payment_method.input.value;
-    I.bank_account_id.input.closest('.field').hidden = m !== 'transfer';
-    I.payment_reference.input.closest('.field').hidden = m === 'credit';
-    I.customer_name.input.closest('.field').hidden = m === 'credit';
-    I.customer_id.input.closest('.field').hidden = m !== 'credit';
+  const vat = Number(state.lookups.vat_rate || 0);
+  const onlyWarehouse = state.lookups.warehouses.length === 1 ? String(state.lookups.warehouses[0].id) : '';
+  const num = (v) => { const n = parseFloat(String(v).replace(/,/g, '')); return Number.isFinite(n) ? n : 0; };
+  const fmt = (n) => money(n.toFixed(4));
+  const lab = (text, el, cls) => {
+    const target = el.matches('input,select,textarea') ? el : el.querySelector('input,select,textarea');   // label <-> input association (accessibility and tests)
+    const id = 'f' + Math.random().toString(36).slice(2, 9); target.id = id;
+    return h('div', { class: 'field ' + (cls || '') }, h('label', { for: id }, text), el);
   };
-  f.addEventListener('change', sync); sync();
-  return f;
+
+  // --- who / where
+  const buyerName = h('input', { placeholder: 'غير معروف' });
+  const customerBox = h('input', { autocomplete: 'off', placeholder: 'اكتب للبحث…', role: 'combobox' });
+  let customerId = null;
+  const customerList = attachSearch(customerBox, registered, { onPick: (c) => { customerId = c.id; requote(); recalc(); } });
+  customerBox.addEventListener('input', () => { if (customerId !== null) { customerId = null; requote(); recalc(); } });
+  const warehouse = h('select', null, [h('option', { value: '' }, '— اختر —'), ...state.lookups.warehouses.map((w) => h('option', { value: w.id, selected: String(w.id) === onlyWarehouse }, w.code + ' — ' + w.name))]);
+
+  // --- the table
+  const rows = [];
+  const tbody = h('tbody');
+  const totalCell = h('td', { class: 'num strong' }, '0.00'), subCell = h('td', { class: 'num' }, '0.00'), discCell = h('td', { class: 'num' }, '0.00'), vatCell = h('td', { class: 'num' }, '0.00');
+  const renumber = () => rows.forEach((r, i) => { r.no.textContent = String(i + 1); });
+  const timers = new WeakMap();
+  const requote = () => rows.forEach((r) => quote(r));
+  const quote = (r) => {
+    clearTimeout(timers.get(r));
+    if (!r.product) { r.price = 0; r.priceCell.textContent = ''; r.lineCell.textContent = ''; return; }
+    timers.set(r, setTimeout(async () => {
+      if (!warehouse.value || num(r.qty.value) <= 0) { r.price = 0; r.priceCell.textContent = warehouse.value ? '' : 'اختر المستودع'; recalc(); return; }
+      try {
+        const q = await get('sales/quote', { product_id: r.product.id, warehouse_id: warehouse.value, quantity: r.qty.value.trim(), customer_id: customerId || '' });
+        r.price = num(q.unit_price); r.priceCell.textContent = money(q.unit_price); r.priceCell.classList.remove('neg');
+      } catch (e) { r.price = 0; r.priceCell.textContent = 'لا يوجد سعر'; r.priceCell.classList.add('neg'); }
+      recalc();
+    }, 250));
+  };
+  const addRow = () => {
+    const r = { product: null, price: 0 };
+    r.no = h('td', { class: 'rownum-cell' }, '');
+    r.code = h('input', { autocomplete: 'off', placeholder: 'كود الصنف أو اسمه', role: 'combobox', dir: 'ltr' });
+    r.nameCell = h('td', { class: 'name' }, '');
+    r.qty = h('input', { inputmode: 'decimal', dir: 'ltr', placeholder: '0', class: 'qty' });
+    r.priceCell = h('td', { class: 'num' }, ''); r.lineCell = h('td', { class: 'num strong' }, '');
+    const list = attachSearch(r.code, products, { onPick: (p) => {
+      r.product = p; r.code.value = p.sku; r.nameCell.textContent = p.name;
+      if (!r.qty.value.trim()) r.qty.value = '1';
+      quote(r); r.qty.focus(); r.qty.select();
+    } });
+    r.code.addEventListener('input', () => { if (r.product && r.code.value !== r.product.sku) { r.product = null; r.nameCell.textContent = ''; quote(r); recalc(); } });
+    r.qty.addEventListener('input', () => { quote(r); recalc(); });
+    r.qty.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      if (!r.product || num(r.qty.value) <= 0) return;
+      const next = rows[rows.indexOf(r) + 1] || addRow(); next.code.focus();   // Enter on the quantity goes to the next numbered line
+    });
+    const tr = h('tr', null, r.no, h('td', { class: 'code' }, h('div', { class: 'searchbox' }, r.code, list)), r.nameCell, h('td', null, r.qty), r.priceCell, r.lineCell,
+      h('td', null, h('button', { class: 'btn danger small', type: 'button', title: 'حذف السطر', onclick: () => {
+        if (rows.length === 1) { r.product = null; r.code.value = ''; r.qty.value = ''; r.nameCell.textContent = ''; quote(r); recalc(); return; }
+        tr.remove(); rows.splice(rows.indexOf(r), 1); renumber(); recalc();
+      } }, '✕')));
+    r.tr = tr; rows.push(r); tbody.append(tr); renumber();
+    return r;
+  };
+
+  // --- the bar under the table
+  const method = h('select', null, [['cash', 'نقداً (كاش)'], ['transfer', 'تحويل مصرفي'], ['credit', 'دين على العميل']].map(([v, l]) => h('option', { value: v }, l)));
+  const bank = h('select', null, [h('option', { value: '' }, '— اختر المصرف —'), ...opts.banks().map((o) => h('option', { value: o.value }, o.label))]);
+  const reference = h('input', { placeholder: 'اختياري', dir: 'ltr' });
+  const paid = h('input', { inputmode: 'decimal', dir: 'ltr' });
+  const discount = h('input', { inputmode: 'decimal', dir: 'ltr', placeholder: '0' });
+  const remaining = h('div', { class: 'remaining' });
+  const methodF = lab('طريقة الدفع', method), bankF = lab('المصرف', bank), referenceF = lab('رقم التحويل / الإيصال', reference), paidF = lab('المدفوع', paid), discountF = lab('الخصم %', discount);
+  let paidTouched = false;
+  const totals = () => {
+    const sub = rows.reduce((a, r) => a + r.price * num(r.qty.value), 0);
+    const disc = Math.min(100, Math.max(0, num(discount.value)));
+    const net = sub - sub * disc / 100;
+    return { sub, disc: sub * disc / 100, tax: net * vat, total: net + net * vat };
+  };
+  const recalc = () => {
+    rows.forEach((r) => { r.lineCell.textContent = r.product && r.price ? fmt(r.price * num(r.qty.value)) : ''; });
+    const t = totals();
+    subCell.textContent = fmt(t.sub); discCell.textContent = t.disc ? '-' + fmt(t.disc) : fmt(0); vatCell.textContent = fmt(t.tax); totalCell.textContent = fmt(t.total);
+    const credit = method.value === 'credit';
+    bankF.hidden = method.value !== 'transfer'; referenceF.hidden = credit; paidF.hidden = credit;
+    if (!paidTouched) paid.value = t.total ? t.total.toFixed(2) : '';
+    const paidNow = !paidTouched || paid.value.trim() === '' ? t.total : num(paid.value);   // an empty box means paid in full
+    const rest = credit ? t.total : Math.max(0, t.total - paidNow);
+    remaining.hidden = rest <= 0.00005;
+    remaining.textContent = 'المتبقي: ' + fmt(rest) + ' ' + state.lookups.currency + ' — يُسجَّل ديناً على العميل (لا يكون إلا لعميل مسجَّل)';
+    vatRow.hidden = !vat;
+  };
+  paid.addEventListener('input', () => { paidTouched = paid.value.trim() !== ''; recalc(); });
+  [method, discount].forEach((el) => el.addEventListener('input', () => { if (el === method) paidTouched = false; recalc(); }));
+  warehouse.addEventListener('change', requote);
+  const vatRow = h('tr', null, h('td', { colspan: 5, class: 'lbl' }, 'الضريبة'), vatCell, h('td'));
+  const reset = () => {
+    while (rows.length > 1) { rows.pop().tr.remove(); }
+    const r = rows[0]; r.product = null; r.code.value = ''; r.qty.value = ''; r.nameCell.textContent = ''; r.priceCell.textContent = ''; r.lineCell.textContent = '';
+    buyerName.value = ''; customerBox.value = ''; customerId = null; reference.value = ''; discount.value = ''; paid.value = ''; paidTouched = false; method.value = 'cash'; renumber(); recalc(); r.code.focus();
+  };
+  const submit = h('button', { class: 'btn', type: 'button', onclick: async (e) => {
+    const lines = rows.filter((r) => r.product).map((r) => ({ product_id: r.product.id, quantity: r.qty.value.trim() }));
+    try {
+      if (!lines.length) throw new Error('أضف صنفاً واحداً على الأقل');
+      if (lines.some((l) => num(l.quantity) <= 0)) throw new Error('أدخل كمية صحيحة لكل صنف');
+      if (!warehouse.value) throw new Error('اختر المستودع');
+      const credit = method.value === 'credit', t = totals();
+      if (credit && !customerId) throw new Error('الدين لا يكون إلا على عميل مسجَّل: ابحث عن العميل، أو سجّله من شاشة العملاء');
+      if (method.value === 'transfer' && !bank.value) throw new Error('اختر المصرف الذي حُوِّل عليه المبلغ');
+      if (!credit && paidTouched && num(paid.value) < t.total - 0.005 && !customerId) throw new Error('المدفوع أقل من الإجمالي: الباقي دين على العميل، فابحث عن عميل مسجَّل أو ادفع كامل المبلغ');
+      e.target.disabled = true;
+      const r = await post('sales/quick', {
+        warehouse_id: Number(warehouse.value), payment_method: method.value, customer_id: customerId || undefined, customer_name: !credit && !customerId ? buyerName.value.trim() || undefined : undefined,
+        bank_account_id: method.value === 'transfer' ? Number(bank.value) : undefined, payment_reference: !credit ? reference.value.trim() || undefined : undefined,
+        discount_pct: num(discount.value) > 0 ? discount.value.trim() : undefined, paid: !credit && paidTouched && paid.value.trim() ? paid.value.trim() : undefined,   // untouched = paid in full (the server decides the exact total)
+        lines,
+      });
+      toast(`تمت عملية البيع — الفاتورة ${r.invoice_number} بإجمالي ${money(r.gross)}`, 'ok'); reset(); einvoiceView(r.invoice_id);
+    } catch (err) { toast(err.message, 'error'); } finally { e.target.disabled = false; }
+  } }, 'إتمام البيع وإصدار الفاتورة');
+
+  addRow(); recalc();
+  return h('div', { class: 'sale' },
+    h('div', { class: 'sale-head' }, lab('اسم الزبون (اختياري — يُسجَّل «غير معروف» إن تُرك فارغاً)', buyerName), lab('العميل المسجَّل (للدين أو الدفع الجزئي)', h('div', { class: 'searchbox' }, customerBox, customerList)), lab('المستودع', warehouse)),
+    h('div', { class: 'tablewrap' }, h('table', { class: 'sale-table' },
+      h('thead', null, h('tr', null, ['#', 'كود الصنف', 'اسم الصنف', 'العدد', 'سعر القطعة', 'المجموع', ''].map((t) => h('th', null, t)))), tbody,
+      h('tfoot', null,
+        h('tr', null, h('td', { colspan: 5, class: 'lbl' }, 'المجموع'), subCell, h('td')), h('tr', null, h('td', { colspan: 5, class: 'lbl' }, 'الخصم'), discCell, h('td')), vatRow,
+        h('tr', { class: 'grand' }, h('td', { colspan: 5, class: 'lbl' }, 'إجمالي الفاتورة'), totalCell, h('td'))))),
+    h('div', { class: 'muted' }, 'اكتب كود الصنف أو اسمه واضغط Enter، ثم الكمية واضغط Enter للسطر التالي.'),
+    h('div', { class: 'sale-bar' }, methodF, bankF, referenceF, paidF, discountF, remaining),
+    h('div', { class: 'formbar' }, submit));
 }
 
 export function customers() {

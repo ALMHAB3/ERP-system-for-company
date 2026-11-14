@@ -121,7 +121,7 @@ PHP 8.3 + Laravel 13 · **Modular Monolith** · PostgreSQL 16
 
 ## التشغيل
 
-**الفوترة الإلكترونية والأرقام التسلسلية والتكاملات (ويب هوك، CSV، مفاتيح API):** [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md).
+**الفوترة الإلكترونية والتكاملات (ويب هوك، CSV، مفاتيح API):** [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md).
 
 **البدء السريع والتجربة (تثبيت بأمر واحد + بيانات تجريبية + Tailscale):** [`docs/QUICKSTART.md`](docs/QUICKSTART.md).
 

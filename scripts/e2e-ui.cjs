@@ -17,28 +17,40 @@ const { chromium } = require('playwright');
   const nav = async () => (await page.locator('nav.side a').allInnerTexts()).map((t) => t.trim());
 
   await step('rep-sees-sales-and-customers-not-admin', async () => { await login('sales@demo.test'); const n = await nav(); console.log('      nav:', n.join(' | ')); if (!n.includes('المبيعات') || !n.includes('العملاء والديون') || n.some((x) => x.includes('المستخدمون'))) throw new Error('bad nav'); const h1 = await page.locator('nav.side h1').innerText(); if (!h1.includes('هب الريح')) throw new Error('company name: ' + h1); });
-  await step('rep-one-click-cash-sale-unknown-buyer-shows-invoice', async () => {
+  const row = (n) => page.locator('.sale-table tbody tr:nth-child(' + n + ')');
+  const fillLine = async (n, text, qtyText) => { await pick(row(n).locator('input[role=combobox]'), text); if (qtyText) await page.keyboard.type(qtyText); };
+  const issue = () => page.getByRole('button', { name: 'إتمام البيع وإصدار الفاتورة' }).click();
+  await step('rep-sale-table-enter-flow-prices-totals-and-invoice', async () => {
     await go('sales'); await page.waitForSelector('text=إتمام البيع');
-    await pick(page.locator('.subrow input[role=combobox]').first(), 'SBS3'); await page.keyboard.type('2'); await page.keyboard.press('Enter');   // Enter after the quantity opens line 2
-    await page.waitForSelector('.subrow:nth-child(2) .rownum'); await pick(page.locator('.subrow:nth-child(2) input[role=combobox]'), 'CEM-WP'); await page.keyboard.type('1');
-    if ((await page.locator('.subrow .rownum').allInnerTexts()).join() !== '1,2') throw new Error('rows are not numbered 1,2');
+    await fillLine(1, 'SBS3', '2'); await page.keyboard.press('Enter');                 // Enter after the quantity opens line 2
+    await page.waitForSelector('.sale-table tbody tr:nth-child(2)'); await fillLine(2, 'CEM-WP', '1');
+    if ((await page.locator('.rownum-cell').allInnerTexts()).join() !== '1,2') throw new Error('rows are not numbered 1,2');
     if (await page.getByText('+ إضافة سطر').count()) throw new Error('add-line button still there');
+    await page.waitForFunction(() => document.querySelector('.sale-table tbody tr:nth-child(2) td:nth-child(5)').textContent.trim() !== '');   // piece price arrives
+    const name = await row(1).locator('td.name').innerText(); if (!name.trim()) throw new Error('name column empty');
+    const grand = await page.locator('tr.grand td.num').innerText(); if (/^0\.00$/.test(grand.trim())) throw new Error('total is zero');
     await page.screenshot({ path: SH + 'y-newsale.png' });
-    await page.getByRole('button', { name: 'إتمام البيع وإصدار الفاتورة' }).click();
-    await page.waitForSelector('.print-sheet'); const t = await page.locator('.print-sheet').innerText(); if (!t.includes('غير معروف')) throw new Error('buyer not unknown: ' + t.slice(0, 200));
+    await issue(); await page.waitForSelector('.print-sheet'); const t = await page.locator('.print-sheet').innerText(); if (!t.includes('غير معروف')) throw new Error('buyer not unknown: ' + t.slice(0, 200));
     await page.waitForTimeout(700); await page.screenshot({ path: SH + 'y-invoice.png' }); await page.keyboard.press('Escape');
   });
+  await step('rep-discount-lowers-the-total', async () => {
+    await page.waitForTimeout(500); await fillLine(1, 'SBS3', '2'); await page.waitForFunction(() => !/^0\.00$/.test(document.querySelector('tr.grand td.num').textContent.trim()));
+    const before = parseFloat((await page.locator('tr.grand td.num').innerText()).replace(/,/g, '')); await page.getByLabel('الخصم %').fill('10');
+    const after = parseFloat((await page.locator('tr.grand td.num').innerText()).replace(/,/g, '')); if (!(after < before && Math.abs(after - before * 0.9) < 0.02)) throw new Error(before + ' -> ' + after);
+    await page.screenshot({ path: SH + 'y-discount.png' }); await page.getByLabel('الخصم %').fill('');
+  });
+  await step('rep-part-payment-needs-a-registered-customer', async () => {
+    await page.getByLabel('المدفوع').fill('1'); await issue(); await page.waitForSelector('.toast.error');
+    const msg = await page.locator('.toast.error').last().innerText(); if (!msg.includes('مسجَّل')) throw new Error(msg);
+  });
   await step('rep-typed-name-transfer-needs-bank', async () => {
-    await page.waitForTimeout(500); await page.getByLabel('طريقة الدفع').selectOption('transfer');
-    await pick(page.locator('.subrow input[role=combobox]').first(), 'SBS3'); await page.locator('.subrow input').nth(1).fill('1');
-    await page.getByLabel(/اسم الزبون/).fill('زبون تجربة'); await page.getByLabel(/المصرف الذي/).selectOption({ index: 1 });
-    await page.getByRole('button', { name: 'إتمام البيع وإصدار الفاتورة' }).click();
-    await page.waitForSelector('.print-sheet, .toast.error'); if (await page.locator('.toast.error').count()) throw new Error('toast: ' + (await page.locator('.toast.error').last().innerText())); const t = await page.locator('.print-sheet').innerText(); if (!t.includes('زبون تجربة')) throw new Error('typed name missing'); await page.keyboard.press('Escape');
+    await page.getByLabel('المدفوع').fill(''); await page.getByLabel('طريقة الدفع').selectOption('transfer'); await page.getByLabel('اسم الزبون (اختياري').fill('زبون تجربة');
+    await page.getByLabel('المصرف').selectOption({ index: 1 }); await issue();
+    await page.waitForSelector('.print-sheet', { timeout: 10000 }).catch(async () => { throw new Error('no invoice; last toast: ' + (await page.locator('.toast').last().innerText().catch(() => '-'))); });
+    const t = await page.locator('.print-sheet').innerText(); if (!t.includes('زبون تجربة')) throw new Error('typed name missing'); await page.keyboard.press('Escape');
   });
   await step('rep-debt-without-registered-customer-is-refused', async () => {
-    await page.waitForTimeout(500); await page.getByLabel('طريقة الدفع').selectOption('credit');
-    await pick(page.locator('.subrow input[role=combobox]').first(), 'SBS3'); await page.locator('.subrow input').nth(1).fill('1');
-    await page.getByRole('button', { name: 'إتمام البيع وإصدار الفاتورة' }).click(); await page.waitForSelector('.toast.error');
+    await page.waitForTimeout(500); await page.getByLabel('طريقة الدفع').selectOption('credit'); await fillLine(1, 'SBS3', '1'); await issue(); await page.waitForSelector('.toast.error');
   });
   await step('rep-can-register-customer', async () => { await go('customers'); await page.getByLabel('اسم العميل').first().fill('مقاول الصحراء'); await page.getByLabel('رقم الهاتف').fill('0912345678');
     if (await page.getByLabel(/الرقم الضريبي/).count()) throw new Error('tax id field still on the customer form');
@@ -46,8 +58,13 @@ const { chromium } = require('playwright');
     await page.getByRole('button', { name: 'إضافة', exact: true }).click(); await page.waitForSelector('.toast.ok'); await page.waitForSelector('td >> text=مقاول الصحراء'); });
   await step('rep-debt-sale-to-registered-customer-found-by-search', async () => {
     await go('sales'); await page.waitForSelector('text=إتمام البيع'); await page.getByLabel('طريقة الدفع').selectOption('credit');
-    await pick(page.getByLabel(/العميل المسجَّل/), 'الصحراء'); await pick(page.locator('.subrow input[role=combobox]').first(), 'SBS3'); await page.keyboard.type('1');
-    await page.getByRole('button', { name: 'إتمام البيع وإصدار الفاتورة' }).click(); await page.waitForSelector('.print-sheet'); const t = await page.locator('.print-sheet').innerText(); if (!t.includes('مقاول الصحراء')) throw new Error('buyer'); await page.keyboard.press('Escape');
+    await pick(page.getByLabel(/العميل المسجَّل/), 'الصحراء'); await fillLine(1, 'SBS3', '1'); await issue();
+    await page.waitForSelector('.print-sheet'); const t = await page.locator('.print-sheet').innerText(); if (!t.includes('مقاول الصحراء')) throw new Error('buyer'); await page.keyboard.press('Escape');
+  });
+  await step('rep-part-paid-sale-to-registered-customer-leaves-a-debt', async () => {
+    await page.waitForTimeout(500); await pick(page.getByLabel(/العميل المسجَّل/), 'الصحراء'); await fillLine(1, 'SBS3', '2');
+    await page.waitForFunction(() => !/^0\.00$/.test(document.querySelector('tr.grand td.num').textContent.trim())); await page.getByLabel('المدفوع').fill('10');
+    await page.waitForSelector('.remaining:not([hidden])'); await issue(); await page.waitForSelector('.print-sheet'); await page.keyboard.press('Escape');
   });
   await step('rep-my-sales-lists-them', async () => { await tab('مبيعاتي'); await page.waitForSelector('text=عرض الفاتورة'); });
 

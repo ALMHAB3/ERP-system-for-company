@@ -62,6 +62,30 @@ final class QuickSaleApiTest extends ApiTestCase
         $this->assertSame(170 * Fixed::FACTOR, (int) DB::table('sales_invoices')->where('id', $r['invoice_id'])->selectRaw('gross - paid as open')->value('open'));
     }
 
+    public function test_quote_shows_the_unit_price_before_the_sale(): void
+    {
+        $q = $this->as($this->rep)->getJson('/api/sales/quote?product_id='.$this->product.'&warehouse_id='.$this->warehouse.'&quantity=2')->assertOk()->json();
+        $this->assertSame('85.0000', $q['unit_price']);
+    }
+
+    public function test_discount_is_applied_and_cannot_go_under_the_minimum_margin(): void
+    {
+        $r = $this->sale(['discount_pct' => '10'])->assertCreated()->json();
+        $this->assertSame('153.0000', $r['gross']);                      // 2 x 85 = 170, less 10%
+        $this->sale(['discount_pct' => '95'])->assertUnprocessable();    // 4.25 per piece is under cost plus the minimum margin
+        $this->sale(['discount_pct' => '101'])->assertUnprocessable();
+    }
+
+    public function test_part_payment_leaves_the_rest_as_a_debt_only_for_a_registered_customer(): void
+    {
+        $r = $this->sale(['customer_id' => $this->registered, 'paid' => '100'])->assertCreated()->json();
+        $this->assertSame(70 * Fixed::FACTOR, (int) DB::table('sales_invoices')->where('id', $r['invoice_id'])->selectRaw('gross - paid as open')->value('open'));
+        $this->sale(['paid' => '100'])->assertUnprocessable();                              // a cash customer cannot owe
+        $this->sale(['paid' => '999'])->assertUnprocessable();                              // more than the invoice
+        $this->sale(['payment_method' => 'credit', 'customer_id' => $this->registered, 'paid' => '50'])->assertUnprocessable();
+        $this->assertSame(1, DB::table('sales_invoices')->count());                         // the refused ones left nothing behind
+    }
+
     public function test_sale_is_all_or_nothing(): void
     {
         $this->sale(['lines' => [['product_id' => $this->product, 'quantity' => '999999']]])->assertStatus(409);

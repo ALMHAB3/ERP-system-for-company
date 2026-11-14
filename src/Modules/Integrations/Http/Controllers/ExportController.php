@@ -26,11 +26,11 @@ final class ExportController
 
     public function products(): StreamedResponse
     {
-        $q = DB::table('products as p')->leftJoin('stock_balances as b', 'b.product_id', '=', 'p.id')->groupBy('p.id', 'p.sku', 'p.name', 'p.base_uom', 'p.active', 'p.tracks_serials')->orderBy('p.sku')
+        $q = DB::table('products as p')->leftJoin('stock_balances as b', 'b.product_id', '=', 'p.id')->groupBy('p.id', 'p.sku', 'p.name', 'p.base_uom', 'p.active')->orderBy('p.sku')
             ->select(['p.sku', 'p.name', 'p.base_uom', 'p.active', 'p.tracks_serials', DB::raw('COALESCE(SUM(b.on_hand),0) as on_hand'), DB::raw('COALESCE(SUM(b.reserved),0) as reserved')]);
 
-        return $this->csv('products', ['sku', 'name', 'uom', 'active', 'tracks_serials', 'on_hand', 'reserved'], $q,
-            fn ($r) => [$r->sku, $r->name, $r->base_uom, (int) $r->active, (int) $r->tracks_serials, (string) Fixed::units((int) $r->on_hand), (string) Fixed::units((int) $r->reserved)]);
+        return $this->csv('products', ['sku', 'name', 'uom', 'active', 'on_hand', 'reserved'], $q,
+            fn ($r) => [$r->sku, $r->name, $r->base_uom, (int) $r->active, (string) Fixed::units((int) $r->on_hand), (string) Fixed::units((int) $r->reserved)]);
     }
 
     public function customers(): StreamedResponse

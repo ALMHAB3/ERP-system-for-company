@@ -25,6 +25,14 @@ final class PricingEngine
         private readonly Fixed $minimumMargin,
     ) {}
 
+    /** True when selling at $unit would fall under cost plus the minimum margin. */
+    public function belowFloor(PricingContext $context, Fixed $unit): bool
+    {
+        $cost = $this->costs->averageCost($context->productId, $context->warehouseId);
+
+        return $cost !== null && $unit->lt($cost->mul(Fixed::of(1)->add($this->minimumMargin)));
+    }
+
     public function quote(PricingContext $context): PriceQuote
     {
         $candidate = null;
