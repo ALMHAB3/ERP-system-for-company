@@ -58,9 +58,12 @@ final class PayrollService
                 $full = (int) $e->base_salary;
                 $from = max($start, CarbonImmutable::parse($e->hire_date));
                 $to = $e->terminated_on ? min($end, CarbonImmutable::parse($e->terminated_on)) : $end;
-                $base = ($from->equalTo($start) && $to->equalTo($end)) ? $full : Fixed::mulDiv($full, (int) $from->diffInDays($to) + 1, $start->daysInMonth);
+                $fullMonth = $from->equalTo($start) && $to->equalTo($end);
+                $employedDays = (int) $from->diffInDays($to) + 1;
+                $base = $fullMonth ? $full : Fixed::mulDiv($full, $employedDays, $start->daysInMonth);
+                $fixedAllowance = $fullMonth ? (int) $e->monthly_allowance : Fixed::mulDiv((int) $e->monthly_allowance, $employedDays, $start->daysInMonth);
                 $adj = DB::table('payroll_adjustments')->where('employee_id', $e->id)->where('period', $run->period)->get()->groupBy('kind')->map(fn ($g) => (int) $g->sum('amount'));
-                $allow = $adj['allowance'] ?? 0;
+                $allow = ($adj['allowance'] ?? 0) + $fixedAllowance;   // the employee's fixed monthly allowance + any one-off allowance for this month
                 $bonus = $adj['bonus'] ?? 0;
                 $other = $adj['deduction'] ?? 0;
                 $absent = (int) DB::table('attendance')->where('employee_id', $e->id)->where('status', 'absent')->whereBetween('work_date', [$start->toDateString(), $end->toDateString()])->count();

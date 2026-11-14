@@ -2,7 +2,7 @@ import { h, get, post, put, form, table, tabs, panel, act, can, modal, money, to
 
 const ATT = [['present', 'حاضر'], ['absent', 'غائب'], ['late', 'متأخر'], ['leave', 'إجازة'], ['holiday', 'عطلة']];
 const LEAVE = [['annual', 'سنوية'], ['sick', 'مرضية'], ['unpaid', 'بدون راتب'], ['other', 'أخرى']];
-const KIND = { allowance: 'بدل', bonus: 'مكافأة', deduction: 'خصم' };
+const KIND = { allowance: 'علاوة', bonus: 'مكافأة', deduction: 'خصم' };
 const PSTATUS = { draft: ['مسودة', 'warn'], approved: ['معتمد', ''], paid: ['مدفوع', 'ok'] };
 const neg = (v) => (Number(v) ? '-' + v : v);
 const label = (list, v) => list.find(([k]) => k === v)?.[1] || v;
@@ -21,12 +21,13 @@ function employees() {
       { name: 'warehouse_id', label: 'الفرع', type: 'select', options: branchOptions(), value: e?.warehouse_id ?? '' },
       { name: 'hire_date', label: 'تاريخ التعيين', type: 'date', required: true, value: e?.hire_date || today() },
       { name: 'base_salary', label: 'الراتب الأساسي الشهري (' + state.lookups.currency + ')', type: 'number', required: true, value: e ? e.base_salary.replace(/\.?0+$/, '') : '' },
+      { name: 'monthly_allowance', label: 'علاوة شهرية ثابتة (اتركها فارغة إن كان لا يتحصل على علاوة)', type: 'number', value: e && Number(e.monthly_allowance) ? e.monthly_allowance.replace(/\.?0+$/, '') : '' },
     ];
     const body = (v) => ({ ...v, warehouse_id: v.warehouse_id ? Number(v.warehouse_id) : null });
     return h('div', null,
       can('hr.manage') ? h('div', { class: 'card' }, h('h3', null, 'إضافة موظف'), form(fields(), 'إضافة', async (v, f) => { await post('hr/employees', body(v)); toast('تمت إضافة الموظف', 'ok'); f.reset(); refresh(); })) : null,
       table([{ label: 'الرقم', key: 'code' }, { label: 'الاسم', key: 'name' }, { label: 'الوظيفة', render: (e) => e.job_title || '—' }, { label: 'الفرع', render: (e) => e.branch || '—' },
-        { label: 'التعيين', key: 'hire_date' }, { label: 'الراتب', num: true, render: (e) => money(e.base_salary) }, { label: 'سلف مستحقة', num: true, render: (e) => (Number(e.advance_balance) ? money(e.advance_balance) : '—') },
+        { label: 'التعيين', key: 'hire_date' }, { label: 'الراتب', num: true, render: (e) => money(e.base_salary) }, { label: 'العلاوة الشهرية', num: true, render: (e) => (Number(e.monthly_allowance) ? money(e.monthly_allowance) : '—') }, { label: 'سلف مستحقة', num: true, render: (e) => (Number(e.advance_balance) ? money(e.advance_balance) : '—') },
         { label: 'الحالة', render: (e) => h('span', { class: 'badge ' + (e.status === 'active' ? 'ok' : 'bad') }, e.status === 'active' ? 'على رأس العمل' : 'منتهي الخدمة') },
         { label: '', render: (e) => (can('hr.manage') && e.status === 'active' ? h('div', { class: 'row-actions' },
           h('button', { class: 'btn secondary small', onclick: () => { const m = modal('تعديل ' + e.name, form(fields(e), 'حفظ', async (v) => { await put('hr/employees/' + e.id, body(v)); toast('تم الحفظ', 'ok'); m.close(); refresh(); })); } }, 'تعديل'),
@@ -93,7 +94,7 @@ function payslip(run, l) {
   const row = (t, v, strong) => h('tr', null, h('td', null, t), h('td', { class: 'num' }, strong ? h('b', null, money(v)) : money(v)));
   modal('كشف راتب — ' + l.name, h('div', null, h('div', { class: 'print-sheet' },
     h('div', { class: 'ps-head' }, h('div', null, h('h2', { 'data-no-translate': '' }, state.lookups.company_name || ''), h('div', { class: 'muted' }, 'كشف راتب شهر ' + run.period)), h('div', null, h('div', null, 'الموظف: ', h('b', null, l.name)), h('div', null, l.code + (l.job_title ? ' — ' + l.job_title : '')))),
-    h('table', null, h('tbody', null, row('الراتب الأساسي', l.base), row('البدلات', l.allowances), row('المكافآت', l.bonuses),
+    h('table', null, h('tbody', null, row('الراتب الأساسي', l.base), row('العلاوات', l.allowances), row('المكافآت', l.bonuses),
       row('خصم الغياب (' + l.absent_days + ' يوم)', neg(l.absence_deduction)), row('خصومات أخرى', neg(l.other_deductions)), row('قسط السلفة', neg(l.advance_repayment)), row('صافي الراتب', l.net, true)))),
     h('div', { class: 'formbar noprint' }, h('button', { class: 'btn', onclick: () => window.print() }, 'طباعة'))));
 }
@@ -104,7 +105,7 @@ function payroll() {
     const open = async (id) => {
       const r = await get('hr/payroll/' + id);
       const m = modal('رواتب ' + r.period + ' — ' + PSTATUS[r.status][0], h('div', null,
-        table([{ label: 'الموظف', render: (l) => l.code + ' — ' + l.name }, { label: 'الأساسي', num: true, render: (l) => money(l.base) }, { label: 'بدلات + مكافآت', num: true, render: (l) => money(Number(l.allowances) + Number(l.bonuses)) },
+        table([{ label: 'الموظف', render: (l) => l.code + ' — ' + l.name }, { label: 'الأساسي', num: true, render: (l) => money(l.base) }, { label: 'علاوات + مكافآت', num: true, render: (l) => money(Number(l.allowances) + Number(l.bonuses)) },
           { label: 'غياب', num: true, render: (l) => (Number(l.absence_deduction) ? money(l.absence_deduction) + ' (' + l.absent_days + ' يوم)' : '—') }, { label: 'خصومات', num: true, render: (l) => money(l.other_deductions) },
           { label: 'قسط سلفة', num: true, render: (l) => money(l.advance_repayment) }, { label: 'الصافي', num: true, render: (l) => h('b', null, money(l.net)) },
           { label: '', render: (l) => h('button', { class: 'btn secondary small', onclick: () => payslip(r, l) }, 'كشف الراتب') }], r.lines, 'لا يوجد موظفون', { csv: 'payroll-' + r.period }),
@@ -122,9 +123,9 @@ function payroll() {
     };
     return h('div', null,
       can('payroll.manage') ? h('div', { class: 'card' }, h('h3', null, 'كشف رواتب شهر جديد'),
-        h('p', { class: 'hint' }, 'يحسب النظام: الراتب الأساسي + البدلات + المكافآت − الغياب − الخصومات − أقساط السلف. أضف البدلات والمكافآت والخصومات للشهر أولاً ثم أنشئ الكشف (أو أعد حسابه).'),
+        h('p', { class: 'hint' }, 'يحسب النظام: الراتب الأساسي + العلاوة الشهرية الثابتة + العلاوات والمكافآت الإضافية − الغياب − الخصومات − أقساط السلف. أضف العلاوات والمكافآت والخصومات الإضافية للشهر أولاً ثم أنشئ الكشف (أو أعد حسابه).'),
         form([{ name: 'period', label: 'الشهر (YYYY-MM)', type: 'text', value: prevMonth(), required: true }], 'إنشاء كشف الرواتب', async (v) => { const r = await post('hr/payroll', { period: v.period }); toast('تم إنشاء كشف الرواتب', 'ok'); await refresh(); open(r.id); })) : null,
-      can('payroll.manage') ? h('div', { class: 'card' }, h('h3', null, 'بدل / مكافأة / خصم لموظف في شهر'), form([
+      can('payroll.manage') ? h('div', { class: 'card' }, h('h3', null, 'علاوة / مكافأة / خصم إضافي لموظف في شهر'), form([
         { name: 'period', label: 'الشهر (YYYY-MM)', type: 'text', value: prevMonth(), required: true }, { name: 'employee_id', label: 'الموظف', type: 'select', options: empOptions(emps.data), required: true },
         { name: 'kind', label: 'النوع', type: 'select', options: Object.entries(KIND).map(([value, l]) => ({ value, label: l })) }, { name: 'amount', label: 'المبلغ', type: 'number', required: true }, { name: 'note', label: 'ملاحظة', type: 'text' },
       ], 'إضافة', async (v, f) => { await post('hr/payroll/adjustments', { ...v, employee_id: Number(v.employee_id) }); toast('تمت الإضافة. أعد حساب الكشف ليظهر أثرها.', 'ok'); f.reset(); })) : null,

@@ -24,7 +24,7 @@ final class EmployeeController extends ApiController
             ->map(fn ($e) => [
                 'id' => (int) $e->id, 'code' => $e->code, 'name' => $e->name, 'job_title' => $e->job_title, 'department' => $e->department, 'national_id' => $e->national_id, 'phone' => $e->phone,
                 'warehouse_id' => $e->warehouse_id ? (int) $e->warehouse_id : null, 'branch' => $e->branch, 'user_id' => $e->user_id ? (int) $e->user_id : null, 'login' => $e->login,
-                'hire_date' => $e->hire_date, 'base_salary' => (string) Fixed::units((int) $e->base_salary), 'status' => $e->status, 'terminated_on' => $e->terminated_on, 'notes' => $e->notes,
+                'hire_date' => $e->hire_date, 'base_salary' => (string) Fixed::units((int) $e->base_salary), 'monthly_allowance' => (string) Fixed::units((int) $e->monthly_allowance), 'status' => $e->status, 'terminated_on' => $e->terminated_on, 'notes' => $e->notes,
                 'advance_balance' => (string) Fixed::units((int) DB::table('employee_advances')->where('employee_id', $e->id)->sum('balance')),
             ]);
 
@@ -149,7 +149,7 @@ final class EmployeeController extends ApiController
             'name' => [$req, 'string', 'max:200'], 'job_title' => ['nullable', 'string', 'max:120'], 'department' => ['nullable', 'string', 'max:120'],
             'national_id' => ['nullable', 'string', 'max:40'], 'phone' => ['nullable', 'string', 'max:40'], 'notes' => ['nullable', 'string', 'max:250'],
             'warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'], 'user_id' => ['nullable', 'integer', 'exists:users,id'],
-            'hire_date' => [$req, 'date_format:Y-m-d'], 'base_salary' => [$req, Decimal::RULE],
+            'hire_date' => [$req, 'date_format:Y-m-d'], 'base_salary' => [$req, Decimal::RULE], 'monthly_allowance' => ['nullable', Decimal::RULE],
         ]);
     }
 
@@ -159,6 +159,9 @@ final class EmployeeController extends ApiController
         $row = array_diff_key($d, ['code' => 1]);
         if (isset($row['base_salary'])) {
             $row['base_salary'] = Decimal::of($row['base_salary'])->units;
+        }
+        if (array_key_exists('monthly_allowance', $row)) {
+            $row['monthly_allowance'] = $row['monthly_allowance'] === null ? 0 : Decimal::of($row['monthly_allowance'])->units;   // empty = no allowance
         }
 
         return $row;

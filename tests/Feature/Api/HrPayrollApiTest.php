@@ -91,6 +91,20 @@ final class HrPayrollApiTest extends ApiTestCase
         $this->assertSame($debits, $credits);   // the books still balance
     }
 
+    public function test_fixed_monthly_allowance_is_added_every_month_and_is_optional(): void
+    {
+        $with = $this->as($this->hr)->postJson('/api/hr/employees', ['code' => 'A1', 'name' => 'With', 'hire_date' => '2020-01-01', 'base_salary' => '2000', 'monthly_allowance' => '150'])->assertCreated()->json('id');
+        $this->as($this->hr)->postJson('/api/hr/employees', ['code' => 'A2', 'name' => 'Without', 'hire_date' => '2020-01-01', 'base_salary' => '2000'])->assertCreated();
+        $run = $this->as($this->hr)->postJson('/api/hr/payroll', ['period' => $this->period])->assertCreated()->json('id');
+        $lines = collect($this->as($this->hr)->getJson("/api/hr/payroll/{$run}")->json('lines'))->keyBy('code');
+        $this->assertSame('150.0000', $lines['A1']['allowances']);
+        $this->assertSame('2150.0000', $lines['A1']['net']);
+        $this->assertSame('0.0000', $lines['A2']['allowances']);
+        $this->as($this->hr)->putJson("/api/hr/employees/{$with}", ['monthly_allowance' => null])->assertNoContent();   // removing it
+        $this->as($this->hr)->postJson("/api/hr/payroll/{$run}/recalculate")->assertNoContent();
+        $this->assertSame('0.0000', collect($this->as($this->hr)->getJson("/api/hr/payroll/{$run}")->json('lines'))->keyBy('code')['A1']['allowances']);
+    }
+
     public function test_unpaid_leave_and_mid_month_hire_are_handled(): void
     {
         $first = $this->employee('E1', '3000', '2020-01-01');

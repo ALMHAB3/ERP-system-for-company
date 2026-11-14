@@ -3243,9 +3243,33 @@ export const EN_PAIRS = [
 [
 "سلفة",
 "Advance"
+],,
+[
+"علاوة",
+"Allowance"
 ],
 [
-"يحسب النظام: الراتب الأساسي + البدلات + المكافآت − الغياب − الخصومات − أقساط السلف. أضف البدلات والمكافآت والخصومات للشهر أولاً ثم أنشئ الكشف (أو أعد حسابه).",
-"The system computes: base salary + allowances + bonuses − absence − deductions − advance instalments. Add the month's allowances, bonuses and deductions first, then create the payroll (or recalculate it)."
+"العلاوات",
+"Allowances"
+],
+[
+"علاوات + مكافآت",
+"Allowances + bonuses"
+],
+[
+"العلاوة الشهرية",
+"Monthly allowance"
+],
+[
+"علاوة شهرية ثابتة (اتركها فارغة إن كان لا يتحصل على علاوة)",
+"Fixed monthly allowance (leave empty if the employee gets none)"
+],
+[
+"علاوة / مكافأة / خصم إضافي لموظف في شهر",
+"Extra allowance / bonus / deduction for an employee in a month"
+],
+[
+"يحسب النظام: الراتب الأساسي + العلاوة الشهرية الثابتة + العلاوات والمكافآت الإضافية − الغياب − الخصومات − أقساط السلف. أضف العلاوات والمكافآت والخصومات الإضافية للشهر أولاً ثم أنشئ الكشف (أو أعد حسابه).",
+"The system computes: base salary + fixed monthly allowance + extra allowances and bonuses − absence − deductions − advance instalments. Add the month's extra allowances, bonuses and deductions first, then create the payroll (or recalculate it)."
 ]
 ];
