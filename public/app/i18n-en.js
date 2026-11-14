@@ -2811,5 +2811,449 @@ export const EN_PAIRS = [
 [
 "الصنف {sku} له تاريخ صلاحية",
 "Product has an expiry date"
+],
+[
+"الموارد البشرية",
+"Human resources"
+],
+[
+"الموظفون",
+"Employees"
+],
+[
+"الحضور",
+"Attendance"
+],
+[
+"الإجازات",
+"Leaves"
+],
+[
+"السلف",
+"Advances"
+],
+[
+"الرواتب",
+"Payroll"
+],
+[
+"حاضر",
+"Present"
+],
+[
+"غائب",
+"Absent"
+],
+[
+"متأخر",
+"Late"
+],
+[
+"إجازة",
+"Leave"
+],
+[
+"عطلة",
+"Holiday"
+],
+[
+"سنوية",
+"Annual"
+],
+[
+"مرضية",
+"Sick"
+],
+[
+"بدون راتب",
+"Unpaid"
+],
+[
+"أخرى",
+"Other"
+],
+[
+"بدل",
+"Allowance"
+],
+[
+"مكافأة",
+"Bonus"
+],
+[
+"خصم",
+"Deduction"
+],
+[
+"مدفوع",
+"Paid"
+],
+[
+"رقم الموظف",
+"Employee no."
+],
+[
+"الوظيفة",
+"Job title"
+],
+[
+"القسم",
+"Department"
+],
+[
+"الهاتف",
+"Phone"
+],
+[
+"الرقم الوطني / الهوية",
+"National ID"
+],
+[
+"الفرع",
+"Branch"
+],
+[
+"تاريخ التعيين",
+"Hire date"
+],
+[
+"الراتب الأساسي الشهري (",
+"Monthly base salary ("
+],
+[
+"إضافة موظف",
+"Add an employee"
+],
+[
+"تمت إضافة الموظف",
+"Employee added"
+],
+[
+"التعيين",
+"Hired"
+],
+[
+"الراتب",
+"Salary"
+],
+[
+"سلف مستحقة",
+"Advances owed"
+],
+[
+"على رأس العمل",
+"Active"
+],
+[
+"منتهي الخدمة",
+"Left"
+],
+[
+"إنهاء الخدمة",
+"End of service"
+],
+[
+"تاريخ انتهاء الخدمة",
+"Service end date"
+],
+[
+"لا يوجد موظفون بعد",
+"No employees yet"
+],
+[
+"لا يوجد موظفون على رأس العمل في هذا التاريخ",
+"No active employees on this date"
+],
+[
+"ملاحظة",
+"Note"
+],
+[
+"مسجَّل؟",
+"Recorded?"
+],
+[
+"حفظ الحضور",
+"Save attendance"
+],
+[
+"تم حفظ الحضور",
+"Attendance saved"
+],
+[
+"الغياب المسجَّل يُخصم من الراتب (الراتب ÷ 30 لكل يوم). الأيام غير المسجَّلة لا تُخصم.",
+"Recorded absence is deducted from the salary (salary ÷ 30 per day). Days not recorded are not deducted."
+],
+[
+"طلب إجازة",
+"Leave request"
+],
+[
+"تسجيل الطلب",
+"Submit request"
+],
+[
+"تم تسجيل الطلب (",
+"Request recorded ("
+],
+[
+" يوم)",
+" days)"
+],
+[
+"بانتظار القرار",
+"Awaiting decision"
+],
+[
+"موافَق عليها",
+"Approved"
+],
+[
+"مرفوضة",
+"Rejected"
+],
+[
+"موافقة",
+"Approve"
+],
+[
+"رفض",
+"Reject"
+],
+[
+"تمت الموافقة",
+"Approved"
+],
+[
+"تم الرفض",
+"Rejected"
+],
+[
+"لا توجد طلبات إجازة",
+"No leave requests"
+],
+[
+"صرف سلفة لموظف",
+"Pay an advance to an employee"
+],
+[
+"تُخصم أقساطها تلقائياً من راتب كل شهر حتى تُسدَّد.",
+"Its instalments are deducted automatically from each month's salary until repaid."
+],
+[
+"مبلغ السلفة",
+"Advance amount"
+],
+[
+"القسط الشهري",
+"Monthly instalment"
+],
+[
+"تُصرف من",
+"Paid from"
+],
+[
+"الصندوق (نقداً)",
+"The till (cash)"
+],
+[
+"صرف السلفة",
+"Pay the advance"
+],
+[
+"تم صرف السلفة",
+"Advance paid"
+],
+[
+"اختر المصرف",
+"Choose the bank"
+],
+[
+"لا توجد سلف",
+"No advances"
+],
+[
+"كشف راتب شهر ",
+"Payslip for "
+],
+[
+"كشف راتب — ",
+"Payslip — "
+],
+[
+"الموظف: ",
+"Employee: "
+],
+[
+"الراتب الأساسي",
+"Base salary"
+],
+[
+"البدلات",
+"Allowances"
+],
+[
+"المكافآت",
+"Bonuses"
+],
+[
+"خصم الغياب (",
+"Absence deduction ("
+],
+[
+"خصومات أخرى",
+"Other deductions"
+],
+[
+"الضمان الاجتماعي (حصة الموظف)",
+"Social security (employee share)"
+],
+[
+"قسط السلفة",
+"Advance instalment"
+],
+[
+"صافي الراتب",
+"Net salary"
+],
+[
+"رواتب ",
+"Payroll "
+],
+[
+"الأساسي",
+"Base"
+],
+[
+"بدلات + مكافآت",
+"Allowances + bonuses"
+],
+[
+"غياب",
+"Absence"
+],
+[
+"خصومات",
+"Deductions"
+],
+[
+"ضمان",
+"Social sec."
+],
+[
+"كشف الراتب",
+"Payslip"
+],
+[
+"لا يوجد موظفون",
+"No employees"
+],
+[
+"إجمالي الصافي: ",
+"Total net: "
+],
+[
+"إعادة الحساب",
+"Recalculate"
+],
+[
+"تمت إعادة الحساب",
+"Recalculated"
+],
+[
+"اعتماد الرواتب",
+"Approve payroll"
+],
+[
+"اعتماد رواتب ",
+"Approve payroll "
+],
+[
+"؟ يُسجَّل المصروف في الحسابات ولا يمكن التعديل بعدها.",
+"? The expense is booked in the accounts and it cannot be edited afterwards."
+],
+[
+"دفع الرواتب",
+"Pay salaries"
+],
+[
+"دفع رواتب ",
+"Pay salaries "
+],
+[
+"تأكيد الدفع",
+"Confirm payment"
+],
+[
+"تم دفع الرواتب",
+"Salaries paid"
+],
+[
+"كشف رواتب شهر جديد",
+"New month payroll"
+],
+[
+"يحسب النظام: الراتب الأساسي + البدلات + المكافآت − الغياب − الخصومات − الضمان الاجتماعي − أقساط السلف. أضف البدلات والمكافآت والخصومات للشهر أولاً ثم أنشئ الكشف (أو أعد حسابه).",
+"The system computes: base salary + allowances + bonuses − absence − deductions − social security − advance instalments. Add the month's allowances, bonuses and deductions first, then create the payroll (or recalculate it)."
+],
+[
+"الشهر (YYYY-MM)",
+"Month (YYYY-MM)"
+],
+[
+"إنشاء كشف الرواتب",
+"Create the payroll"
+],
+[
+"تم إنشاء كشف الرواتب",
+"Payroll created"
+],
+[
+"بدل / مكافأة / خصم لموظف في شهر",
+"Allowance / bonus / deduction for an employee in a month"
+],
+[
+"تمت الإضافة. أعد حساب الكشف ليظهر أثرها.",
+"Added. Recalculate the payroll to apply it."
+],
+[
+"الموظفون",
+"Employees"
+],
+[
+"صافي الرواتب",
+"Net salaries"
+],
+[
+"لا توجد كشوف رواتب بعد",
+"No payrolls yet"
+],
+[
+"فتح",
+"Open"
+],
+[
+"مدير الموارد البشرية",
+"HR manager"
+],
+[
+"— بدون —",
+"— None —"
+],
+[
+"الموظف",
+"Employee"
+],
+[
+"المصرف",
+"Bank"
+],
+[
+"الشهر",
+"Month"
+],
+[
+"سلفة",
+"Advance"
 ]
 ];

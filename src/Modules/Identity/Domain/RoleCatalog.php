@@ -24,6 +24,10 @@ final class RoleCatalog
                 Permission::SupplierInvoicesRecord, Permission::SupplierPaymentsMake, Permission::GrIrClear, Permission::ReceiptsRecord,
                 Permission::SalesReturn, Permission::SalesOverrideCredit, Permission::ReportsView, Permission::SuppliersManage,
                 Permission::CurrenciesManage, Permission::ShipmentsSettle, Permission::BanksManage,
+                Permission::HrView, Permission::PayrollManage, Permission::PayrollPay,
+            ]],
+            'hr_manager' => ['label' => 'مدير الموارد البشرية', 'approval_level' => 1, 'permissions' => [
+                Permission::HrView, Permission::HrManage, Permission::PayrollManage, Permission::InventoryView, Permission::WarehousesAll,
             ]],
             'accountant' => ['label' => 'محاسب', 'approval_level' => 1, 'permissions' => [
                 Permission::FinanceView, Permission::ReceiptsRecord, Permission::SupplierInvoicesRecord, Permission::SalesInvoice,

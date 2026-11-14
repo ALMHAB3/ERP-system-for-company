@@ -141,7 +141,7 @@ export function modal(title, content) {
     bg.classList.replace('is-open', 'is-closing');
     setTimeout(() => { bg.remove(); opener?.focus?.(); }, CLOSE_MS.modal);
   };
-  const onKey = (e) => e.key === 'Escape' && close();
+  const onKey = (e) => e.key === 'Escape' && bg === [...document.querySelectorAll('.modal-bg')].pop() && close();   // Escape closes only the top-most dialog
   const bg = h('div', { class: 'modal-bg', onclick: (e) => e.target === bg && close() },
     h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': title }, h('h3', null, title), content,
       h('div', { class: 'formbar' }, h('button', { class: 'btn secondary small', type: 'button', onclick: close }, 'إغلاق'))));

@@ -15,6 +15,7 @@ use Modules\Finance\Application\ExchangeRates;
 use Modules\Finance\Application\JournalService;
 use Modules\Finance\Domain\JournalEntryData;
 use Modules\Finance\Domain\JournalLineData;
+use Modules\Hr\Application\PayrollService;
 use Modules\Identity\Domain\AccessRepository;
 use Modules\Import\Application\LandedCostService;
 use Modules\Import\Domain\CostBasis;
@@ -74,6 +75,7 @@ final class DemoDataCommand extends Command
             CarbonImmutable::setTestNow();
         }
 
+        $this->hr();
         if ($this->option('with-users')) {
             $this->users();
         }
@@ -353,11 +355,42 @@ final class DemoDataCommand extends Command
         });
     }
 
+    /** Employees, a few months of attendance, an advance and paid payrolls for the last full months. */
+    private function hr(): void
+    {
+        $wh = (int) DB::table('warehouses')->where('code', 'MAIN')->value('id');
+        $branch = (int) DB::table('warehouses')->where('code', 'BR1')->value('id');
+        $hired = CarbonImmutable::today()->subYears(2)->toDateString();
+        foreach ([['E001', 'أحمد المبروك', 'مندوب مبيعات', 'المبيعات', 3500, $wh], ['E002', 'سالم الفيتوري', 'محاسب', 'المالية', 4200, $wh], ['E003', 'مفتاح الزروق', 'أمين مخزن', 'المخازن', 3000, $wh],
+            ['E004', 'عمر بن علي', 'سائق', 'التوصيل', 2400, $wh], ['E005', 'خالد الشريف', 'عامل تحميل', 'المخازن', 2000, $branch], ['E006', 'يوسف الترهوني', 'مسؤول مشتريات', 'المشتريات', 3800, $wh]] as [$code, $name, $job, $dep, $salary, $w]) {
+            DB::table('employees')->insert(['code' => $code, 'name' => $name, 'job_title' => $job, 'department' => $dep, 'warehouse_id' => $w, 'hire_date' => $hired, 'base_salary' => $salary * Fixed::FACTOR, 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
+        }
+        $ids = DB::table('employees')->pluck('id')->all();
+        $payroll = app(PayrollService::class);
+        $today = CarbonImmutable::today();
+        for ($back = 3; $back >= 1; $back--) {
+            $month = $today->startOfMonth()->subMonths($back);
+            foreach ($ids as $id) {
+                foreach ([mt_rand(2, 8), mt_rand(12, 20)] as $d) {
+                    if (mt_rand(1, 100) <= 12) {   // an occasional absence
+                        DB::table('attendance')->insert(['employee_id' => $id, 'work_date' => $month->addDays($d)->toDateString(), 'status' => 'absent']);
+                    }
+                }
+            }
+            if ($back === 3) {
+                $payroll->giveAdvance($ids[3], Fixed::of(600), Fixed::of(200), (string) config('erp.accounts.cash'), $month->addDays(3)->toDateString(), 'سلفة');
+            }
+            $run = $payroll->create($month->format('Y-m'), 0);
+            $payroll->approve($run, 0);
+            $payroll->pay($run, (string) config('erp.accounts.cash'), $month->endOfMonth()->toDateString());
+        }
+    }
+
     private function users(): void
     {
         $access = app(AccessRepository::class);
         $wh = (int) DB::table('warehouses')->where('code', 'MAIN')->value('id');
-        foreach ([['manager', 'general_manager', []], ['finance', 'finance_manager', []], ['purchasing', 'purchasing_manager', []], ['warehouse', 'warehouse_clerk', [$wh]], ['sales', 'sales_rep', [$wh]], ['accountant', 'accountant', []]] as [$name, $role, $warehouses]) {
+        foreach ([['manager', 'general_manager', []], ['finance', 'finance_manager', []], ['purchasing', 'purchasing_manager', []], ['warehouse', 'warehouse_clerk', [$wh]], ['sales', 'sales_rep', [$wh]], ['accountant', 'accountant', []], ['hr', 'hr_manager', []]] as [$name, $role, $warehouses]) {
             $user = User::query()->create(['name' => 'Demo '.$name, 'email' => $name.'@demo.test', 'password' => self::DEMO_PASSWORD, 'active' => true]);
             $access->replaceAccess($user->id, [$role], $warehouses);
         }
@@ -365,6 +398,6 @@ final class DemoDataCommand extends Command
         $rep = (int) User::query()->where('email', 'sales@demo.test')->value('id');
         DB::table('sales_orders')->whereNull('created_by')->update(['created_by' => $rep]);
         DB::table('sales_orders')->whereIn('customer_id', DB::table('customers')->where('is_walk_in', true)->select('id'))->whereNull('customer_name')->update(['customer_name' => 'غير معروف']);
-        $this->line('Demo users (password '.self::DEMO_PASSWORD.'): manager@, finance@, purchasing@, warehouse@, sales@, accountant@ demo.test  (administrator: the account you created)');
+        $this->line('Demo users (password '.self::DEMO_PASSWORD.'): manager@, finance@, purchasing@, warehouse@, sales@, accountant@, hr@ demo.test  (administrator: the account you created)');
     }
 }

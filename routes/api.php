@@ -6,6 +6,8 @@ use Modules\Audit\Http\Middleware\AuditWriteRequests;
 use Modules\Finance\Http\Controllers\BankAccountController;
 use Modules\Finance\Http\Controllers\CurrencyController;
 use Modules\Finance\Http\Controllers\FinanceController;
+use Modules\Hr\Http\Controllers\EmployeeController;
+use Modules\Hr\Http\Controllers\PayrollController;
 use Modules\Identity\Http\Controllers\AuthController;
 use Modules\Identity\Http\Controllers\UserAdminController;
 use Modules\Import\Http\Controllers\ShipmentController;
@@ -102,6 +104,33 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
         Route::match(['get', 'post'], 'settlement', [PayablesController::class, 'settlement'])->middleware('permission:shipments.settle')->name('settlement');
     });
 
+    Route::prefix('hr')->name('hr.')->group(function () {
+        Route::middleware('permission:hr.view')->group(function () {
+            Route::get('employees', [EmployeeController::class, 'index'])->name('employees.index');
+            Route::get('attendance', [EmployeeController::class, 'attendance'])->name('attendance.show');
+            Route::get('leaves', [EmployeeController::class, 'leaves'])->name('leaves.index');
+            Route::get('advances', [EmployeeController::class, 'advances'])->name('advances.index');
+            Route::get('payroll', [PayrollController::class, 'index'])->name('payroll.index');
+            Route::get('payroll/adjustments', [PayrollController::class, 'adjustments'])->name('payroll.adjustments');
+            Route::get('payroll/{run}', [PayrollController::class, 'show'])->whereNumber('run')->name('payroll.show');
+        });
+        Route::middleware('permission:hr.manage')->group(function () {
+            Route::post('employees', [EmployeeController::class, 'store'])->name('employees.store');
+            Route::put('employees/{employee}', [EmployeeController::class, 'update'])->whereNumber('employee')->name('employees.update');
+            Route::post('employees/{employee}/terminate', [EmployeeController::class, 'terminate'])->whereNumber('employee')->name('employees.terminate');
+            Route::put('attendance', [EmployeeController::class, 'saveAttendance'])->name('attendance.save');
+            Route::post('leaves', [EmployeeController::class, 'storeLeave'])->name('leaves.store');
+            Route::post('leaves/{leave}/decision', [EmployeeController::class, 'decideLeave'])->whereNumber('leave')->name('leaves.decide');
+            Route::post('advances', [EmployeeController::class, 'giveAdvance'])->middleware('permission:payroll.manage')->name('advances.store');
+        });
+        Route::middleware('permission:payroll.manage')->group(function () {
+            Route::post('payroll', [PayrollController::class, 'store'])->name('payroll.store');
+            Route::post('payroll/adjustments', [PayrollController::class, 'adjust'])->name('payroll.adjust');
+            Route::post('payroll/{run}/recalculate', [PayrollController::class, 'recalculate'])->whereNumber('run')->name('payroll.recalculate');
+            Route::post('payroll/{run}/approve', [PayrollController::class, 'approve'])->whereNumber('run')->name('payroll.approve');
+        });
+        Route::post('payroll/{run}/pay', [PayrollController::class, 'pay'])->whereNumber('run')->middleware('permission:payroll.pay')->name('payroll.pay');
+    });
     Route::prefix('integrations')->name('integrations.')->middleware('permission:integrations.manage')->group(function () {
         Route::get('webhooks', [WebhookController::class, 'index'])->name('webhooks.index');
         Route::post('webhooks', [WebhookController::class, 'store'])->name('webhooks.store');

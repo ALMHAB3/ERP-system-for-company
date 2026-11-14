@@ -10,6 +10,11 @@ return new class extends Migration
 {
     public function up(): void
     {
+        foreach (Permission::cases() as $permission) {
+            if (! DB::table('permissions')->where('name', $permission->value)->exists()) {
+                DB::table('permissions')->insert(['name' => $permission->value]);
+            }
+        }
         foreach (RoleCatalog::defaults() as $name => $role) {
             $roleId = DB::table('roles')->where('name', $name)->value('id');
             if ($roleId === null) {
