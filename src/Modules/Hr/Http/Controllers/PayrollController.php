@@ -10,31 +10,42 @@ use Illuminate\Support\Facades\DB;
 use Modules\Audit\Application\AuditLogger;
 use Modules\Finance\Application\CashAccounts;
 use Modules\Hr\Application\PayrollService;
+use Modules\Hr\Http\Concerns\BranchStaff;
 use Modules\Shared\Domain\Fixed;
 use Modules\Shared\Http\ApiController;
 use Modules\Shared\Http\Decimal;
 
 final class PayrollController extends ApiController
 {
-    public function index(): JsonResponse
+    use BranchStaff;
+
+    /** Monthly runs. Branch staff see the totals of their own branch's employees only. */
+    public function index(Request $request): JsonResponse
     {
-        return response()->json(['data' => DB::table('payroll_runs')->orderByDesc('period')->limit(60)->get()->map(fn ($r) => [
-            'id' => (int) $r->id, 'period' => $r->period, 'status' => $r->status, 'total_net' => (string) Fixed::units((int) $r->total_net), 'paid_on' => $r->paid_on,
-            'employees' => DB::table('payroll_lines')->where('payroll_run_id', $r->id)->count(),
-        ])]);
+        $branchOnly = $this->branchScope($request) !== null;
+
+        return response()->json(['data' => DB::table('payroll_runs')->orderByDesc('period')->limit(60)->get()->map(function ($r) use ($request, $branchOnly) {
+            $lines = $this->onlyBranchStaff(DB::table('payroll_lines as l')->join('employees as e', 'e.id', '=', 'l.employee_id')->where('l.payroll_run_id', $r->id), $request);
+
+            return [
+                'id' => (int) $r->id, 'period' => $r->period, 'status' => $r->status, 'paid_on' => $r->paid_on,
+                'total_net' => (string) Fixed::units($branchOnly ? (int) (clone $lines)->sum('l.net') : (int) $r->total_net),
+                'employees' => $lines->count(),
+            ];
+        })]);
     }
 
-    public function show(int $run): JsonResponse
+    public function show(Request $request, int $run): JsonResponse
     {
         $r = DB::table('payroll_runs')->where('id', $run)->first() ?? abort(404);
         $f = fn ($v) => (string) Fixed::units((int) $v);
-        $lines = DB::table('payroll_lines as l')->join('employees as e', 'e.id', '=', 'l.employee_id')->leftJoin('job_positions as p', 'p.id', '=', 'e.job_position_id')->where('l.payroll_run_id', $run)->orderBy('e.name')
+        $lines = $this->onlyBranchStaff(DB::table('payroll_lines as l')->join('employees as e', 'e.id', '=', 'l.employee_id'), $request)->leftJoin('job_positions as p', 'p.id', '=', 'e.job_position_id')->where('l.payroll_run_id', $run)->orderBy('e.name')
             ->get(['l.*', 'e.name', 'e.code', 'p.title as job_title'])->map(fn ($l) => [
                 'employee_id' => (int) $l->employee_id, 'code' => $l->code, 'name' => $l->name, 'job_title' => $l->job_title, 'base' => $f($l->base), 'allowances' => $f($l->allowances), 'bonuses' => $f($l->bonuses),
                 'absence_deduction' => $f($l->absence_deduction), 'absent_days' => (string) $l->absent_days, 'other_deductions' => $f($l->other_deductions), 'advance_repayment' => $f($l->advance_repayment), 'net' => $f($l->net),
             ]);
 
-        return response()->json(['id' => (int) $r->id, 'period' => $r->period, 'status' => $r->status, 'total_net' => $f($r->total_net), 'paid_on' => $r->paid_on, 'lines' => $lines]);
+        return response()->json(['id' => (int) $r->id, 'period' => $r->period, 'status' => $r->status, 'total_net' => $this->branchScope($request) === null ? $f($r->total_net) : $f($lines->sum(fn ($l) => (int) Fixed::parse($l['net'])->units)), 'paid_on' => $r->paid_on, 'lines' => $lines]);
     }
 
     public function store(Request $request, PayrollService $service): JsonResponse
@@ -71,6 +82,7 @@ final class PayrollController extends ApiController
     {
         $d = $request->validate(['employee_id' => ['required', 'integer', 'exists:employees,id'], 'period' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             'kind' => ['required', 'in:allowance,bonus,deduction'], 'amount' => ['required', Decimal::RULE], 'note' => ['nullable', 'string', 'max:200']]);
+        $this->authorizeStaff($request, (int) $d['employee_id']);
         abort_if(DB::table('payroll_runs')->where('period', $d['period'])->where('status', '!=', 'draft')->exists(), 422, 'This month is already approved.');
         $id = DB::table('payroll_adjustments')->insertGetId(['employee_id' => $d['employee_id'], 'period' => $d['period'], 'kind' => $d['kind'], 'amount' => Decimal::of($d['amount'])->units, 'note' => $d['note'] ?? null, 'created_at' => now()]);
         $audit->record('payroll.adjusted', 'employee', $d['employee_id'], ['period' => $d['period'], 'kind' => $d['kind'], 'amount' => $d['amount']]);
@@ -82,7 +94,7 @@ final class PayrollController extends ApiController
     {
         $p = $request->validate(['period' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/']])['period'];
 
-        return response()->json(['data' => DB::table('payroll_adjustments as a')->join('employees as e', 'e.id', '=', 'a.employee_id')->where('a.period', $p)->orderBy('a.id')
+        return response()->json(['data' => $this->onlyBranchStaff(DB::table('payroll_adjustments as a')->join('employees as e', 'e.id', '=', 'a.employee_id'), $request)->where('a.period', $p)->orderBy('a.id')
             ->get(['a.id', 'e.name as employee', 'a.kind', 'a.amount', 'a.note'])->map(fn ($a) => ['id' => (int) $a->id, 'employee' => $a->employee, 'kind' => $a->kind, 'amount' => (string) Fixed::units((int) $a->amount), 'note' => $a->note])]);
     }
 }

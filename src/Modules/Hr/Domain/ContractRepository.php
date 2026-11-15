@@ -36,8 +36,8 @@ interface ContractRepository
     public function current(array $employeeIds, DateTimeImmutable $today): array;
 
     /** @return list<array<string,mixed>> every contract with the employee's name, newest first */
-    public function listing(?int $employeeId = null): array;
+    public function listing(?int $employeeId = null, ?array $branches = null): array;
 
     /** Active contracts whose end date falls within the next $days days. @return list<array<string,mixed>> */
-    public function expiring(DateTimeImmutable $today, int $days): array;
+    public function expiring(DateTimeImmutable $today, int $days, ?array $branches = null): array;
 }

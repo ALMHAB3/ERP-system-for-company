@@ -10,5 +10,6 @@ use Modules\Shared\Domain\Fixed;
 /** Payroll approved: books the salary expense and what is owed to employees. */
 final readonly class PayrollApproved implements DomainEvent
 {
-    public function __construct(public int $runId, public string $period, public Fixed $expense, public Fixed $net, public Fixed $advances) {}
+    /** @param array<int,array{expense:Fixed,net:Fixed,advances:Fixed}> $byBranch branch id (0 = head office) => the same three amounts for that branch's employees */
+    public function __construct(public int $runId, public string $period, public Fixed $expense, public Fixed $net, public Fixed $advances, public array $byBranch = []) {}
 }

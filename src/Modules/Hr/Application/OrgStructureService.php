@@ -76,12 +76,16 @@ final class OrgStructureService
     /**
      * The chart as a tree: each department with its manager, its people and its sub-departments.
      *
+     * @param  list<int>|null  $branches  only people of these branches (null = everyone)
      * @return array{departments:list<array<string,mixed>>,unassigned:list<array<string,mixed>>}
      */
-    public function tree(): array
+    public function tree(?array $branches = null): array
     {
         $staff = ['' => []];
         foreach ($this->departments->staff() as $e) {
+            if ($branches !== null && ! in_array((int) $e->warehouse_id, $branches, true)) {
+                continue;
+            }
             $staff[(string) ($e->department_id ?? '')][] = ['id' => (int) $e->id, 'code' => $e->code, 'name' => $e->name, 'position' => $e->position, 'manager_id' => $e->manager_id === null ? null : (int) $e->manager_id];
         }
         $children = [];

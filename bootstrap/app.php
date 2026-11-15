@@ -6,6 +6,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Modules\Audit\Http\Middleware\CaptureAuditContext;
 use Modules\Identity\Domain\AccessDenied;
+use Modules\Identity\Http\Middleware\RequireCompanyWide;
 use Modules\Identity\Http\Middleware\RequirePermission;
 use Modules\Inventory\Domain\Exceptions\InsufficientStock;
 
@@ -22,7 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
             $middleware->trustProxies(at: '*', headers: Request::HEADER_X_FORWARDED_FOR);
         }
         $middleware->api(prepend: [CaptureAuditContext::class]);
-        $middleware->alias(['permission' => RequirePermission::class]);
+        $middleware->alias(['permission' => RequirePermission::class, 'company-wide' => RequireCompanyWide::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

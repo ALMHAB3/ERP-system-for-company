@@ -97,7 +97,7 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
 
     Route::get('sales/quote', SaleQuoteController::class)->middleware('permission:sales.create')->name('sales.quote');
     Route::post('sales/quick', [QuickSaleController::class, 'store'])->middleware('permission:sales.create')->name('sales.quick');
-    Route::get('reports/sales-summary', SalesSummaryController::class)->middleware('permission:reports.view')->name('reports.sales_summary');
+    Route::get('reports/sales-summary', SalesSummaryController::class)->middleware('permission:reports.view|finance.view')->name('reports.sales_summary');
     Route::prefix('sales-orders')->name('sales_orders.')->whereNumber('order')->group(function () {
         Route::post('/', [SalesOrderController::class, 'store'])->middleware('permission:sales.create')->name('store');
         Route::get('{order}', [SalesOrderController::class, 'show'])->middleware('permission:sales.create')->name('show');
@@ -107,12 +107,12 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
     });
 
     Route::prefix('payables')->name('payables.')->group(function () {
-        Route::get('suppliers', [PayablesController::class, 'suppliers'])->middleware('permission:finance.view')->name('suppliers.index');
+        Route::get('suppliers', [PayablesController::class, 'suppliers'])->middleware(['permission:finance.view', 'company-wide'])->name('suppliers.index');
         Route::post('suppliers', [PayablesController::class, 'storeSupplier'])->middleware('permission:suppliers.manage')->name('suppliers.store');
-        Route::get('invoices', [PayablesController::class, 'invoices'])->middleware('permission:finance.view')->name('invoices.index');
+        Route::get('invoices', [PayablesController::class, 'invoices'])->middleware(['permission:finance.view', 'company-wide'])->name('invoices.index');
         Route::post('invoices', [PayablesController::class, 'recordInvoice'])->middleware('permission:supplier_invoices.record')->name('invoices.store');
         Route::post('payments', [PayablesController::class, 'pay'])->middleware('permission:supplier_payments.make')->name('payments.store');
-        Route::get('goods-received', [PayablesController::class, 'receiptStatus'])->middleware('permission:finance.view')->name('grir.status');
+        Route::get('goods-received', [PayablesController::class, 'receiptStatus'])->middleware(['permission:finance.view', 'company-wide'])->name('grir.status');
         Route::post('goods-received/clear', [PayablesController::class, 'clearReceipt'])->middleware('permission:grir.clear')->name('grir.clear');
         Route::get('ageing', [PayablesController::class, 'ageing'])->middleware('permission:reports.view')->name('ageing');
         Route::match(['get', 'post'], 'settlement', [PayablesController::class, 'settlement'])->middleware('permission:shipments.settle')->name('settlement');
@@ -171,9 +171,9 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
     Route::prefix('receivables')->name('receivables.')->group(function () {
         Route::get('invoices', [ReceivablesController::class, 'invoices'])->middleware('permission:finance.view')->name('invoices.index');
         Route::post('receipts', [ReceivablesController::class, 'receive'])->middleware('permission:receipts.record')->name('receipts.store');
-        Route::get('ageing', [ReceivablesController::class, 'ageing'])->middleware('permission:reports.view')->name('ageing');
+        Route::get('ageing', [ReceivablesController::class, 'ageing'])->middleware('permission:reports.view|finance.view')->name('ageing');
     });
-    Route::get('sales-invoices/verify-chain', [EInvoiceController::class, 'verify'])->middleware('permission:finance.view')->name('einvoice.verify');
+    Route::get('sales-invoices/verify-chain', [EInvoiceController::class, 'verify'])->middleware(['permission:finance.view', 'company-wide'])->name('einvoice.verify');
     Route::get('sales-invoices/{invoice}', [EInvoiceController::class, 'show'])->whereNumber('invoice')->middleware('permission:finance.view|sales.invoice|sales.create')->name('einvoice.show');
     Route::get('sales-invoices/{invoice}/ubl', [EInvoiceController::class, 'ubl'])->whereNumber('invoice')->middleware('permission:finance.view|sales.invoice|sales.create')->name('einvoice.ubl');
     Route::post('sales-orders/{order}/credit-notes', [ReceivablesController::class, 'creditNote'])->whereNumber('order')->middleware('permission:sales.return')->name('sales_orders.credit_note');
@@ -200,11 +200,12 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
         Route::middleware('permission:finance.view')->group(function () {
             Route::get('accounts', [FinanceController::class, 'accounts'])->name('accounts');
             Route::get('ledger', [FinanceController::class, 'ledger'])->name('ledger');
-            Route::get('fx-revaluations', [FinanceController::class, 'revaluations'])->name('fx.index');
-            Route::get('fx-revaluations/preview', [FinanceController::class, 'previewRevaluation'])->name('fx.preview');
+            Route::get('branch-profit', [FinanceController::class, 'branchProfit'])->name('branch_profit');
+            Route::get('fx-revaluations', [FinanceController::class, 'revaluations'])->middleware('company-wide')->name('fx.index');
+            Route::get('fx-revaluations/preview', [FinanceController::class, 'previewRevaluation'])->middleware('company-wide')->name('fx.preview');
         });
         Route::post('fx-revaluations', [FinanceController::class, 'revalue'])->middleware('permission:currencies.manage')->name('fx.run');
-        Route::middleware('permission:finance.view|banks.manage')->group(function () {
+        Route::middleware(['permission:finance.view|banks.manage', 'company-wide'])->group(function () {
             Route::get('bank-statements', [BankReconciliationController::class, 'index'])->name('statements.index');
             Route::get('bank-statements/{statement}', [BankReconciliationController::class, 'show'])->whereNumber('statement')->name('statements.show');
             Route::get('bank-statement-lines/{line}/candidates', [BankReconciliationController::class, 'candidates'])->whereNumber('line')->name('statements.candidates');

@@ -18,8 +18,9 @@ const SECTIONS = [
   { id: 'imports', label: 'الاستيراد والشحنات', perms: ['shipments.manage', 'shipments.cost', 'shipments.receive'], view: imports },
   { id: 'sales', label: 'المبيعات', perms: ['sales.create', 'sales.ship', 'sales.invoice', 'reports.view'], view: sales },
   { id: 'customers', label: 'العملاء والديون', perms: ['sales.create', 'receipts.record', 'finance.view', 'master_data.manage'], view: customers },
-  { id: 'purchasing', label: 'المشتريات', perms: ['purchase_orders.create', 'purchase_orders.approve', 'purchase_orders.receive', 'shipments.settle', 'finance.view'], view: purchasing },
-  { id: 'suppliers', label: 'الموردون', perms: ['supplier_invoices.record', 'supplier_payments.make', 'suppliers.manage', 'finance.view'], view: suppliers },
+  // finance.view opens these two only for company-wide staff: branch accountants have no suppliers or imports
+  { id: 'purchasing', label: 'المشتريات', perms: ['purchase_orders.create', 'purchase_orders.approve', 'purchase_orders.receive', 'shipments.settle'], widePerms: ['finance.view'], view: purchasing },
+  { id: 'suppliers', label: 'الموردون', perms: ['supplier_invoices.record', 'supplier_payments.make', 'suppliers.manage'], widePerms: ['finance.view'], view: suppliers },
   { id: 'hr', label: 'الموارد البشرية', perms: ['hr.view'], view: hr },
   { id: 'finance', label: 'المحاسبة', perms: ['finance.view'], view: finance },
   { id: 'reports', label: 'التقارير والتخطيط', perms: ['reports.view'], view: reports },
@@ -88,7 +89,7 @@ function account() {
 }
 
 async function render() {
-  const allowed = SECTIONS.filter((s) => can(...s.perms));
+  const allowed = SECTIONS.filter((s) => can(...s.perms) || (s.widePerms && can('warehouses.all') && can(...s.widePerms)));
   const id = (location.hash.replace('#/', '') || 'dashboard').split('?')[0];
   const section = allowed.find((s) => s.id === id) || allowed[0];
   document.querySelectorAll('nav.side a').forEach((a) => a.classList.toggle('active', a.dataset.id === section.id));
@@ -106,7 +107,7 @@ async function start() {
   if (!token) return loginScreen();
   try { [state.me, state.lookups] = await Promise.all([get('me'), get('lookups')]); }
   catch { sessionStorage.removeItem('erp_token'); return loginScreen(); }
-  const allowed = SECTIONS.filter((s) => can(...s.perms));
+  const allowed = SECTIONS.filter((s) => can(...s.perms) || (s.widePerms && can('warehouses.all') && can(...s.widePerms)));
   root.replaceChildren(h('div', { class: 'layout' },
     h('nav', { class: 'side' }, companyName('h1'),
       allowed.map((s) => h('a', { href: '#/' + s.id, 'data-id': s.id }, icon(s.id), s.label)),

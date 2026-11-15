@@ -1,18 +1,52 @@
 import { h, get, post, form, table, tabs, panel, act, modal, can, money, toast, state, opts, today, reloadLookups } from '../ui.js';
 
-async function trial() {
-  const r = await get('finance/trial-balance');
-  const sum = (k) => r.data.reduce((a, x) => a + Number(x[k]), 0);
-  const d = sum('debit'), c = sum('credit');
-  const balanced = Math.abs(d - c) < 0.00005;
+// Company-wide staff see every branch and may narrow to one; branch staff always see their own branches only.
+const wide = () => can('warehouses.all');
+const branchField = () => ({ name: 'branch_id', label: 'الفرع', type: 'select', value: '', options: [{ value: '', label: wide() ? '— كل الفروع —' : '— فروعي —' }, ...opts.warehouses()] });
+const scopeNote = () => (wide() ? null : h('p', { class: 'hint' }, 'تعرض هذه الشاشة حسابات فرعك فقط.'));
+
+function trial() {
+  const box = h('div');
+  const load = async (branch) => {
+    const r = await get('finance/trial-balance', { branch_id: branch });
+    const sum = (k) => r.data.reduce((a, x) => a + Number(x[k]), 0);
+    const d = sum('debit'), c = sum('credit');
+    const balanced = Math.abs(d - c) < 0.00005;
+    box.replaceChildren(
+      table([
+        { label: 'الحساب', key: 'account_code' }, { label: 'الاسم', key: 'name' },
+        { label: 'مدين', num: true, render: (x) => money(x.debit) }, { label: 'دائن', num: true, render: (x) => money(x.credit) },
+        { label: 'الرصيد', num: true, render: (x) => { const n = Number(x.debit) - Number(x.credit); return h('span', { class: n < 0 ? 'neg' : '' }, money(n)); } },
+      ], r.data.filter((x) => r.branches === null || Number(x.debit) || Number(x.credit)), 'لا توجد قيود', { csv: 'trial-balance' }),
+      h('div', { class: 'card' }, 'إجمالي المدين: ', h('b', null, money(d)), ' · إجمالي الدائن: ', h('b', null, money(c)), ' · ',
+        r.branches === null ? h('span', { class: 'badge ' + (balanced ? 'ok' : 'bad') }, balanced ? 'الميزان متوازن' : 'الميزان غير متوازن!')
+          : h('span', { class: 'muted' }, 'حركات الفرع فقط: قد لا يتساوى المدين والدائن لأن بعض الحركات (كدفع الرواتب من المركز) تخص المركز الرئيسي.')));
+  };
+  const pick = h('select', { onchange: (e) => load(e.target.value) }, branchField().options.map((o) => h('option', { value: o.value }, o.label)));
+  load('');
   return h('div', null,
-    h('p', { class: 'hint' }, 'ميزان المراجعة من القيود المرحَّلة تلقائياً بالعملة الأساسية (' + state.lookups.currency + '). القيود غير قابلة للتعديل؛ التصحيح يتم بقيد عكسي.'),
-    table([
-      { label: 'الحساب', key: 'account_code' }, { label: 'الاسم', key: 'name' },
-      { label: 'مدين', num: true, render: (x) => money(x.debit) }, { label: 'دائن', num: true, render: (x) => money(x.credit) },
-      { label: 'الرصيد', num: true, render: (x) => { const n = Number(x.debit) - Number(x.credit); return h('span', { class: n < 0 ? 'neg' : '' }, money(n)); } },
-    ], r.data, 'لا توجد قيود', { csv: 'trial-balance' }),
-    h('div', { class: 'card' }, 'إجمالي المدين: ', h('b', null, money(d)), ' · إجمالي الدائن: ', h('b', null, money(c)), ' · ', h('span', { class: 'badge ' + (balanced ? 'ok' : 'bad') }, balanced ? 'الميزان متوازن' : 'الميزان غير متوازن!')));
+    h('p', { class: 'hint' }, 'ميزان المراجعة من القيود المرحَّلة تلقائياً بالعملة الأساسية (' + state.lookups.currency + '). القيود غير قابلة للتعديل؛ التصحيح يتم بقيد عكسي. كل قيد يحمل الفرع الذي يخصه.'),
+    scopeNote(), h('div', { class: 'toolbar' }, h('div', { class: 'field' }, h('label', null, 'الفرع'), pick)), box);
+}
+
+// Profit and loss per branch: what each branch earned and spent ("head office" = what belongs to no branch).
+function branchProfit() {
+  const box = h('div');
+  const cols = [
+    { label: 'الفرع', render: (r) => r.branch || 'المركز الرئيسي' }, { label: 'المبيعات', num: true, render: (r) => money(r.revenue) },
+    { label: 'تكلفة البضاعة المباعة', num: true, render: (r) => money(r.cogs) }, { label: 'مجمل الربح', num: true, render: (r) => money(r.gross_profit) },
+    { label: 'المصاريف (رواتب وغيرها)', num: true, render: (r) => money(r.expenses) },
+    { label: 'صافي الربح', num: true, render: (r) => h('b', { class: Number(r.net_profit) < 0 ? 'neg' : '' }, money(r.net_profit)) },
+  ];
+  return h('div', null,
+    h('p', { class: 'hint' }, 'أرباح وخسائر كل فرع من دفتر الأستاذ: مبيعاته وتكلفة ما باعه ورواتب موظفيه ومصاريفه. «المركز الرئيسي» ما لا يخص فرعاً بعينه.'), scopeNote(),
+    h('div', { class: 'card' }, form([
+      { name: 'from', label: 'من تاريخ', type: 'date', value: today().slice(0, 5) + '01-01', required: true }, { name: 'to', label: 'إلى تاريخ', type: 'date', value: today(), required: true },
+    ], 'عرض', async (v) => {
+      const r = await get('finance/branch-profit', v);
+      box.replaceChildren(table(cols, r.data, 'لا توجد حركات في هذه الفترة', { csv: 'branch-profit' }),
+        r.data.length > 1 ? h('div', { class: 'card' }, 'الإجمالي — المبيعات: ', h('b', null, money(r.total.revenue)), ' · مجمل الربح: ', h('b', null, money(r.total.gross_profit)), ' · صافي الربح: ', h('b', { class: Number(r.total.net_profit) < 0 ? 'neg' : '' }, money(r.total.net_profit))) : null);
+    })), box);
 }
 
 function rates() {
@@ -42,10 +76,12 @@ function banks() {
         { name: 'currency', label: 'عملة الحساب', type: 'select', options: opts.currencies(), value: state.lookups.currency },
       ], 'إضافة', async (v) => { await post('finance/bank-accounts', v); await reloadLookups(); toast('تمت إضافة الحساب المصرفي', 'ok'); refresh(); })) : null,
       table([
-        { label: 'الحساب', render: (b) => (b.kind === 'cash' ? 'الصندوق (نقد)' : b.name) }, { label: 'رقم الحساب', render: (b) => b.account_number || '' },
+        { label: 'الحساب', render: (b) => (b.kind === 'cash' ? 'الصندوق (نقد) — كل الفروع' : b.kind === 'till' ? 'صندوق ' + (b.name || '') : b.name) }, { label: 'رقم الحساب', render: (b) => b.account_number || '' },
         { label: 'العملة', key: 'currency' }, { label: 'حساب الأستاذ', key: 'gl_account' },
         { label: 'الرصيد (' + state.lookups.currency + ')', num: true, render: (b) => h('b', { class: Number(b.balance) < 0 ? 'neg' : '' }, money(b.balance)) },
-      ], r.data, 'لا توجد حسابات', { csv: 'cash-and-banks' }));
+      ], r.data, 'لا توجد حسابات', { csv: 'cash-and-banks' }),
+      (() => { const c = r.data.find((b) => b.kind === 'cash'); return c && c.by_branch.length ? h('div', null, h('h3', null, 'رصيد الصندوق في كل فرع'),
+        table([{ label: 'الفرع', render: (t) => t.branch || 'المركز الرئيسي' }, { label: 'الرصيد', num: true, render: (t) => h('b', { class: Number(t.balance) < 0 ? 'neg' : '' }, money(t.balance)) }], c.by_branch)) : null; })());
   });
 }
 
@@ -56,7 +92,7 @@ function ledger() {
   return h('div', null,
     h('p', { class: 'hint' }, 'كشف حساب من دفتر الأستاذ العام: الرصيد الافتتاحي، ثم كل حركة مرحَّلة في الفترة مع الرصيد بعدها. كل سطر يذكر المستند الذي ولَّد القيد.'),
     h('div', { class: 'card' }, form([
-      { name: 'account', label: 'الحساب', type: 'select', options: opts.accounts() },
+      { name: 'account', label: 'الحساب', type: 'select', options: opts.accounts() }, branchField(),
       { name: 'from', label: 'من تاريخ', type: 'date', value: today().slice(0, 8) + '01', required: true }, { name: 'to', label: 'إلى تاريخ', type: 'date', value: today(), required: true },
     ], 'عرض كشف الحساب', async (v) => {
       const r = await get('finance/ledger', v);
@@ -165,8 +201,8 @@ function revaluation() {
 }
 
 export default async function () {
-  return tabs([{ label: 'ميزان المراجعة', render: trial }, { label: 'الصندوق والحسابات المصرفية', render: async () => banks() }, { label: 'أسعار الصرف', render: async () => rates() },
-    { label: 'كشف حساب', render: async () => ledger() },
-    ...(can('finance.view', 'banks.manage') ? [{ label: 'التسوية البنكية', render: async () => reconciliation() }] : []),
-    ...(can('finance.view') ? [{ label: 'تقييم فروق العملة', render: async () => revaluation() }] : [])]);
+  return tabs([{ label: 'ميزان المراجعة', render: async () => trial() }, { label: 'الصندوق والحسابات المصرفية', render: async () => banks() }, { label: 'أسعار الصرف', render: async () => rates() },
+    { label: 'كشف حساب', render: async () => ledger() }, { label: 'أرباح الفروع', render: async () => branchProfit() },
+    ...(wide() && can('finance.view', 'banks.manage') ? [{ label: 'التسوية البنكية', render: async () => reconciliation() }] : []),
+    ...(wide() && can('finance.view') ? [{ label: 'تقييم فروق العملة', render: async () => revaluation() }] : [])]);
 }

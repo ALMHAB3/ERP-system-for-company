@@ -55,6 +55,6 @@ final class DbDepartmentRepository implements DepartmentRepository
     public function staff(): array
     {
         return $this->db->table('employees as e')->leftJoin('job_positions as p', 'p.id', '=', 'e.job_position_id')->where('e.status', 'active')->orderBy('e.name')
-            ->get(['e.id', 'e.code', 'e.name', 'e.department_id', 'e.manager_id', 'p.title as position'])->all();
+            ->get(['e.id', 'e.code', 'e.name', 'e.department_id', 'e.manager_id', 'e.warehouse_id', 'p.title as position'])->all();
     }
 }

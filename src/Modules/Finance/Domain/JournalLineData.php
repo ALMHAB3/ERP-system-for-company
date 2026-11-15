@@ -19,21 +19,28 @@ final readonly class JournalLineData
         public ?Fixed $amountCurrency = null,
         /** Database id; set only on lines read back from the ledger. */
         public ?int $id = null,
+        /** Branch (warehouse) the line belongs to; null = head office. Usually filled from the source document. */
+        public ?int $branchId = null,
     ) {}
 
-    public static function debit(string $account, Fixed $amount, ?string $memo = null, ?string $currency = null, ?Fixed $amountCurrency = null): self
+    public function forBranch(?int $branchId): self
     {
-        return new self($account, $amount, Fixed::zero(), $memo, $currency, $amountCurrency);
+        return new self($this->accountCode, $this->debit, $this->credit, $this->memo, $this->currency, $this->amountCurrency, $this->id, $branchId);
     }
 
-    public static function credit(string $account, Fixed $amount, ?string $memo = null, ?string $currency = null, ?Fixed $amountCurrency = null): self
+    public static function debit(string $account, Fixed $amount, ?string $memo = null, ?string $currency = null, ?Fixed $amountCurrency = null, ?int $branchId = null): self
     {
-        return new self($account, Fixed::zero(), $amount, $memo, $currency, $amountCurrency);
+        return new self($account, $amount, Fixed::zero(), $memo, $currency, $amountCurrency, null, $branchId);
+    }
+
+    public static function credit(string $account, Fixed $amount, ?string $memo = null, ?string $currency = null, ?Fixed $amountCurrency = null, ?int $branchId = null): self
+    {
+        return new self($account, Fixed::zero(), $amount, $memo, $currency, $amountCurrency, null, $branchId);
     }
 
     public function inCurrency(string $currency, Fixed $amount): self
     {
-        return new self($this->accountCode, $this->debit, $this->credit, $this->memo, $currency, $amount->abs(), $this->id);
+        return new self($this->accountCode, $this->debit, $this->credit, $this->memo, $currency, $amount->abs(), $this->id, $this->branchId);
     }
 
     /** Signed foreign amount as stored: + on a debit line, - on a credit line. */

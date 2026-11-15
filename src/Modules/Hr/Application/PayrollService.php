@@ -110,7 +110,7 @@ final class PayrollService
             $sum = fn (string $k) => (int) $lines->sum($k);
             $expense = $sum('base') + $sum('allowances') + $sum('bonuses') - $sum('absence_deduction') - $sum('other_deductions');
             DB::table('payroll_runs')->where('id', $runId)->update(['status' => 'approved', 'approved_by' => $userId, 'total_net' => $sum('net'), 'updated_at' => now()]);
-            $this->events->dispatch(new PayrollApproved($runId, $run->period, Fixed::units($expense), Fixed::units($sum('net')), Fixed::units($sum('advance_repayment'))));
+            $this->events->dispatch(new PayrollApproved($runId, $run->period, Fixed::units($expense), Fixed::units($sum('net')), Fixed::units($sum('advance_repayment')), $this->byBranch($runId)));
             $this->audit->record('payroll.approved', 'payroll_run', $runId, ['period' => $run->period, 'net' => (string) Fixed::units($sum('net'))]);
         });
     }
@@ -123,9 +123,29 @@ final class PayrollService
                 throw new DomainException('Only an approved payroll can be paid.');
             }
             DB::table('payroll_runs')->where('id', $runId)->update(['status' => 'paid', 'paid_on' => $paidOn, 'updated_at' => now()]);
-            $this->events->dispatch(new PayrollPaid($runId, $run->period, Fixed::units((int) $run->total_net), $cashAccount));
+            $this->events->dispatch(new PayrollPaid($runId, $run->period, Fixed::units((int) $run->total_net), $cashAccount, array_map(static fn (array $b) => $b['net'], $this->byBranch($runId))));
             $this->audit->record('payroll.paid', 'payroll_run', $runId, ['period' => $run->period, 'account' => $cashAccount]);
         });
+    }
+
+    /**
+     * Salary cost, net pay and advance repayments per branch of the employees (0 = head office), so each branch carries its own payroll.
+     *
+     * @return array<int,array{expense:Fixed,net:Fixed,advances:Fixed}>
+     */
+    private function byBranch(int $runId): array
+    {
+        $out = [];
+        $rows = DB::table('payroll_lines as l')->join('employees as e', 'e.id', '=', 'l.employee_id')->where('l.payroll_run_id', $runId)
+            ->groupBy('e.warehouse_id')
+            ->selectRaw('e.warehouse_id as branch, SUM(l.base + l.allowances + l.bonuses - l.absence_deduction - l.other_deductions) as expense, SUM(l.net) as net, SUM(l.advance_repayment) as advances')
+            ->get();
+        foreach ($rows as $r) {
+            $out[(int) ($r->branch ?? 0)] = ['expense' => Fixed::units((int) $r->expense), 'net' => Fixed::units((int) $r->net), 'advances' => Fixed::units((int) $r->advances)];
+        }
+        ksort($out);
+
+        return $out;
     }
 
     public function giveAdvance(int $employeeId, Fixed $amount, Fixed $perMonth, string $cashAccount, string $givenOn, ?string $note): int

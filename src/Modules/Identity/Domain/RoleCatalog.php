@@ -42,6 +42,19 @@ final class RoleCatalog
                 Permission::InventoryView, Permission::InventoryAdjust, Permission::InventoryTransfer,
                 Permission::ShipmentsReceive, Permission::PurchaseOrdersReceive, Permission::SalesShip,
             ]],
+            // Branch roles: no WarehousesAll, so they see only the branches assigned to the user (sales, stock, accounts, staff).
+            'branch_manager' => ['label' => 'مدير الفرع', 'approval_level' => 1, 'permissions' => [
+                Permission::InventoryView, Permission::InventoryViewCost, Permission::InventoryAdjust, Permission::InventoryTransfer,
+                Permission::ShipmentsReceive, Permission::PurchaseOrdersReceive, Permission::SalesApproveBelowMargin, Permission::SalesShip,
+                Permission::SalesInvoice, Permission::SalesCancel, Permission::SalesReturn, Permission::SalesOverrideCredit,
+                Permission::ReceiptsRecord, Permission::FinanceView, Permission::HrView,
+            ]],
+            'branch_accountant' => ['label' => 'محاسب الفرع', 'approval_level' => 0, 'permissions' => [
+                Permission::FinanceView, Permission::ReceiptsRecord, Permission::SalesInvoice, Permission::SalesReturn, Permission::InventoryView,
+            ]],
+            'branch_hr' => ['label' => 'موارد بشرية للفرع', 'approval_level' => 0, 'permissions' => [
+                Permission::HrView, Permission::HrManage,
+            ]],
             'sales_rep' => ['label' => 'مندوب مبيعات', 'approval_level' => 0, 'permissions' => [
                 Permission::SalesCreate, Permission::SalesCancel, Permission::InventoryView, Permission::SalesReturn,
             ]],

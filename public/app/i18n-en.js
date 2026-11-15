@@ -4111,5 +4111,89 @@ export const EN_PAIRS = [
 [
 "المستخدمون والتدقيق ← الفروع والمستودعات: أضف كل فرع بعنوانه وهاتفه ومديره، ثم أعطِ موظفي كل فرع صلاحية العمل فيه.",
 "Users & audit → Branches & warehouses: add every branch with its address, phone and manager, then give each branch’s staff access to it."
+],
+[
+"محاسب الفرع",
+"Branch accountant"
+],
+[
+"موارد بشرية للفرع",
+"Branch HR"
+],
+[
+"— كل الفروع —",
+"— all branches —"
+],
+[
+"— فروعي —",
+"— my branches —"
+],
+[
+"تعرض هذه الشاشة حسابات فرعك فقط.",
+"This screen shows your branch’s accounts only."
+],
+[
+"). القيود غير قابلة للتعديل؛ التصحيح يتم بقيد عكسي. كل قيد يحمل الفرع الذي يخصه.",
+"). Entries cannot be edited; corrections are made with a reversing entry. Every entry carries the branch it belongs to."
+],
+[
+"حركات الفرع فقط: قد لا يتساوى المدين والدائن لأن بعض الحركات (كدفع الرواتب من المركز) تخص المركز الرئيسي.",
+"Branch movements only: debits and credits may differ because some movements (such as salaries paid by head office) belong to head office."
+],
+[
+"المركز الرئيسي",
+"Head office"
+],
+[
+"مجمل الربح",
+"Gross profit"
+],
+[
+"المصاريف (رواتب وغيرها)",
+"Expenses (salaries and others)"
+],
+[
+"صافي الربح",
+"Net profit"
+],
+[
+"أرباح وخسائر كل فرع من دفتر الأستاذ: مبيعاته وتكلفة ما باعه ورواتب موظفيه ومصاريفه. «المركز الرئيسي» ما لا يخص فرعاً بعينه.",
+"Each branch’s profit and loss from the general ledger: its sales, the cost of what it sold, its staff salaries and its expenses. “Head office” is what belongs to no single branch."
+],
+[
+"الإجمالي — المبيعات: ",
+"Total — sales: "
+],
+[
+" · مجمل الربح: ",
+" · gross profit: "
+],
+[
+" · صافي الربح: ",
+" · net profit: "
+],
+[
+"أرباح الفروع",
+"Branch profit"
+],
+[
+"الصندوق (نقد) — كل الفروع",
+"Cash (till) — all branches"
+],
+[
+"صندوق ",
+"Till: "
+],
+[
+"رصيد الصندوق في كل فرع",
+"Till balance per branch"
+],
+[
+"الفرع (مطلوب لأدوار الفروع: مدير الفرع، محاسب الفرع، موارد بشرية للفرع، البائع، أمين المخزن)",
+"Branch (required for branch roles: branch manager, branch accountant, branch HR, seller, storekeeper)"
+],
+[
+"— كل الفروع حسب الدور —",
+"— all branches, as the role allows —"
 ]
 ];

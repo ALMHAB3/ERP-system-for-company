@@ -15,12 +15,14 @@ const AR_EXACT = new Map(Object.entries({
   'Cash on hand': 'الصندوق (نقد)', 'Bank - unspecified account': 'مصرف - حساب غير محدد', 'Accounts receivable': 'ذمم العملاء (المدينون)', Inventory: 'المخزون',
   'VAT receivable (input VAT)': 'ضريبة مدخلات مستردة', 'Goods received not invoiced (GR/IR)': 'بضاعة مستلمة غير مفوترة (GR/IR)', 'Accounts payable': 'ذمم الموردين (الدائنون)', 'VAT payable': 'ضريبة مبيعات مستحقة',
   'Sales revenue': 'إيرادات المبيعات', 'Cost of goods sold': 'تكلفة البضاعة المباعة', 'Inventory variance': 'فروق المخزون', 'Exchange differences': 'فروق العملة', 'Purchase price variance': 'فروق أسعار الشراء', 'General expenses': 'مصروفات عامة',
-  'System administrator': 'مدير النظام', 'General manager': 'المدير العام', 'Finance manager': 'المدير المالي', 'Purchasing manager': 'مدير المشتريات', 'Warehouse clerk': 'أمين المستودع', 'Sales representative': 'مندوب المبيعات',
+  'System administrator': 'مدير النظام', 'General manager': 'المدير العام', 'Finance manager': 'المدير المالي', 'Branch manager': 'مدير الفرع', 'Branch accountant': 'محاسب الفرع', 'Branch HR': 'موارد بشرية للفرع', 'Purchasing manager': 'مدير المشتريات', 'Warehouse clerk': 'أمين المستودع', 'Sales representative': 'مندوب المبيعات',
   'Cash customer - عميل نقدي': 'عميل نقدي',
 }));
 const AR_PREFIX = [['Bank - ', 'مصرف - ']];
 // Server messages (only inside toasts and error boxes), fragment-replaced
 const AR_MSG = [
+  ['Choose the branch this user works in.', 'اختر الفرع الذي يعمل فيه هذا المستخدم.'], ['Choose the branch the employee works in.', 'اختر الفرع الذي يعمل فيه الموظف.'],
+  ['This employee works in another branch.', 'هذا الموظف يعمل في فرع آخر.'], ['This screen covers the whole company; it is not available to branch staff.', 'هذه الشاشة تخص الشركة كلها؛ لا تتاح لموظفي الفروع.'],
   ['This branch still holds stock; transfer or adjust it before closing the branch.', 'هذا الفرع فيه مخزون؛ انقله أو سوِّه قبل إيقاف الفرع.'],
   ['The current password is not correct.', 'كلمة المرور الحالية غير صحيحة.'], ['Nothing to change.', 'لا يوجد ما يُغيَّر.'],
   ['The password field confirmation does not match.', 'تأكيد كلمة المرور غير مطابق.'], ['The password field and current password must be different.', 'كلمة المرور الجديدة يجب أن تختلف عن الحالية.'],

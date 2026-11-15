@@ -9,9 +9,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Shared\Domain\Fixed;
+use Modules\Shared\Http\ApiController;
 
 /** What was sold today / in the last 7 or 30 days, by sales representative and payment method (for managers). */
-final class SalesSummaryController
+final class SalesSummaryController extends ApiController
 {
     private const DAYS = ['today' => 1, 'week' => 7, 'month' => 30];
 
@@ -21,6 +22,7 @@ final class SalesSummaryController
         $from = CarbonImmutable::today()->subDays(self::DAYS[$period] - 1)->startOfDay();
         $rows = DB::table('sales_invoices as i')->join('sales_orders as o', 'o.id', '=', 'i.sales_order_id')->join('customers as c', 'c.id', '=', 'o.customer_id')
             ->leftJoin('users as u', 'u.id', '=', 'o.created_by')
+            ->when(($branches = $this->branchScope($request)) !== null, fn ($q) => $q->whereIn('o.warehouse_id', $branches === [] ? [0] : $branches))
             ->where('i.created_at', '>=', $from)->orderByDesc('i.id')
             ->get(['i.id as invoice_id', 'i.number', 'i.net', 'i.tax', 'i.gross', 'i.created_at', 'o.payment_method', 'o.customer_name', 'c.name as customer', 'u.name as rep']);
         $sum = fn ($items, string $k) => (string) Fixed::units((int) $items->sum(fn ($r) => (int) $r->$k));

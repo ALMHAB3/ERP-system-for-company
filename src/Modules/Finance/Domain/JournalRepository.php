@@ -26,16 +26,25 @@ interface JournalRepository
 
     /**
      * @param  DateTimeImmutable|null  $asOf  only entries posted on or before this day
+     * @param  list<int>|null  $branches  only lines of these branches (null = the whole company)
      * @return list<array{account_code:string,name:string,debit:string,credit:string}>
      */
-    public function trialBalance(?DateTimeImmutable $asOf = null): array;
+    public function trialBalance(?DateTimeImmutable $asOf = null, ?array $branches = null): array;
+
+    /**
+     * Revenue, cost of goods sold and other expenses per branch for a period (null branch = head office).
+     *
+     * @param  list<int>|null  $branches
+     * @return list<array{branch_id:?int,revenue:int,cogs:int,expenses:int}>
+     */
+    public function profitByBranch(DateTimeImmutable $from, DateTimeImmutable $to, string $cogsAccount, ?array $branches = null): array;
 
     /**
      * Account statement (general ledger of one account) with a running balance.
      *
      * @return array{account:array{code:string,name:string,type:string},opening:string,closing:string,lines:list<array<string,mixed>>}|null null when the account does not exist
      */
-    public function accountStatement(string $accountCode, DateTimeImmutable $from, DateTimeImmutable $to): ?array;
+    public function accountStatement(string $accountCode, DateTimeImmutable $from, DateTimeImmutable $to, ?array $branches = null): ?array;
 
     public function find(int $id): ?JournalEntryData;
 }

@@ -20,12 +20,13 @@ final class JournalService
         private readonly JournalRepository $journals,
         private readonly TransactionRunner $tx,
         private readonly ExchangeRates $rates,
+        private readonly EntryBranchResolver $branches,
     ) {}
 
     public function post(JournalEntryData $entry): int
     {
         $this->assertValid($entry);
-        $entry = $this->withForeignAmounts($entry);
+        $entry = $this->withBranch($this->withForeignAmounts($entry));
 
         return $this->tx->run(function () use ($entry): int {
             return $this->journals->findIdBySource($entry->sourceType, $entry->sourceId, $entry->rule)
@@ -39,7 +40,7 @@ final class JournalService
             ?? throw new UnknownAccount("Journal entry {$entryId} not found.");
 
         $lines = array_map(
-            static fn (JournalLineData $l) => new JournalLineData($l->accountCode, $l->credit, $l->debit, $l->memo, $l->currency, $l->amountCurrency),
+            static fn (JournalLineData $l) => new JournalLineData($l->accountCode, $l->credit, $l->debit, $l->memo, $l->currency, $l->amountCurrency, null, $l->branchId),
             $original->lines,
         );
 
@@ -74,6 +75,18 @@ final class JournalService
 
             return $l->inCurrency($currency, $l->debit->add($l->credit)->div($rate));
         }, $entry->lines);
+
+        return new JournalEntryData($entry->description, $lines, $entry->sourceType, $entry->sourceId, $entry->rule, $entry->postedAt);
+    }
+
+    /** Lines a rule did not attribute to a branch take the branch of the source document (if it has one). */
+    private function withBranch(JournalEntryData $entry): JournalEntryData
+    {
+        $branch = $this->branches->branchOf($entry->sourceType, $entry->sourceId);
+        if ($branch === null) {
+            return $entry;
+        }
+        $lines = array_map(static fn (JournalLineData $l) => $l->branchId === null ? $l->forBranch($branch) : $l, $entry->lines);
 
         return new JournalEntryData($entry->description, $lines, $entry->sourceType, $entry->sourceId, $entry->rule, $entry->postedAt);
     }

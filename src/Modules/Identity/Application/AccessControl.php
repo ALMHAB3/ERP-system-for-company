@@ -33,6 +33,20 @@ final class AccessControl
         }
     }
 
+    /**
+     * The branches whose data this user may see, or null when they see the whole company.
+     *
+     * @return list<int>|null
+     */
+    public function branchScope(int $userId): ?array
+    {
+        if ($this->can($userId, Permission::WarehousesAll)) {
+            return null;
+        }
+
+        return $this->warehouses[$userId] ??= $this->access->warehousesOf($userId);
+    }
+
     public function canUseWarehouse(int $userId, int $warehouseId): bool
     {
         if ($this->can($userId, Permission::WarehousesAll)) {

@@ -7,19 +7,23 @@ namespace Modules\Hr\Http\Controllers;
 use DateTimeImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Modules\Hr\Application\ContractService;
 use Modules\Hr\Application\OrgStructureService;
 use Modules\Hr\Domain\Contract;
 use Modules\Hr\Domain\ContractRepository;
+use Modules\Hr\Http\Concerns\BranchStaff;
 use Modules\Shared\Http\ApiController;
 use Modules\Shared\Http\Decimal;
 
 /** Organisation chart (departments, positions, reporting lines) and employment contracts. */
 final class OrgController extends ApiController
 {
-    public function chart(OrgStructureService $org): JsonResponse
+    use BranchStaff;
+
+    public function chart(Request $request, OrgStructureService $org): JsonResponse
     {
-        return response()->json($org->tree());
+        return response()->json($org->tree($this->branchScope($request)));
     }
 
     public function departments(OrgStructureService $org): JsonResponse
@@ -53,6 +57,7 @@ final class OrgController extends ApiController
     public function assign(Request $request, int $employee, OrgStructureService $org): JsonResponse
     {
         $d = $request->validate(['department_id' => ['nullable', 'integer', 'exists:departments,id'], 'job_position_id' => ['nullable', 'integer', 'exists:job_positions,id'], 'manager_id' => ['nullable', 'integer', 'exists:employees,id']]);
+        $this->authorizeStaff($request, $employee);
         $org->assign($employee, $d['department_id'] ?? null, $d['job_position_id'] ?? null, $d['manager_id'] ?? null);
 
         return response()->json(null, 204);
@@ -61,9 +66,10 @@ final class OrgController extends ApiController
     public function contracts(Request $request, ContractRepository $contracts): JsonResponse
     {
         $d = $request->validate(['employee_id' => ['nullable', 'integer'], 'expiring_within' => ['nullable', 'integer', 'min:1', 'max:365']]);
+        $branches = $this->branchScope($request);
         $data = isset($d['expiring_within'])
-            ? $contracts->expiring(new DateTimeImmutable('today'), (int) $d['expiring_within'])
-            : $contracts->listing(isset($d['employee_id']) ? (int) $d['employee_id'] : null);
+            ? $contracts->expiring(new DateTimeImmutable('today'), (int) $d['expiring_within'], $branches)
+            : $contracts->listing(isset($d['employee_id']) ? (int) $d['employee_id'] : null, $branches);
 
         return response()->json(['data' => $data]);
     }
@@ -75,6 +81,7 @@ final class OrgController extends ApiController
             'type' => ['required', 'in:'.implode(',', Contract::TYPES)], 'start_date' => ['required', 'date_format:Y-m-d'], 'end_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start_date'],
             'base_salary' => ['required', Decimal::RULE], 'monthly_allowance' => ['nullable', Decimal::RULE], 'notes' => ['nullable', 'string', 'max:250'], 'activate' => ['nullable', 'boolean'],
         ]);
+        $this->authorizeStaff($request, (int) $d['employee_id']);
         $id = $contracts->draft(
             (int) $d['employee_id'], $d['reference'], $d['type'], new DateTimeImmutable($d['start_date']), isset($d['end_date']) ? new DateTimeImmutable($d['end_date']) : null,
             Decimal::of($d['base_salary']), Decimal::of($d['monthly_allowance'] ?? '0'), $d['notes'] ?? null, $this->userId($request),
@@ -88,6 +95,7 @@ final class OrgController extends ApiController
 
     public function activateContract(Request $request, int $contract, ContractService $contracts): JsonResponse
     {
+        $this->authorizeStaff($request, (int) (DB::table('employment_contracts')->where('id', $contract)->value('employee_id') ?? 0));
         $contracts->activate($contract, $this->userId($request));
 
         return response()->json(null, 204);
@@ -95,6 +103,7 @@ final class OrgController extends ApiController
 
     public function endContract(Request $request, int $contract, ContractService $contracts): JsonResponse
     {
+        $this->authorizeStaff($request, (int) (DB::table('employment_contracts')->where('id', $contract)->value('employee_id') ?? 0));
         $d = $request->validate(['end_date' => ['required', 'date_format:Y-m-d']]);
         $contracts->end($contract, new DateTimeImmutable($d['end_date']), $this->userId($request));
 
@@ -103,6 +112,7 @@ final class OrgController extends ApiController
 
     public function cancelContract(Request $request, int $contract, ContractService $contracts): JsonResponse
     {
+        $this->authorizeStaff($request, (int) (DB::table('employment_contracts')->where('id', $contract)->value('employee_id') ?? 0));
         $contracts->cancel($contract, $this->userId($request));
 
         return response()->json(null, 204);

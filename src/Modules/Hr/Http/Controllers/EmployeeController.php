@@ -13,6 +13,7 @@ use Modules\Finance\Application\CashAccounts;
 use Modules\Hr\Application\ContractService;
 use Modules\Hr\Application\PayrollService;
 use Modules\Hr\Domain\ContractRepository;
+use Modules\Hr\Http\Concerns\BranchStaff;
 use Modules\Shared\Domain\Fixed;
 use Modules\Shared\Http\ApiController;
 use Modules\Shared\Http\Decimal;
@@ -20,9 +21,11 @@ use Modules\Shared\Http\Decimal;
 /** Employees, daily attendance, leave requests and advances. */
 final class EmployeeController extends ApiController
 {
-    public function index(ContractRepository $contracts): JsonResponse
+    use BranchStaff;
+
+    public function index(Request $request, ContractRepository $contracts): JsonResponse
     {
-        $rows = DB::table('employees as e')->leftJoin('warehouses as w', 'w.id', '=', 'e.warehouse_id')->leftJoin('users as u', 'u.id', '=', 'e.user_id')
+        $rows = $this->onlyBranchStaff(DB::table('employees as e'), $request)->leftJoin('warehouses as w', 'w.id', '=', 'e.warehouse_id')->leftJoin('users as u', 'u.id', '=', 'e.user_id')
             ->leftJoin('departments as d', 'd.id', '=', 'e.department_id')->leftJoin('job_positions as p', 'p.id', '=', 'e.job_position_id')->leftJoin('employees as m', 'm.id', '=', 'e.manager_id')
             ->orderBy('e.status')->orderBy('e.name')
             ->get(['e.*', 'w.name as branch', 'u.email as login', 'd.name as department', 'p.title as job_title', 'm.name as manager']);
@@ -50,6 +53,11 @@ final class EmployeeController extends ApiController
     public function store(Request $request, AuditLogger $audit, ContractService $contracts): JsonResponse
     {
         $d = $this->rules($request, true);
+        if ($this->branchScope($request) !== null) {
+            // branch HR adds people to their own branch only
+            abort_if(empty($d['warehouse_id']), 422, 'Choose the branch the employee works in.');
+            $this->warehouse($request, (int) $d['warehouse_id']);
+        }
         $id = DB::transaction(function () use ($d, $audit, $contracts, $request) {
             $id = DB::table('employees')->insertGetId($this->row($d) + ['code' => $d['code'], 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
             $audit->record('employee.created', 'employee', $id, ['code' => $d['code'], 'name' => $d['name']]);
@@ -67,7 +75,12 @@ final class EmployeeController extends ApiController
     public function update(Request $request, int $employee, AuditLogger $audit): JsonResponse
     {
         abort_unless(DB::table('employees')->where('id', $employee)->exists(), 404);
+        $this->authorizeStaff($request, $employee);
         $d = $this->rules($request, false, $employee);
+        if ($this->branchScope($request) !== null && array_key_exists('warehouse_id', $d)) {
+            abort_if(empty($d['warehouse_id']), 422, 'Choose the branch the employee works in.');
+            $this->warehouse($request, (int) $d['warehouse_id']);
+        }
         DB::transaction(function () use ($d, $employee, $audit) {
             DB::table('employees')->where('id', $employee)->update($this->row($d) + ['updated_at' => now()]);
             $audit->record('employee.updated', 'employee', $employee, $d);
@@ -80,6 +93,7 @@ final class EmployeeController extends ApiController
     public function terminate(Request $request, int $employee, AuditLogger $audit, ContractService $contracts): JsonResponse
     {
         $d = $request->validate(['terminated_on' => ['required', 'date_format:Y-m-d']]);
+        $this->authorizeStaff($request, $employee);
         DB::transaction(function () use ($d, $employee, $audit, $contracts, $request) {
             abort_unless(DB::table('employees')->where('id', $employee)->where('status', 'active')->update(['status' => 'terminated', 'terminated_on' => $d['terminated_on'], 'updated_at' => now()]) === 1, 404);
             $contracts->endEmployment($employee, new DateTimeImmutable($d['terminated_on']), $this->userId($request));
@@ -92,7 +106,7 @@ final class EmployeeController extends ApiController
     public function attendance(Request $request): JsonResponse
     {
         $date = $request->validate(['date' => ['required', 'date_format:Y-m-d']])['date'];
-        $rows = DB::table('employees as e')->leftJoin('attendance as a', fn ($j) => $j->on('a.employee_id', '=', 'e.id')->where('a.work_date', $date))
+        $rows = $this->onlyBranchStaff(DB::table('employees as e'), $request)->leftJoin('attendance as a', fn ($j) => $j->on('a.employee_id', '=', 'e.id')->where('a.work_date', $date))
             ->where('e.status', 'active')->where('e.hire_date', '<=', $date)->orderBy('e.name')->get(['e.id as employee_id', 'e.code', 'e.name', 'a.status', 'a.check_in', 'a.check_out', 'a.note']);
 
         return response()->json(['date' => $date, 'data' => $rows]);
@@ -107,6 +121,7 @@ final class EmployeeController extends ApiController
             'records.*.status' => ['required', 'in:present,absent,late,leave,holiday'],
             'records.*.check_in' => ['nullable', 'date_format:H:i'], 'records.*.check_out' => ['nullable', 'date_format:H:i'], 'records.*.note' => ['nullable', 'string', 'max:200'],
         ]);
+        $this->authorizeStaff($request, ...array_map(fn ($r) => (int) $r['employee_id'], $d['records']));
         DB::transaction(function () use ($d, $audit) {
             foreach ($d['records'] as $r) {
                 DB::table('attendance')->updateOrInsert(['employee_id' => $r['employee_id'], 'work_date' => $d['date']],
@@ -118,9 +133,9 @@ final class EmployeeController extends ApiController
         return response()->json(['saved' => count($d['records'])]);
     }
 
-    public function leaves(): JsonResponse
+    public function leaves(Request $request): JsonResponse
     {
-        return response()->json(['data' => DB::table('leave_requests as l')->join('employees as e', 'e.id', '=', 'l.employee_id')->orderByDesc('l.id')->limit(300)
+        return response()->json(['data' => $this->onlyBranchStaff(DB::table('leave_requests as l')->join('employees as e', 'e.id', '=', 'l.employee_id'), $request)->orderByDesc('l.id')->limit(300)
             ->get(['l.id', 'e.name as employee', 'l.type', 'l.from_date', 'l.to_date', 'l.days', 'l.reason', 'l.status', 'l.decided_at'])]);
     }
 
@@ -128,6 +143,7 @@ final class EmployeeController extends ApiController
     {
         $d = $request->validate(['employee_id' => ['required', 'integer', 'exists:employees,id'], 'type' => ['required', 'in:annual,sick,unpaid,other'],
             'from_date' => ['required', 'date_format:Y-m-d'], 'to_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:from_date'], 'reason' => ['nullable', 'string', 'max:250']]);
+        $this->authorizeStaff($request, (int) $d['employee_id']);
         $days = (int) (new DateTimeImmutable($d['from_date']))->diff(new DateTimeImmutable($d['to_date']))->days + 1;
         $id = DB::table('leave_requests')->insertGetId($d + ['days' => $days, 'status' => 'pending', 'created_at' => now()]);
         $audit->record('leave.requested', 'employee', $d['employee_id'], ['leave_id' => $id, 'days' => $days]);
@@ -138,6 +154,7 @@ final class EmployeeController extends ApiController
     public function decideLeave(Request $request, int $leave, AuditLogger $audit): JsonResponse
     {
         $d = $request->validate(['decision' => ['required', 'in:approved,rejected']]);
+        $this->authorizeStaff($request, (int) (DB::table('leave_requests')->where('id', $leave)->value('employee_id') ?? 0));
         $n = DB::table('leave_requests')->where('id', $leave)->where('status', 'pending')->update(['status' => $d['decision'], 'decided_by' => $this->userId($request), 'decided_at' => now()]);
         abort_unless($n === 1, 404);
         $audit->record('leave.'.$d['decision'], 'leave_request', $leave, $d);
@@ -145,9 +162,9 @@ final class EmployeeController extends ApiController
         return response()->json(null, 204);
     }
 
-    public function advances(): JsonResponse
+    public function advances(Request $request): JsonResponse
     {
-        return response()->json(['data' => DB::table('employee_advances as a')->join('employees as e', 'e.id', '=', 'a.employee_id')->orderByDesc('a.id')->limit(300)
+        return response()->json(['data' => $this->onlyBranchStaff(DB::table('employee_advances as a')->join('employees as e', 'e.id', '=', 'a.employee_id'), $request)->orderByDesc('a.id')->limit(300)
             ->get(['a.id', 'e.name as employee', 'a.given_on', 'a.amount', 'a.balance', 'a.repay_per_month', 'a.note'])
             ->map(fn ($a) => ['id' => (int) $a->id, 'employee' => $a->employee, 'given_on' => $a->given_on, 'amount' => (string) Fixed::units((int) $a->amount), 'balance' => (string) Fixed::units((int) $a->balance),
                 'repay_per_month' => (string) Fixed::units((int) $a->repay_per_month), 'note' => $a->note])]);

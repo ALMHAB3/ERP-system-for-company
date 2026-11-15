@@ -25,7 +25,7 @@ function users() {
         { name: 'name', label: 'الاسم', type: 'text', required: true }, { name: 'email', label: 'البريد', type: 'text', required: true },
         { name: 'password', label: 'كلمة المرور (12 حرفاً+، حروف كبيرة وصغيرة وأرقام)', type: 'password', required: true },
         { name: 'role', label: 'الدور', type: 'select', options: roleOptions },
-        { name: 'warehouse_id', label: 'مستودع العمل (للأدوار المقيدة)', type: 'select', options: [{ value: '', label: '— كل المستودعات حسب الدور —' }, ...opts.warehouses()] },
+        { name: 'warehouse_id', label: 'الفرع (مطلوب لأدوار الفروع: مدير الفرع، محاسب الفرع، موارد بشرية للفرع، البائع، أمين المخزن)', type: 'select', options: [{ value: '', label: '— كل الفروع حسب الدور —' }, ...opts.warehouses()] },
       ], 'إنشاء', async (v, f) => { await post('admin/users', { name: v.name, email: v.email, password: v.password, roles: [v.role], warehouses: v.warehouse_id ? [Number(v.warehouse_id)] : [] }); toast('تم إنشاء المستخدم', 'ok'); f.reset(); refresh(); })),
       table([{ label: 'الاسم', key: 'name' }, { label: 'البريد', render: (u) => h('span', { class: 'ltr' }, u.email) }, { label: 'الأدوار', render: (u) => u.roles.join('، ') }, { label: 'المستودعات', render: (u) => u.warehouses.map((id) => state.lookups.warehouses.find((w) => w.id === id)?.code ?? id).join('، ') || '—' },
         { label: 'الحالة', render: (u) => h('span', { class: 'badge ' + (u.active ? 'ok' : 'bad') }, u.active ? 'فعّال' : 'موقوف') }, { label: '', render: (u) => h('button', { class: 'btn secondary small', onclick: () => edit(u) }, 'تعديل الصلاحيات') }], list));

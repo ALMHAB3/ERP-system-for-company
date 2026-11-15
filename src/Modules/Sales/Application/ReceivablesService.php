@@ -80,13 +80,15 @@ final class ReceivablesService
      *
      * @return array{buckets: array<string,string>, customers: list<array<string,mixed>>}
      */
-    public function ageing(DateTimeImmutable $asOf): array
+    /** @param list<int>|null $branches only invoices of these branches (null = the whole company) */
+    public function ageing(DateTimeImmutable $asOf, ?array $branches = null): array
     {
         $labels = ['current', '1-30', '31-60', '61-90', '90+'];
         $buckets = array_fill_keys($labels, 0);
         $perCustomer = [];
 
         $rows = $this->db->table('sales_invoices as i')->join('sales_orders as o', 'o.id', '=', 'i.sales_order_id')->join('customers as c', 'c.id', '=', 'o.customer_id')
+            ->when($branches !== null, fn ($q) => $q->whereIn('o.warehouse_id', $branches === [] ? [0] : $branches))
             ->whereRaw('i.gross - i.paid - i.credited > 0')->orderBy('c.name')->orderBy('i.id')
             ->get(['c.id as customer_id', 'c.name', 'i.id', 'i.number', 'i.due_date', 'i.gross', 'i.paid', 'i.credited']);
         foreach ($rows as $r) {

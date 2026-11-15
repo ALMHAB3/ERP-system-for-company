@@ -34,6 +34,9 @@ final class ReceivablesController extends ApiController
             $allocations[(int) $a['invoice_id']] = Decimal::of($a['amount']);
         }
 
+        // Branch staff can only collect against their own branch's invoices.
+        $this->warehouse($request, ...DB::table('sales_invoices as i')->join('sales_orders as o', 'o.id', '=', 'i.sales_order_id')
+            ->whereIn('i.id', array_keys($allocations))->distinct()->pluck('o.warehouse_id')->map(fn ($w) => (int) $w)->all());
         $method = CashAccounts::normalize($d['method']);
 
         return response()->json(['id' => $service->receive($d['customer_id'], new DateTimeImmutable($d['received_on']), $method, $d['reference'], $allocations, $cash->resolve($method, isset($d['bank_account_id']) ? (int) $d['bank_account_id'] : null))], 201);
@@ -60,7 +63,9 @@ final class ReceivablesController extends ApiController
     public function invoices(Request $request): JsonResponse
     {
         $f = $request->validate(['customer_id' => ['integer'], 'open' => ['boolean']]);
+        $branches = $this->branchScope($request);
         $rows = DB::table('sales_invoices as i')->join('sales_orders as o', 'o.id', '=', 'i.sales_order_id')->join('customers as c', 'c.id', '=', 'o.customer_id')
+            ->when($branches !== null, fn ($q) => $q->whereIn('o.warehouse_id', $branches === [] ? [0] : $branches))
             ->when(isset($f['customer_id']), fn ($q) => $q->where('o.customer_id', $f['customer_id']))
             ->when(! empty($f['open']), fn ($q) => $q->whereRaw('i.gross - i.paid - i.credited > 0'))
             ->orderByDesc('i.id')->limit(500)
@@ -79,6 +84,6 @@ final class ReceivablesController extends ApiController
     {
         $asOf = $request->validate(['as_of' => ['nullable', 'date_format:Y-m-d']])['as_of'] ?? 'today';
 
-        return response()->json(['currency' => config('erp.base_currency')] + $service->ageing(new DateTimeImmutable($asOf)));
+        return response()->json(['currency' => config('erp.base_currency')] + $service->ageing(new DateTimeImmutable($asOf), $this->branchScope($request)));
     }
 }

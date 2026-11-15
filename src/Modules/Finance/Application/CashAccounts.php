@@ -52,14 +52,28 @@ final class CashAccounts
     }
 
     /** Cash till and every bank account with its current ledger balance. @return list<array<string,mixed>> */
-    public function balances(): array
+    public function balances(?array $branches = null): array
     {
+        $cash = (string) config('erp.accounts.cash');
+        // Each branch's till = the movements of the cash account that belong to that branch.
+        $tills = $this->db->table('journal_lines')->where('account_code', $cash)
+            ->when($branches !== null, fn ($q) => $q->whereIn('warehouse_id', $branches === [] ? [0] : $branches))
+            ->groupBy('warehouse_id')->selectRaw('warehouse_id, sum(debit) - sum(credit) as net')->get();
+        $names = $this->db->table('warehouses')->pluck('name', 'id');
+        $byBranch = $tills->map(fn ($t) => ['branch_id' => $t->warehouse_id === null ? null : (int) $t->warehouse_id,
+            'branch' => $t->warehouse_id === null ? null : ($names[$t->warehouse_id] ?? null), 'balance' => (string) Fixed::units((int) $t->net)])->values()->all();
+        if ($branches !== null) {
+            // Branch staff see only their own till(s), never the company's bank accounts.
+            return array_map(fn (int $b) => ['id' => null, 'kind' => 'till', 'name' => $names[$b] ?? null, 'branch_id' => $b, 'account_number' => null, 'currency' => config('erp.base_currency'),
+                'gl_account' => $cash, 'active' => true, 'balance' => collect($byBranch)->firstWhere('branch_id', $b)['balance'] ?? '0.0000'], $branches);
+        }
+
         $rows = [['id' => null, 'kind' => 'cash', 'name' => null, 'account_number' => null, 'currency' => config('erp.base_currency'), 'gl_account' => (string) config('erp.accounts.cash'), 'active' => true]];
         foreach ($this->db->table('bank_accounts')->orderBy('id')->get() as $b) {
             $rows[] = ['id' => (int) $b->id, 'kind' => 'bank', 'name' => $b->name, 'account_number' => $b->account_number, 'currency' => $b->currency, 'gl_account' => $b->gl_account, 'active' => (bool) $b->active];
         }
         $sums = $this->db->table('journal_lines')->whereIn('account_code', array_column($rows, 'gl_account'))->groupBy('account_code')->selectRaw('account_code, sum(debit) - sum(credit) as net')->pluck('net', 'account_code');
 
-        return array_map(fn ($r) => $r + ['balance' => (string) Fixed::units((int) ($sums[$r['gl_account']] ?? 0))], $rows);
+        return array_map(fn ($r) => $r + ['balance' => (string) Fixed::units((int) ($sums[$r['gl_account']] ?? 0))] + ($r['kind'] === 'cash' ? ['by_branch' => $byBranch] : []), $rows);
     }
 }

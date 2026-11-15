@@ -78,17 +78,19 @@ final class DbContractRepository implements ContractRepository
         return $out;
     }
 
-    public function listing(?int $employeeId = null): array
+    public function listing(?int $employeeId = null, ?array $branches = null): array
     {
         return $this->db->table('employment_contracts as c')->join('employees as e', 'e.id', '=', 'c.employee_id')
+            ->when($branches !== null, fn ($q) => $q->whereIn('e.warehouse_id', $branches === [] ? [0] : $branches))
             ->when($employeeId !== null, fn ($q) => $q->where('c.employee_id', $employeeId))
             ->orderByDesc('c.start_date')->orderByDesc('c.id')->limit(500)->get(['c.*', 'e.name as employee', 'e.code as employee_code'])
             ->map($this->present(...))->all();
     }
 
-    public function expiring(DateTimeImmutable $today, int $days): array
+    public function expiring(DateTimeImmutable $today, int $days, ?array $branches = null): array
     {
         return $this->db->table('employment_contracts as c')->join('employees as e', 'e.id', '=', 'c.employee_id')
+            ->when($branches !== null, fn ($q) => $q->whereIn('e.warehouse_id', $branches === [] ? [0] : $branches))
             ->where('c.status', ContractStatus::Active->value)->whereNotNull('c.end_date')
             ->whereBetween('c.end_date', [$today->format('Y-m-d'), $today->modify("+{$days} days")->format('Y-m-d')])
             ->orderBy('c.end_date')->get(['c.*', 'e.name as employee', 'e.code as employee_code'])->map($this->present(...))->all();

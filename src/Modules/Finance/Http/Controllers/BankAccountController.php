@@ -11,9 +11,9 @@ use Modules\Shared\Http\ApiController;
 
 final class BankAccountController extends ApiController
 {
-    public function index(CashAccounts $cash): JsonResponse
+    public function index(Request $request, CashAccounts $cash): JsonResponse
     {
-        return response()->json(['data' => $cash->balances()]);
+        return response()->json(['data' => $cash->balances($this->branchScope($request))]);
     }
 
     public function store(Request $request, CashAccounts $cash): JsonResponse

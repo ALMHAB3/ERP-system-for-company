@@ -12,6 +12,7 @@ use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Modules\Audit\Application\AuditLogger;
 use Modules\Identity\Domain\AccessRepository;
+use Modules\Identity\Domain\Permission;
 
 final class UserAdminController
 {
@@ -29,6 +30,7 @@ final class UserAdminController
             'warehouses.*' => ['integer', 'exists:warehouses,id'],
         ]);
         $this->assertRolesExist($data['roles']);
+        $this->assertBranchGiven($data['roles'], $data['warehouses'] ?? []);
 
         $user = DB::transaction(function () use ($data) {
             $user = User::query()->create(['name' => $data['name'], 'email' => $data['email'], 'password' => $data['password'], 'active' => true]);
@@ -51,6 +53,9 @@ final class UserAdminController
             'active' => ['boolean'],
         ]);
         $this->assertRolesExist($data['roles']);
+        if (($data['active'] ?? true) !== false) {
+            $this->assertBranchGiven($data['roles'], $data['warehouses'] ?? []);
+        }
         $target = User::query()->findOrFail($user);
 
         DB::transaction(function () use ($target, $data) {
@@ -66,6 +71,21 @@ final class UserAdminController
         });
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * Branch roles (and sellers, storekeepers) only ever see their own branches: without one they would see nothing.
+     *
+     * @param  list<string>  $roles
+     * @param  list<int>  $warehouses
+     */
+    private function assertBranchGiven(array $roles, array $warehouses): void
+    {
+        $companyWide = DB::table('roles as r')->join('permission_role as pr', 'pr.role_id', '=', 'r.id')->join('permissions as p', 'p.id', '=', 'pr.permission_id')
+            ->whereIn('r.name', $roles)->where('p.name', Permission::WarehousesAll->value)->exists();
+        if (! $companyWide && $warehouses === []) {
+            throw ValidationException::withMessages(['warehouses' => ['Choose the branch this user works in.']]);
+        }
     }
 
     /** @param list<string> $roles */
