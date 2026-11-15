@@ -10,12 +10,15 @@ use Modules\Identity\Console\CreateAdminCommand;
 use Modules\Identity\Console\SetCredentialsCommand;
 use Modules\Identity\Domain\AccessRepository;
 use Modules\Identity\Infrastructure\DbAccessRepository;
+use Modules\Identity\Infrastructure\DbCompanyProfile;
+use Modules\Shared\Domain\CompanyProfile;
 
 final class IdentityServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
         $this->app->bind(AccessRepository::class, DbAccessRepository::class);
+        $this->app->bind(CompanyProfile::class, DbCompanyProfile::class);
         $this->app->scoped(AccessControl::class); // fresh per request / queued job
     }
 

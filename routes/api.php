@@ -11,6 +11,7 @@ use Modules\Hr\Http\Controllers\EmployeeController;
 use Modules\Hr\Http\Controllers\OrgController;
 use Modules\Hr\Http\Controllers\PayrollController;
 use Modules\Identity\Http\Controllers\AuthController;
+use Modules\Identity\Http\Controllers\CompanyController;
 use Modules\Identity\Http\Controllers\UserAdminController;
 use Modules\Import\Http\Controllers\ShipmentController;
 use Modules\Integrations\Http\Controllers\ExportController;
@@ -31,9 +32,10 @@ use Modules\Sales\Http\Controllers\QuickSaleController;
 use Modules\Sales\Http\Controllers\ReceivablesController;
 use Modules\Sales\Http\Controllers\SaleQuoteController;
 use Modules\Sales\Http\Controllers\SalesOrderController;
+use Modules\Shared\Domain\CompanyProfile;
 
 // Public: only the company name (the login screen shows it before anyone is signed in)
-Route::get('public-info', fn () => response()->json(['company_name' => config('erp.company_name')]))->name('public-info');
+Route::get('public-info', fn (CompanyProfile $company) => response()->json(['company_name' => $company->name()]))->name('public-info');
 
 Route::post('auth/token', [AuthController::class, 'issueToken'])->middleware('throttle:login')->name('auth.token');
 
@@ -45,6 +47,12 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
     Route::get('sales-orders', [ListController::class, 'salesOrders'])->middleware('permission:sales.create|sales.ship|sales.invoice')->name('sales_orders.index');
     Route::get('inventory/lots', [ListController::class, 'lots'])->middleware('permission:inventory.view')->name('inventory.lots');
     Route::get('admin/users', [ListController::class, 'users'])->middleware('permission:users.manage')->name('admin.users.index');
+    Route::middleware('permission:users.manage')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('company', [CompanyController::class, 'show'])->name('company.show');
+        Route::put('company', [CompanyController::class, 'update'])->name('company.update');
+        Route::get('branches', [CompanyController::class, 'branches'])->name('branches.index');
+        Route::put('branches/{warehouse}', [CompanyController::class, 'updateBranch'])->whereNumber('warehouse')->name('branches.update');
+    });
     Route::get('admin/setup-status', SetupStatusController::class)->middleware('permission:users.manage')->name('admin.setup_status');
     Route::put('products/{product}', [ListController::class, 'updateProduct'])->whereNumber('product')->middleware('permission:master_data.manage')->name('products.update');
     Route::put('customers/{customer}', [ListController::class, 'updateCustomer'])->whereNumber('customer')->middleware('permission:master_data.manage')->name('customers.update');

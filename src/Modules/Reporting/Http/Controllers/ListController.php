@@ -12,6 +12,7 @@ use Modules\Audit\Application\AuditLogger;
 use Modules\Finance\Application\ExchangeRates;
 use Modules\Identity\Domain\AccessRepository;
 use Modules\Identity\Domain\Permission;
+use Modules\Shared\Domain\CompanyProfile;
 use Modules\Shared\Domain\Fixed;
 use Modules\Shared\Http\ApiController;
 use Modules\Shared\Http\Decimal;
@@ -25,13 +26,13 @@ final class ListController extends ApiController
         $userId = $this->userId($request);
 
         return response()->json([
-            'company_name' => config('erp.company_name'),
+            'company_name' => app(CompanyProfile::class)->name(),
             'demo' => DB::table('system_flags')->where('name', 'demo_data')->exists(),
             'currency' => config('erp.base_currency'),
             'currencies' => collect($rates->latest())->map(fn ($r, $code) => ['code' => $code, 'name' => config('erp.currencies')[$code] ?? $code, 'rate' => $r['rate'], 'rate_date' => $r['date']])->values(),
             'vat_rate' => (string) config('erp.vat_rate'),
             'products' => DB::table('products')->where('active', true)->orderBy('sku')->limit(5000)->get(['id', 'sku', 'name', 'base_uom', 'lead_time_days', 'cover_days', 'has_expiry']),
-            'warehouses' => DB::table('warehouses')->where('active', true)->orderBy('code')->get(['id', 'code', 'name', 'type'])
+            'warehouses' => DB::table('warehouses')->where('active', true)->orderBy('code')->get(['id', 'code', 'name', 'type', 'city', 'address', 'phone'])
                 ->filter(fn ($w) => $this->access->canUseWarehouse($userId, (int) $w->id))->values(),
             'customers' => DB::table('customers')->orderBy('is_walk_in', 'desc')->orderBy('name')->limit(5000)->get(['id', 'name', 'category', 'credit_limit', 'terms_days', 'is_walk_in', 'phone', 'email', 'city', 'address'])
                 ->map(fn ($c) => ['id' => (int) $c->id, 'name' => $c->name, 'category' => $c->category, 'credit_limit' => (string) Fixed::units((int) $c->credit_limit), 'terms_days' => (int) $c->terms_days, 'is_walk_in' => (bool) $c->is_walk_in, 'phone' => $c->phone, 'email' => $c->email, 'city' => $c->city, 'address' => $c->address]),

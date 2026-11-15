@@ -7,6 +7,7 @@ namespace Modules\Sales\Application;
 use DomainException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Modules\Shared\Domain\CompanyProfile;
 use Modules\Shared\Domain\Fixed;
 
 /**
@@ -17,6 +18,8 @@ use Modules\Shared\Domain\Fixed;
  */
 final class EInvoiceService
 {
+    public function __construct(private readonly CompanyProfile $company) {}
+
     /** Called inside the transaction that creates the invoice. */
     public function seal(int $invoiceId): void
     {
@@ -33,25 +36,28 @@ final class EInvoiceService
     public function document(int $invoiceId): array
     {
         $i = DB::table('sales_invoices as i')->join('sales_orders as o', 'o.id', '=', 'i.sales_order_id')->join('customers as c', 'c.id', '=', 'o.customer_id')
+            ->join('warehouses as w', 'w.id', '=', 'o.warehouse_id')
             ->where('i.id', $invoiceId)
-            ->first(['i.*', 'o.number as order_number', 'o.payment_method', 'o.payment_reference', 'o.customer_name', 'c.name as customer', 'c.tax_id as customer_tax_id', 'c.address as customer_address'])
+            ->first(['i.*', 'w.name as branch_name', 'w.city as branch_city', 'w.address as branch_address', 'w.phone as branch_phone', 'w.commercial_register as branch_cr', 'o.number as order_number', 'o.payment_method', 'o.payment_reference', 'o.customer_name', 'c.name as customer', 'c.tax_id as customer_tax_id', 'c.address as customer_address'])
             ?? throw new DomainException("Invoice {$invoiceId} not found.");
         $lines = $this->lines((int) $i->sales_order_id)->map(fn ($l) => [
             'sku' => $l->sku, 'name' => $l->name, 'uom' => $l->base_uom, 'quantity' => (string) Fixed::units((int) $l->quantity),
             'unit_price' => (string) Fixed::units((int) $l->unit_price), 'net' => (string) Fixed::units((int) $l->quantity)->mul(Fixed::units((int) $l->unit_price)),
         ])->all();
         $issued = (new \DateTimeImmutable((string) $i->created_at))->format('c');
-        $company = (array) config('erp.company');
+        $company = $this->company->get();
 
         return [
             'number' => $i->number, 'type' => 'invoice', 'issued_at' => $issued, 'due_date' => $i->due_date, 'currency' => config('erp.base_currency'),
             'order' => $i->order_number, 'payment_method' => $i->payment_method, 'payment_reference' => $i->payment_reference,
-            'seller' => ['name' => config('erp.company_name'), 'tax_id' => $company['tax_id'] ?? '', 'address' => $company['address'] ?? '', 'phone' => $company['phone'] ?? ''],
+            'seller' => ['name' => $company['name'], 'tax_id' => $company['tax_id'], 'commercial_register' => $company['commercial_register'], 'address' => $company['address'], 'phone' => $company['phone'], 'email' => $company['email']],
+            // The branch that issued the invoice (its own address and phone are what the customer needs).
+            'branch' => ['name' => $i->branch_name, 'city' => $i->branch_city, 'address' => $i->branch_address, 'phone' => $i->branch_phone, 'commercial_register' => $i->branch_cr],
             'buyer' => ['name' => $i->customer_name ?? $i->customer, 'tax_id' => $i->customer_tax_id, 'address' => $i->customer_address],
             'lines' => $lines,
             'totals' => ['net' => (string) Fixed::units((int) $i->net), 'tax' => (string) Fixed::units((int) $i->tax), 'gross' => (string) Fixed::units((int) $i->gross), 'vat_rate' => config('erp.vat_rate')],
             'fingerprint' => $i->fingerprint, 'previous_fingerprint' => $i->prev_fingerprint,
-            'qr' => $this->qrPayload((string) config('erp.company_name'), (string) ($company['tax_id'] ?? ''), $issued, Fixed::units((int) $i->gross), Fixed::units((int) $i->tax), (string) $i->fingerprint),
+            'qr' => $this->qrPayload($company['name'], $company['tax_id'], $issued, Fixed::units((int) $i->gross), Fixed::units((int) $i->tax), (string) $i->fingerprint),
         ];
     }
 

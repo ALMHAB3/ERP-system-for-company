@@ -4027,5 +4027,89 @@ export const EN_PAIRS = [
 [
 "تجهيز المنظومة للعمل",
 "Getting the system ready"
+],
+[
+"رقم السجل التجاري للفرع (إن وُجد)",
+"Branch commercial register no. (if any)"
+],
+[
+"مدير الفرع",
+"Branch manager"
+],
+[
+"لكل فرع مخزونه ومبيعاته وبياناته: العنوان والهاتف يُطبعان على الفواتير التي يصدرها الفرع. بعد إضافته أعطِ المستخدمين صلاحية العمل فيه من تبويب «المستخدمون».",
+"Each branch has its own stock, sales and details: its address and phone are printed on the invoices it issues. After adding it, give users access to it from the Users tab."
+],
+[
+"تمت إضافة الفرع",
+"Branch added"
+],
+[
+"يعمل",
+"Open"
+],
+[
+"بيانات الفرع ",
+"Branch details: "
+],
+[
+"تم حفظ بيانات الفرع",
+"Branch details saved"
+],
+[
+"إيقاف الفرع يخفيه من الشاشات. لا يمكن إيقاف فرع فيه مخزون. متابعة؟",
+"Closing the branch hides it from the screens. A branch holding stock cannot be closed. Continue?"
+],
+[
+"تم إيقاف الفرع",
+"Branch closed"
+],
+[
+"تم تشغيل الفرع",
+"Branch reopened"
+],
+[
+"تشغيل",
+"Reopen"
+],
+[
+"تُطبع على كل فاتورة وكشف راتب. بيانات كل فرع (عنوانه وهاتفه) تُدخل من تبويب «الفروع والمستودعات» وتظهر تحت بيانات الشركة في فواتير ذلك الفرع.",
+"Printed on every invoice and payslip. Each branch’s details (address, phone) are entered in the Branches & warehouses tab and appear under the company details on that branch’s invoices."
+],
+[
+"اسم الشركة",
+"Company name"
+],
+[
+"رقم السجل التجاري",
+"Commercial register no."
+],
+[
+"عنوان المركز الرئيسي",
+"Head office address"
+],
+[
+"تم حفظ بيانات الشركة",
+"Company details saved"
+],
+[
+"السجل التجاري: ",
+"Commercial register: "
+],
+[
+"الفرع: ",
+"Branch: "
+],
+[
+"سجل الفرع: ",
+"Branch register: "
+],
+[
+"المستخدمون والتدقيق ← بيانات الشركة: الاسم والرقم الضريبي والسجل التجاري والعنوان والهاتف. تُطبع على كل فاتورة.",
+"Users & audit → Company details: name, tax number, commercial register, address and phone. Printed on every invoice."
+],
+[
+"المستخدمون والتدقيق ← الفروع والمستودعات: أضف كل فرع بعنوانه وهاتفه ومديره، ثم أعطِ موظفي كل فرع صلاحية العمل فيه.",
+"Users & audit → Branches & warehouses: add every branch with its address, phone and manager, then give each branch’s staff access to it."
 ]
 ];

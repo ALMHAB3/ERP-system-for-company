@@ -39,6 +39,9 @@ final class MasterDataController
             'code' => ['required', 'string', 'max:32', 'unique:warehouses,code'],
             'name' => ['required', 'string', 'max:200'],
             'type' => ['required', 'in:main,branch,transit,returns,damaged'],
+            'city' => ['nullable', 'string', 'max:120'], 'address' => ['nullable', 'string', 'max:250'], 'phone' => ['nullable', 'string', 'max:60'],
+            'commercial_register' => ['nullable', 'string', 'max:60'], 'notes' => ['nullable', 'string', 'max:250'],
+            'manager_id' => ['nullable', 'integer', 'exists:employees,id'],
         ]);
         $id = DB::transaction(function () use ($d) {
             $id = DB::table('warehouses')->insertGetId($d + ['created_at' => now(), 'updated_at' => now()]);

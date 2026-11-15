@@ -1,4 +1,4 @@
-import { h, get, post, put, download, form, table, tabs, panel, act, can, modal, badge, toast, state, opts, reloadLookups } from '../ui.js';
+import { h, get, post, put, download, form, table, tabs, panel, act, can, modal, badge, toast, state, opts, reloadLookups, cityItems } from '../ui.js';
 
 function users() {
   return panel(async (refresh) => {
@@ -81,16 +81,62 @@ function integrations() {
 
 const WH_TYPES = [['main', 'رئيسي'], ['branch', 'فرع'], ['transit', 'ترانزيت'], ['returns', 'مرتجعات'], ['damaged', 'تالف']];
 
+function branchFields(w, managers) {
+  return [
+    ...(w ? [] : [{ name: 'code', label: 'الرمز (مثل BR2)', type: 'text', required: true }]),
+    { name: 'name', label: 'اسم الفرع', type: 'text', required: true, value: w?.name },
+    { name: 'type', label: 'النوع', type: 'select', value: w?.type || 'branch', options: WH_TYPES.map(([value, label]) => ({ value, label })) },
+    { name: 'city', label: 'المدينة', type: 'ref', items: cityItems(), free: true, value: w?.city || '' },
+    { name: 'address', label: 'العنوان', type: 'text', value: w?.address || '' }, { name: 'phone', label: 'الهاتف', type: 'text', value: w?.phone || '' },
+    { name: 'commercial_register', label: 'رقم السجل التجاري للفرع (إن وُجد)', type: 'text', value: w?.commercial_register || '' },
+    { name: 'manager_id', label: 'مدير الفرع', type: 'select', value: w?.manager_id ?? '', options: [{ value: '', label: '— بدون —' }, ...managers] },
+    { name: 'notes', label: 'ملاحظات', type: 'text', value: w?.notes || '', wide: true },
+  ];
+}
+const branchBody = (v) => ({ ...v, manager_id: v.manager_id ? Number(v.manager_id) : null, city: v.city || null, address: v.address || null, phone: v.phone || null, commercial_register: v.commercial_register || null, notes: v.notes || null });
+
 function branches() {
-  return panel(async (refresh) => h('div', null,
-    h('div', { class: 'card' }, h('h3', null, 'إضافة فرع أو مستودع'),
-      h('p', { class: 'hint' }, 'لكل فرع مخزونه ومبيعاته. بعد إضافته أعطِ المستخدمين صلاحية العمل فيه من تبويب «المستخدمون».'),
-      form([{ name: 'code', label: 'الرمز (مثل BR2)', type: 'text', required: true }, { name: 'name', label: 'اسم الفرع', type: 'text', required: true },
-        { name: 'type', label: 'النوع', type: 'select', value: 'branch', options: WH_TYPES.map(([value, label]) => ({ value, label })) }],
-      'إضافة', async (v, f) => { await post('warehouses', v); await reloadLookups(); toast('تمت الإضافة', 'ok'); f.reset(); refresh(); })),
-    table([{ label: 'الرمز', render: (w) => h('span', { class: 'ltr' }, w.code) }, { label: 'الاسم', key: 'name' }, { label: 'النوع', render: (w) => WH_TYPES.find(([k]) => k === w.type)?.[1] || w.type }], state.lookups.warehouses, 'لا توجد فروع')));
+  return panel(async (refresh) => {
+    const [list, emps] = await Promise.all([get('admin/branches'), get('hr/employees').catch(() => ({ data: [] }))]);
+    const managers = emps.data.filter((e) => e.status === 'active').map((e) => ({ value: e.id, label: e.code + ' — ' + e.name }));
+    const after = async (msg) => { await reloadLookups(); toast(msg, 'ok'); refresh(); };
+    return h('div', null,
+      h('div', { class: 'card' }, h('h3', null, 'إضافة فرع أو مستودع'),
+        h('p', { class: 'hint' }, 'لكل فرع مخزونه ومبيعاته وبياناته: العنوان والهاتف يُطبعان على الفواتير التي يصدرها الفرع. بعد إضافته أعطِ المستخدمين صلاحية العمل فيه من تبويب «المستخدمون».'),
+        form(branchFields(null, managers), 'إضافة', async (v, f) => { await post('warehouses', branchBody(v)); f.reset(); await after('تمت إضافة الفرع'); })),
+      table([
+        { label: 'الرمز', render: (w) => h('span', { class: 'ltr' }, w.code) }, { label: 'الاسم', key: 'name' }, { label: 'النوع', render: (w) => WH_TYPES.find(([k]) => k === w.type)?.[1] || w.type },
+        { label: 'المدينة', render: (w) => w.city || '—' }, { label: 'العنوان', render: (w) => w.address || '—' }, { label: 'الهاتف', render: (w) => (w.phone ? h('span', { class: 'ltr' }, w.phone) : '—') },
+        { label: 'مدير الفرع', render: (w) => w.manager || '—' }, { label: 'المستخدمون', num: true, render: (w) => w.users },
+        { label: 'الحالة', render: (w) => h('span', { class: 'badge ' + (w.active ? 'ok' : 'bad') }, w.active ? 'يعمل' : 'موقوف') },
+        { label: '', render: (w) => h('div', { class: 'row-actions' },
+          h('button', { class: 'btn secondary small', type: 'button', onclick: () => {
+            const m = modal('بيانات الفرع ' + w.name, form(branchFields(w, managers), 'حفظ', async (v) => { await put('admin/branches/' + w.id, branchBody(v)); m.close(); await after('تم حفظ بيانات الفرع'); }));
+          } }, 'تعديل'),
+          w.active
+            ? act('إيقاف', () => put('admin/branches/' + w.id, { active: false }), async () => { await reloadLookups(); refresh(); }, { ok: 'تم إيقاف الفرع', cls: 'secondary', confirm: 'إيقاف الفرع يخفيه من الشاشات. لا يمكن إيقاف فرع فيه مخزون. متابعة؟' })
+            : act('تشغيل', () => put('admin/branches/' + w.id, { active: true }), async () => { await reloadLookups(); refresh(); }, { ok: 'تم تشغيل الفرع' })) },
+      ], list.data, 'لا توجد فروع', { csv: 'branches' }));
+  });
+}
+
+function company() {
+  return panel(async (refresh) => {
+    const c = await get('admin/company');
+    return h('div', { class: 'card' }, h('h3', null, 'بيانات الشركة'),
+      h('p', { class: 'hint' }, 'تُطبع على كل فاتورة وكشف راتب. بيانات كل فرع (عنوانه وهاتفه) تُدخل من تبويب «الفروع والمستودعات» وتظهر تحت بيانات الشركة في فواتير ذلك الفرع.'),
+      form([
+        { name: 'name', label: 'اسم الشركة', type: 'text', required: true, value: c.name, wide: true },
+        { name: 'tax_id', label: 'الرقم الضريبي', type: 'text', value: c.tax_id }, { name: 'commercial_register', label: 'رقم السجل التجاري', type: 'text', value: c.commercial_register },
+        { name: 'address', label: 'عنوان المركز الرئيسي', type: 'text', value: c.address, wide: true },
+        { name: 'phone', label: 'الهاتف', type: 'text', value: c.phone }, { name: 'email', label: 'البريد الإلكتروني', type: 'text', value: c.email },
+      ], 'حفظ', async (v) => {
+        await put('admin/company', Object.fromEntries(Object.entries(v).map(([k, x]) => [k, x === '' ? null : x])));
+        await reloadLookups(); toast('تم حفظ بيانات الشركة', 'ok'); refresh();
+      }));
+  });
 }
 
 export default async function () {
-  return tabs([...(can('users.manage') ? [{ label: 'المستخدمون', render: async () => users() }, { label: 'الفروع والمستودعات', render: async () => branches() }] : []), ...(can('audit.view') ? [{ label: 'سجل التدقيق', render: async () => audit() }] : []), ...(can('integrations.manage') ? [{ label: 'التكاملات', render: async () => integrations() }] : [])]);
+  return tabs([...(can('users.manage') ? [{ label: 'المستخدمون', render: async () => users() }, { label: 'بيانات الشركة', render: async () => company() }, { label: 'الفروع والمستودعات', render: async () => branches() }] : []), ...(can('audit.view') ? [{ label: 'سجل التدقيق', render: async () => audit() }] : []), ...(can('integrations.manage') ? [{ label: 'التكاملات', render: async () => integrations() }] : [])]);
 }

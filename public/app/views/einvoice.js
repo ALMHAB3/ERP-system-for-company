@@ -8,12 +8,15 @@ export async function einvoiceView(invoiceId) {
   let d;
   try { d = await get('sales-invoices/' + invoiceId); } catch (e) { return toast(e.message, 'error'); }
   const qr = window.qrcode(0, 'M'); qr.addData(d.qr); qr.make();
-  const party = (t, p) => h('div', { class: 'party' }, h('h4', null, t), h('div', { 'data-no-translate': '' }, p.name), p.tax_id ? h('div', null, 'الرقم الضريبي: ', h('span', { class: 'ltr' }, p.tax_id)) : null, p.address ? h('div', null, p.address) : null, p.phone ? h('div', { class: 'ltr' }, p.phone) : null);
+  const party = (t, p, branch) => h('div', { class: 'party' }, h('h4', null, t), h('div', { 'data-no-translate': '' }, p.name), p.tax_id ? h('div', null, 'الرقم الضريبي: ', h('span', { class: 'ltr' }, p.tax_id)) : null,
+    p.commercial_register ? h('div', null, 'السجل التجاري: ', h('span', { class: 'ltr' }, p.commercial_register)) : null, p.address ? h('div', null, p.address) : null, p.phone ? h('div', { class: 'ltr' }, p.phone) : null,
+    branch ? h('div', { class: 'branch' }, h('b', null, 'الفرع: ', h('span', { 'data-no-translate': '' }, branch.name)), [branch.city, branch.address].filter(Boolean).length ? h('div', null, [branch.city, branch.address].filter(Boolean).join(' — ')) : null,
+      branch.phone ? h('div', { class: 'ltr' }, branch.phone) : null, branch.commercial_register ? h('div', null, 'سجل الفرع: ', h('span', { class: 'ltr' }, branch.commercial_register)) : null) : null);
   const sheet = h('div', { class: 'print-sheet' },
     h('div', { class: 'ps-head' }, h('div', null, h('h2', { 'data-no-translate': '' }, d.seller.name), h('div', { class: 'muted' }, 'فاتورة ضريبية')),
       h('div', null, h('div', null, 'رقم الفاتورة: ', h('b', { class: 'ltr' }, d.number)), h('div', null, 'التاريخ: ', h('span', { class: 'ltr' }, d.issued_at.slice(0, 10))),
         d.due_date ? h('div', null, 'الاستحقاق: ', h('span', { class: 'ltr' }, d.due_date)) : null, h('div', null, 'طريقة الدفع: ' + (METHOD[d.payment_method] || d.payment_method)))),
-    h('div', { class: 'ps-parties' }, party('البائع', d.seller), party('المشتري', d.buyer)),
+    h('div', { class: 'ps-parties' }, party('البائع', d.seller, d.branch), party('المشتري', d.buyer)),
     h('table', null, h('thead', null, h('tr', null, ['الصنف', 'الكمية', 'سعر الوحدة', 'الإجمالي'].map((t) => h('th', null, t)))),
       h('tbody', null, d.lines.map((l) => h('tr', null, h('td', null, l.sku + ' — ' + l.name), h('td', { class: 'num' }, qty(l.quantity) + ' ' + l.uom), h('td', { class: 'num' }, money(l.unit_price)), h('td', { class: 'num' }, money(l.net)))))),
     h('div', { class: 'ps-foot' },

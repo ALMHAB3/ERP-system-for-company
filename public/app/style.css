@@ -192,7 +192,7 @@ nav.side h1[data-no-translate]{font-size:15px;line-height:1.5}
 .print-sheet { background: #fff; color: #111; padding: 20px; border: 1px solid var(--line, #ddd); border-radius: 8px; min-width: min(680px, 86vw); }
 .print-sheet h2 { margin: 0 0 4px; font-size: 1.15rem; }
 .ps-head, .ps-parties, .ps-foot { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 16px; }
-.ps-parties .party { flex: 1; min-width: 200px; } .ps-parties h4 { margin: 0 0 4px; font-size: .85rem; color: #555; }
+.ps-parties .party { flex: 1; min-width: 200px; } .ps-parties h4 { margin: 0 0 4px; font-size: .85rem; color: #555; } .ps-parties .party .branch { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ccc; }
 .print-sheet table { width: 100%; border-collapse: collapse; } .print-sheet th, .print-sheet td { border-bottom: 1px solid #ddd; padding: 6px 8px; text-align: start; }
 .ps-totals { text-align: end; line-height: 1.9; } .ps-totals .big { font-size: 1.1rem; }
 .ps-qr { text-align: center; } .ps-qr .fp { font-size: .65rem; color: #666; max-width: 150px; overflow-wrap: anywhere; }

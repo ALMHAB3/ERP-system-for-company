@@ -45,6 +45,22 @@ final class ExtensionsApiTest extends ApiTestCase
         return (int) DB::table('sales_invoices')->where('sales_order_id', $id)->value('id');
     }
 
+    public function test_invoice_prints_the_company_and_the_branch_details_entered_on_screen(): void
+    {
+        $id = $this->invoiceSale();
+        $admin = $this->userWith(['admin']);
+        $this->as($admin)->putJson('/api/admin/company', ['name' => 'شركة الاختبار', 'tax_id' => 'TAX-9', 'commercial_register' => 'CR-1', 'address' => 'طرابلس', 'phone' => '091'])->assertOk();
+        $this->as($admin)->putJson("/api/admin/branches/{$this->warehouse}", ['name' => 'فرع بنغازي', 'city' => 'بنغازي', 'address' => 'شارع جمال', 'phone' => '092'])->assertNoContent();
+
+        $doc = $this->as($this->finance)->getJson("/api/sales-invoices/{$id}")->assertOk()->json();
+        $this->assertSame(['شركة الاختبار', 'TAX-9', 'CR-1'], [$doc['seller']['name'], $doc['seller']['tax_id'], $doc['seller']['commercial_register']]);
+        $this->assertSame(['فرع بنغازي', 'بنغازي', 'شارع جمال', '092'], [$doc['branch']['name'], $doc['branch']['city'], $doc['branch']['address'], $doc['branch']['phone']]);
+        $tlv = base64_decode($doc['qr'], true);
+        $this->assertSame('شركة الاختبار', substr($tlv, 2, ord($tlv[1])));
+        // editing the details never breaks the tamper-evident chain of invoices already issued
+        $this->as($this->finance)->getJson('/api/sales-invoices/verify-chain')->assertJsonPath('broken', []);
+    }
+
     public function test_invoice_is_sealed_into_a_chain_and_exports_as_json_ubl_and_qr(): void
     {
         $a = $this->invoiceSale();

@@ -21,6 +21,7 @@ const AR_EXACT = new Map(Object.entries({
 const AR_PREFIX = [['Bank - ', 'مصرف - ']];
 // Server messages (only inside toasts and error boxes), fragment-replaced
 const AR_MSG = [
+  ['This branch still holds stock; transfer or adjust it before closing the branch.', 'هذا الفرع فيه مخزون؛ انقله أو سوِّه قبل إيقاف الفرع.'],
   ['The current password is not correct.', 'كلمة المرور الحالية غير صحيحة.'], ['Nothing to change.', 'لا يوجد ما يُغيَّر.'],
   ['The password field confirmation does not match.', 'تأكيد كلمة المرور غير مطابق.'], ['The password field and current password must be different.', 'كلمة المرور الجديدة يجب أن تختلف عن الحالية.'],
   ['The email has already been taken.', 'هذا البريد الإلكتروني مستخدم لحساب آخر.'],
