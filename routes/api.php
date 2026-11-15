@@ -4,9 +4,11 @@ use Illuminate\Support\Facades\Route;
 use Modules\Audit\Http\Controllers\AuditController;
 use Modules\Audit\Http\Middleware\AuditWriteRequests;
 use Modules\Finance\Http\Controllers\BankAccountController;
+use Modules\Finance\Http\Controllers\BankReconciliationController;
 use Modules\Finance\Http\Controllers\CurrencyController;
 use Modules\Finance\Http\Controllers\FinanceController;
 use Modules\Hr\Http\Controllers\EmployeeController;
+use Modules\Hr\Http\Controllers\OrgController;
 use Modules\Hr\Http\Controllers\PayrollController;
 use Modules\Identity\Http\Controllers\AuthController;
 use Modules\Identity\Http\Controllers\UserAdminController;
@@ -114,6 +116,9 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
             Route::get('payroll', [PayrollController::class, 'index'])->name('payroll.index');
             Route::get('payroll/adjustments', [PayrollController::class, 'adjustments'])->name('payroll.adjustments');
             Route::get('payroll/{run}', [PayrollController::class, 'show'])->whereNumber('run')->name('payroll.show');
+            Route::get('org-chart', [OrgController::class, 'chart'])->name('org.chart');
+            Route::get('departments', [OrgController::class, 'departments'])->name('departments.index');
+            Route::get('contracts', [OrgController::class, 'contracts'])->name('contracts.index');
         });
         Route::middleware('permission:hr.manage')->group(function () {
             Route::post('employees', [EmployeeController::class, 'store'])->name('employees.store');
@@ -123,6 +128,14 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
             Route::post('leaves', [EmployeeController::class, 'storeLeave'])->name('leaves.store');
             Route::post('leaves/{leave}/decision', [EmployeeController::class, 'decideLeave'])->whereNumber('leave')->name('leaves.decide');
             Route::post('advances', [EmployeeController::class, 'giveAdvance'])->middleware('permission:payroll.manage')->name('advances.store');
+            Route::post('departments', [OrgController::class, 'storeDepartment'])->name('departments.store');
+            Route::put('departments/{department}', [OrgController::class, 'updateDepartment'])->whereNumber('department')->name('departments.update');
+            Route::post('positions', [OrgController::class, 'storePosition'])->name('positions.store');
+            Route::put('employees/{employee}/assignment', [OrgController::class, 'assign'])->whereNumber('employee')->name('employees.assign');
+            Route::post('contracts', [OrgController::class, 'storeContract'])->name('contracts.store');
+            Route::post('contracts/{contract}/activate', [OrgController::class, 'activateContract'])->whereNumber('contract')->name('contracts.activate');
+            Route::post('contracts/{contract}/end', [OrgController::class, 'endContract'])->whereNumber('contract')->name('contracts.end');
+            Route::post('contracts/{contract}/cancel', [OrgController::class, 'cancelContract'])->whereNumber('contract')->name('contracts.cancel');
         });
         Route::middleware('permission:payroll.manage')->group(function () {
             Route::post('payroll', [PayrollController::class, 'store'])->name('payroll.store');
@@ -172,6 +185,28 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
     Route::post('currencies/rates', [CurrencyController::class, 'store'])->middleware('permission:currencies.manage')->name('currencies.rates.store');
 
     Route::get('finance/trial-balance', [FinanceController::class, 'trialBalance'])->middleware('permission:finance.view')->name('finance.trial_balance');
+    Route::prefix('finance')->name('finance.')->group(function () {
+        Route::middleware('permission:finance.view')->group(function () {
+            Route::get('accounts', [FinanceController::class, 'accounts'])->name('accounts');
+            Route::get('ledger', [FinanceController::class, 'ledger'])->name('ledger');
+            Route::get('fx-revaluations', [FinanceController::class, 'revaluations'])->name('fx.index');
+            Route::get('fx-revaluations/preview', [FinanceController::class, 'previewRevaluation'])->name('fx.preview');
+        });
+        Route::post('fx-revaluations', [FinanceController::class, 'revalue'])->middleware('permission:currencies.manage')->name('fx.run');
+        Route::middleware('permission:finance.view|banks.manage')->group(function () {
+            Route::get('bank-statements', [BankReconciliationController::class, 'index'])->name('statements.index');
+            Route::get('bank-statements/{statement}', [BankReconciliationController::class, 'show'])->whereNumber('statement')->name('statements.show');
+            Route::get('bank-statement-lines/{line}/candidates', [BankReconciliationController::class, 'candidates'])->whereNumber('line')->name('statements.candidates');
+        });
+        Route::middleware('permission:banks.manage')->group(function () {
+            Route::post('bank-statements', [BankReconciliationController::class, 'store'])->name('statements.store');
+            Route::post('bank-statements/{statement}/auto-match', [BankReconciliationController::class, 'autoMatch'])->whereNumber('statement')->name('statements.auto_match');
+            Route::post('bank-statements/{statement}/reconcile', [BankReconciliationController::class, 'reconcile'])->whereNumber('statement')->name('statements.reconcile');
+            Route::post('bank-statement-lines/{line}/match', [BankReconciliationController::class, 'match'])->whereNumber('line')->name('statements.match');
+            Route::post('bank-statement-lines/{line}/unmatch', [BankReconciliationController::class, 'unmatch'])->whereNumber('line')->name('statements.unmatch');
+            Route::post('bank-statement-lines/{line}/book', [BankReconciliationController::class, 'book'])->whereNumber('line')->name('statements.book');
+        });
+    });
 
     Route::middleware('permission:audit.view')->group(function () {
         Route::get('audit-logs', [AuditController::class, 'index'])->name('audit.index');

@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Modules\Audit\Application\AuditLogger;
+use Modules\Hr\Domain\ContractRepository;
 use Modules\Hr\Domain\Events\AdvanceGiven;
 use Modules\Hr\Domain\Events\PayrollApproved;
 use Modules\Hr\Domain\Events\PayrollPaid;
@@ -22,7 +23,7 @@ use Modules\Shared\Domain\Fixed;
  */
 final class PayrollService
 {
-    public function __construct(private readonly TransactionRunner $tx, private readonly EventBus $events, private readonly AuditLogger $audit) {}
+    public function __construct(private readonly TransactionRunner $tx, private readonly EventBus $events, private readonly AuditLogger $audit, private readonly ContractRepository $contracts) {}
 
     public function create(string $period, int $userId): int
     {
@@ -62,6 +63,18 @@ final class PayrollService
                 $employedDays = (int) $from->diffInDays($to) + 1;
                 $base = $fullMonth ? $full : Fixed::mulDiv($full, $employedDays, $start->daysInMonth);
                 $fixedAllowance = $fullMonth ? (int) $e->monthly_allowance : Fixed::mulDiv((int) $e->monthly_allowance, $employedDays, $start->daysInMonth);
+                // Contracts decide the pay when the employee has any: each contract pays for the days it was in force.
+                $contracts = $employedDays > 0 ? $this->contracts->inForce((int) $e->id, $from, $to) : [];
+                if ($contracts !== []) {
+                    $base = $fixedAllowance = 0;
+                    foreach ($contracts as $contract) {
+                        $days = $contract->daysWithin($from, $to);
+                        $whole = $days === $start->daysInMonth;
+                        $base += $whole ? $contract->baseSalary->units : Fixed::mulDiv($contract->baseSalary->units, $days, $start->daysInMonth);
+                        $fixedAllowance += $whole ? $contract->monthlyAllowance->units : Fixed::mulDiv($contract->monthlyAllowance->units, $days, $start->daysInMonth);
+                        $full = $contract->baseSalary->units;   // absence is valued at the latest contract's rate
+                    }
+                }
                 $adj = DB::table('payroll_adjustments')->where('employee_id', $e->id)->where('period', $run->period)->get()->groupBy('kind')->map(fn ($g) => (int) $g->sum('amount'));
                 $allow = ($adj['allowance'] ?? 0) + $fixedAllowance;   // the employee's fixed monthly allowance + any one-off allowance for this month
                 $bonus = $adj['bonus'] ?? 0;

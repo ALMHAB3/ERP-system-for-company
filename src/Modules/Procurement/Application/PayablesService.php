@@ -96,7 +96,7 @@ final class PayablesService
                 $this->repo->insertAllocation($paymentId, $invoiceId, $alloc, $invoiceBase, $cashBase);
                 $this->repo->applyPayment($invoiceId, ($inv->paid ?? Fixed::zero())->add($alloc), ($inv->basePaid ?? Fixed::zero())->add($invoiceBase));
             }
-            $this->events->dispatch(new SupplierPaid($paymentId, $supplier->name, $payableTotal, $cashTotal, $reference, $cashAccount));
+            $this->events->dispatch(new SupplierPaid($paymentId, $supplier->name, $payableTotal, $cashTotal, $reference, $cashAccount, strtoupper($currency), $amount));
 
             return $paymentId;
         });

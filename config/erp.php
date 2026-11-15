@@ -33,7 +33,9 @@ return [
         'inventory_variance' => '5100',
         'payables' => '2000',
         'vat_input' => '1400',
-        'fx_difference' => '5200',
+        'fx_difference' => '5200',       // realised, booked when a foreign invoice is paid
+        'fx_unrealized' => '5210',       // period-end revaluation of open foreign balances
+        'bank_charges' => '5600',
         'purchase_variance' => '5300',
         'employee_advances' => '1350',
         'salaries_payable' => '2300',

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Finance\Domain;
 
+use DateTimeImmutable;
+
 interface JournalRepository
 {
     /** @return int|null id of the existing entry for this idempotency triple, if any */
@@ -12,10 +14,28 @@ interface JournalRepository
     /** @param list<string> $codes */
     public function missingAccounts(array $codes): array;
 
+    /**
+     * Ledger accounts among $codes that are held in a foreign currency (bank accounts not in the base currency).
+     *
+     * @param  list<string>  $codes
+     * @return array<string,string> account code => currency
+     */
+    public function foreignCurrencyAccounts(array $codes, string $baseCurrency): array;
+
     public function insert(JournalEntryData $entry, ?int $reversesEntryId = null): int;
 
-    /** @return list<array{account_code:string,name:string,debit:string,credit:string}> */
-    public function trialBalance(): array;
+    /**
+     * @param  DateTimeImmutable|null  $asOf  only entries posted on or before this day
+     * @return list<array{account_code:string,name:string,debit:string,credit:string}>
+     */
+    public function trialBalance(?DateTimeImmutable $asOf = null): array;
+
+    /**
+     * Account statement (general ledger of one account) with a running balance.
+     *
+     * @return array{account:array{code:string,name:string,type:string},opening:string,closing:string,lines:list<array<string,mixed>>}|null null when the account does not exist
+     */
+    public function accountStatement(string $accountCode, DateTimeImmutable $from, DateTimeImmutable $to): ?array;
 
     public function find(int $id): ?JournalEntryData;
 }

@@ -29,7 +29,8 @@ final class SupplierPaymentRule implements PostingRule
         } elseif ($diff->isNegative()) {
             $lines[] = JournalLineData::credit($a['fx_difference'], $diff->neg(), 'exchange gain');
         }
-        $lines[] = JournalLineData::credit($event->cashAccount ?? $a['bank'], $event->cashBase, $event->reference);
+        $foreign = $event->currency !== null && $event->amount !== null && $event->currency !== strtoupper((string) config('erp.base_currency'));
+        $lines[] = JournalLineData::credit($event->cashAccount ?? $a['bank'], $event->cashBase, $event->reference, $foreign ? $event->currency : null, $foreign ? $event->amount : null);
 
         return new JournalEntryData("Payment to {$event->supplierName} ({$event->reference})", $lines, 'supplier_payment', (string) $event->paymentId, 'supplier_payment');
     }

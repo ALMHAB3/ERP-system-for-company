@@ -6,12 +6,16 @@ namespace Modules\Finance;
 
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Modules\Finance\Application\ExchangeRevaluation;
 use Modules\Finance\Application\PostingRuleRegistry;
 use Modules\Finance\Application\PostJournalOnDomainEvent;
 use Modules\Finance\Application\Rules\AdvanceGivenRule;
+use Modules\Finance\Application\Rules\BankStatementLineRule;
 use Modules\Finance\Application\Rules\CostOfSalesRule;
 use Modules\Finance\Application\Rules\CreditNoteRule;
 use Modules\Finance\Application\Rules\CustomerReceiptRule;
+use Modules\Finance\Application\Rules\ExchangeRevaluationReversalRule;
+use Modules\Finance\Application\Rules\ExchangeRevaluationRule;
 use Modules\Finance\Application\Rules\GrIrClearingRule;
 use Modules\Finance\Application\Rules\InventoryAdjustmentRule;
 use Modules\Finance\Application\Rules\InventoryReceiptRule;
@@ -21,8 +25,14 @@ use Modules\Finance\Application\Rules\SalesInvoiceRule;
 use Modules\Finance\Application\Rules\ShipmentCostSettlementRule;
 use Modules\Finance\Application\Rules\SupplierInvoiceRule;
 use Modules\Finance\Application\Rules\SupplierPaymentRule;
+use Modules\Finance\Domain\BankStatementRepository;
+use Modules\Finance\Domain\Events\BankStatementLineBooked;
+use Modules\Finance\Domain\Events\ExchangeRevalued;
 use Modules\Finance\Domain\JournalRepository;
+use Modules\Finance\Infrastructure\DbBankStatementRepository;
 use Modules\Finance\Infrastructure\DbJournalRepository;
+use Modules\Finance\Infrastructure\ForeignBankBalances;
+use Modules\Finance\Infrastructure\OpenPayablesBalances;
 use Modules\Hr\Domain\Events\AdvanceGiven;
 use Modules\Hr\Domain\Events\PayrollApproved;
 use Modules\Hr\Domain\Events\PayrollPaid;
@@ -55,7 +65,14 @@ final class FinanceServiceProvider extends ServiceProvider
             PayrollApprovedRule::class,
             PayrollPaidRule::class,
             AdvanceGivenRule::class,
+            BankStatementLineRule::class,
+            ExchangeRevaluationRule::class,
+            ExchangeRevaluationReversalRule::class,
         ], 'erp.posting_rules');
+        $this->app->bind(BankStatementRepository::class, DbBankStatementRepository::class);
+        // Everything that holds open foreign-currency balances; revaluation walks all of them.
+        $this->app->tag([OpenPayablesBalances::class, ForeignBankBalances::class], 'erp.foreign_balance_sources');
+        $this->app->when(ExchangeRevaluation::class)->needs('$sources')->giveTagged('erp.foreign_balance_sources');
 
         $this->app->singleton(PostingRuleRegistry::class, fn ($app) => new PostingRuleRegistry($app->tagged('erp.posting_rules')));
     }
@@ -66,7 +83,7 @@ final class FinanceServiceProvider extends ServiceProvider
 
         // Finance observes other modules' events; those modules never depend on Finance.
         Event::listen(StockMoved::class, [PostJournalOnDomainEvent::class, 'handle']);
-        foreach ([InvoiceIssued::class, SupplierInvoiceRecorded::class, SupplierPaid::class, CustomerPaid::class, CreditNoteIssued::class, GoodsReceivedClearedToVariance::class, ShipmentCostSettled::class, PayrollApproved::class, PayrollPaid::class, AdvanceGiven::class] as $event) {
+        foreach ([InvoiceIssued::class, SupplierInvoiceRecorded::class, SupplierPaid::class, CustomerPaid::class, CreditNoteIssued::class, GoodsReceivedClearedToVariance::class, ShipmentCostSettled::class, PayrollApproved::class, PayrollPaid::class, AdvanceGiven::class, BankStatementLineBooked::class, ExchangeRevalued::class] as $event) {
             Event::listen($event, [PostJournalOnDomainEvent::class, 'handle']);
         }
     }

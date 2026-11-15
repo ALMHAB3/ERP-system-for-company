@@ -133,11 +133,73 @@ function payroll() {
         { label: '', render: (r) => h('button', { class: 'btn secondary small', onclick: () => open(r.id) }, 'فتح') }], runs.data, 'لا توجد كشوف رواتب بعد'));
   });
 }
+const CTYPE = [['permanent', 'دائم'], ['fixed_term', 'محدد المدة'], ['probation', 'تحت التجربة'], ['part_time', 'دوام جزئي']];
+const CSTATUS = { draft: ['مسودة', 'warn'], active: ['ساري', 'ok'], ended: ['منتهٍ', ''], cancelled: ['ملغى', 'bad'] };
+const none = { value: '', label: '— بدون —' };
+const num = (v) => (v ? Number(v) : null);
+
+function orgChart() {
+  return panel(async (refresh) => {
+    const [chart, deps, emps] = await Promise.all([get('hr/org-chart'), get('hr/departments'), get('hr/employees')]);
+    const depOptions = [none, ...deps.data.map((d) => ({ value: d.id, label: d.name }))];
+    const posOptions = [none, ...deps.positions.map((p) => ({ value: p.id, label: p.title + (p.department ? ' — ' + p.department : '') }))];
+    const people = (list) => (list.length ? h('ul', null, list.map((e) => h('li', null, e.code + ' — ' + e.name + (e.position ? ' · ' + e.position : '')))) : null);
+    const node = (d) => h('li', null, h('b', null, d.name), ' · المدير: ' + (d.manager || '—') + ' · عدد الموظفين: ' + d.headcount, people(d.employees), d.children.length ? h('ul', null, d.children.map(node)) : null);
+    return h('div', null,
+      h('p', { class: 'hint' }, 'الهيكل التنظيمي: الإدارات في شكل شجرة، ولكل إدارة مدير، ولكل موظف إدارة ووظيفة ومدير مباشر. لا يُسمح بحلقات في التبعية.'),
+      h('div', { class: 'card' }, chart.departments.length ? h('ul', null, chart.departments.map(node)) : 'لا توجد إدارات بعد',
+        chart.unassigned.length ? h('div', null, h('b', null, 'موظفون بلا إدارة'), people(chart.unassigned)) : null),
+      can('hr.manage') ? h('div', { class: 'card' }, h('h3', null, 'إضافة إدارة'), form([
+        { name: 'name', label: 'اسم الإدارة', type: 'text', required: true }, { name: 'parent_id', label: 'تتبع إدارة', type: 'select', options: depOptions },
+        { name: 'manager_id', label: 'مدير الإدارة', type: 'select', options: [none, ...empOptions(emps.data).slice(1)] },
+      ], 'إضافة', async (v, f) => { await post('hr/departments', { name: v.name, parent_id: num(v.parent_id), manager_id: num(v.manager_id) }); toast('تمت إضافة الإدارة', 'ok'); f.reset(); refresh(); })) : null,
+      can('hr.manage') ? h('div', { class: 'card' }, h('h3', null, 'إضافة وظيفة'), form([
+        { name: 'title', label: 'المسمى الوظيفي', type: 'text', required: true }, { name: 'department_id', label: 'الإدارة', type: 'select', options: depOptions },
+        { name: 'headcount', label: 'العدد المخطط', type: 'number', value: '1' },
+      ], 'إضافة', async (v, f) => { await post('hr/positions', { title: v.title, department_id: num(v.department_id), headcount: Number(v.headcount) || 1 }); toast('تمت إضافة الوظيفة', 'ok'); f.reset(); refresh(); })) : null,
+      can('hr.manage') ? h('div', { class: 'card' }, h('h3', null, 'تسكين موظف في الهيكل'), form([
+        { name: 'employee_id', label: 'الموظف', type: 'select', options: empOptions(emps.data), required: true }, { name: 'department_id', label: 'الإدارة', type: 'select', options: depOptions },
+        { name: 'job_position_id', label: 'الوظيفة', type: 'select', options: posOptions }, { name: 'manager_id', label: 'المدير المباشر', type: 'select', options: [none, ...empOptions(emps.data).slice(1)] },
+      ], 'حفظ', async (v) => { await put(`hr/employees/${v.employee_id}/assignment`, { department_id: num(v.department_id), job_position_id: num(v.job_position_id), manager_id: num(v.manager_id) }); toast('تم الحفظ', 'ok'); refresh(); })) : null,
+      h('h3', null, 'الوظائف'),
+      table([{ label: 'المسمى الوظيفي', key: 'title' }, { label: 'الإدارة', render: (p) => p.department || '—' }, { label: 'المشغول / المخطط', num: true, render: (p) => p.filled + ' / ' + p.headcount }], deps.positions, 'لا توجد وظائف بعد'));
+  });
+}
+
+function contracts() {
+  return panel(async (refresh) => {
+    const [emps, list] = await Promise.all([get('hr/employees'), get('hr/contracts')]);
+    return h('div', null,
+      h('p', { class: 'hint' }, 'عقود العمل: كشف الرواتب يدفع لكل موظف ما ينص عليه العقد الساري في كل يوم من الشهر. الزيادة في الراتب عقد جديد؛ تفعيله ينهي العقد السابق في اليوم الذي قبله. لا يتداخل عقدان لنفس الموظف.'),
+      can('hr.manage') ? h('div', { class: 'card' }, h('h3', null, 'عقد جديد'), form([
+        { name: 'employee_id', label: 'الموظف', type: 'select', options: empOptions(emps.data), required: true }, { name: 'reference', label: 'رقم العقد', type: 'text', required: true },
+        { name: 'type', label: 'نوع العقد', type: 'select', options: CTYPE.map(([value, l]) => ({ value, label: l })) },
+        { name: 'start_date', label: 'تاريخ البداية', type: 'date', value: today(), required: true }, { name: 'end_date', label: 'تاريخ النهاية (فارغ = غير محدد المدة)', type: 'date' },
+        { name: 'base_salary', label: 'الراتب الأساسي الشهري (' + state.lookups.currency + ')', type: 'number', required: true }, { name: 'monthly_allowance', label: 'علاوة شهرية ثابتة', type: 'number' },
+        { name: 'activate', label: 'تفعيل العقد مباشرة', type: 'checkbox', value: true },
+      ], 'حفظ العقد', async (v, f) => {
+        await post('hr/contracts', { ...v, employee_id: Number(v.employee_id), end_date: v.end_date || null, monthly_allowance: v.monthly_allowance || null, activate: !!v.activate });
+        toast('تم حفظ العقد', 'ok'); f.reset(); refresh();
+      })) : null,
+      table([
+        { label: 'رقم العقد', key: 'reference' }, { label: 'الموظف', render: (c) => c.employee_code + ' — ' + c.employee }, { label: 'نوع العقد', render: (c) => label(CTYPE, c.type) },
+        { label: 'من', key: 'start_date' }, { label: 'إلى', render: (c) => c.end_date || 'غير محدد المدة' },
+        { label: 'الراتب', num: true, render: (c) => money(c.base_salary) }, { label: 'العلاوة الشهرية', num: true, render: (c) => (Number(c.monthly_allowance) ? money(c.monthly_allowance) : '—') },
+        { label: 'الحالة', render: (c) => h('span', { class: 'badge ' + CSTATUS[c.status][1] }, CSTATUS[c.status][0]) },
+        { label: '', render: (c) => (!can('hr.manage') ? '' : c.status === 'draft' ? h('div', { class: 'row-actions' },
+          act('تفعيل', () => post(`hr/contracts/${c.id}/activate`), refresh, { ok: 'تم تفعيل العقد' }), act('إلغاء', () => post(`hr/contracts/${c.id}/cancel`), refresh, { ok: 'تم إلغاء العقد', cls: 'secondary' }))
+          : c.status === 'active' ? h('button', { class: 'btn danger small', type: 'button', onclick: () => {
+            const m = modal('إنهاء العقد ' + c.reference, form([{ name: 'end_date', label: 'آخر يوم سريان', type: 'date', value: today(), required: true }], 'إنهاء العقد', async (v) => { await post(`hr/contracts/${c.id}/end`, v); toast('تم إنهاء العقد', 'ok'); m.close(); refresh(); }));
+          } }, 'إنهاء العقد') : '') },
+      ], list.data, 'لا توجد عقود بعد', { csv: 'contracts' }));
+  });
+}
+
 const badge2 = (s) => h('span', { class: 'badge ' + PSTATUS[s][1] }, PSTATUS[s][0]);
 
 export default async function () {
   return tabs([
-    ...(can('hr.view') ? [{ label: 'الموظفون', render: async () => employees() }, { label: 'الحضور', render: async () => attendance() }, { label: 'الإجازات', render: async () => leaves() }, { label: 'السلف', render: async () => advances() }] : []),
+    ...(can('hr.view') ? [{ label: 'الموظفون', render: async () => employees() }, { label: 'الهيكل التنظيمي', render: async () => orgChart() }, { label: 'العقود', render: async () => contracts() }, { label: 'الحضور', render: async () => attendance() }, { label: 'الإجازات', render: async () => leaves() }, { label: 'السلف', render: async () => advances() }] : []),
     ...(can('hr.view') ? [{ label: 'الرواتب', render: async () => payroll() }] : []),
   ]);
 }

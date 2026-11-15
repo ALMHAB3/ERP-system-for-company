@@ -21,6 +21,20 @@ const AR_EXACT = new Map(Object.entries({
 const AR_PREFIX = [['Bank - ', 'مصرف - ']];
 // Server messages (only inside toasts and error boxes), fragment-replaced
 const AR_MSG = [
+  ['The opening balance must equal the closing balance of the previous statement', 'الرصيد الافتتاحي يجب أن يساوي الرصيد الختامي للكشف السابق'],
+  ['The statement does not add up: opening', 'الكشف غير متوازن: الرصيد الافتتاحي'], ['+ movements', '+ الحركات'], ['is not the closing balance', 'لا يساوي الرصيد الختامي'],
+  ['statement line(s) are not matched yet.', 'سطر/سطور في الكشف لم تُطابَق بعد.'], ['This statement is already reconciled and can no longer be changed.', 'تمت تسوية هذا الكشف ولا يمكن تعديله.'],
+  ['This statement line is already matched; unmatch it first.', 'هذا السطر مطابَق مسبقاً؛ فك المطابقة أولاً.'], ['This statement line is already matched.', 'هذا السطر مطابَق مسبقاً.'],
+  ['That ledger line cannot be matched: it must be an unmatched movement of this bank account with exactly the same amount.', 'لا يمكن مطابقة هذه الحركة: يجب أن تكون حركة غير مطابَقة لنفس الحساب المصرفي وبنفس المبلغ تماماً.'],
+  ['cannot be used as the counter account.', 'لا يصلح حساباً مقابلاً.'], ['A bank statement needs at least one line.', 'الكشف المصرفي يحتاج سطراً واحداً على الأقل.'],
+  ['is dated after the statement date.', 'تاريخه بعد تاريخ الكشف.'], ['Balances were already revalued at', 'أُعيد تقييم الأرصدة مسبقاً بتاريخ'], ['choose a later date.', 'اختر تاريخاً لاحقاً.'],
+  ['There is no open foreign balance whose value changed at this rate.', 'لا يوجد رصيد مفتوح بعملة أجنبية تغيّرت قيمته بهذا السعر.'], ['Balances cannot be revalued at a future date.', 'لا يمكن إعادة التقييم بتاريخ مستقبلي.'],
+  ['already covers these dates.', 'يغطي هذه الفترة مسبقاً.'], ['already covered part of these dates.', 'غطّى جزءاً من هذه الفترة مسبقاً.'], ['Only a draft contract can be activated.', 'لا يُفعَّل إلا عقد في حالة مسودة.'],
+  ['Only an active contract can be ended.', 'لا يُنهى إلا عقد ساري.'], ['Only a draft contract can be cancelled; end an active one instead.', 'لا يُلغى إلا عقد مسودة؛ العقد الساري يُنهى.'],
+  ['The end date must fall inside the contract period.', 'تاريخ الإنهاء يجب أن يقع داخل فترة العقد.'], ['A contract cannot start before the hire date.', 'لا يبدأ العقد قبل تاريخ التعيين.'],
+  ['A fixed-term contract needs an end date.', 'العقد محدد المدة يحتاج تاريخ نهاية.'], ['A contract cannot end before it starts.', 'لا ينتهي العقد قبل بدايته.'],
+  ['This reporting line would form a loop.', 'هذه التبعية تُنشئ حلقة في الهيكل.'], ['A department cannot be placed under itself or under one of its own sub-departments.', 'لا يمكن وضع إدارة تحت نفسها أو تحت إحدى إداراتها الفرعية.'],
+  ['Contract not found.', 'العقد غير موجود.'], ['Contract', 'العقد'],   // the longer message first
   ['Missing permission:', 'لا تملك الصلاحية:'], ['No access to warehouse', 'لا تملك صلاحية الوصول إلى المستودع'],
   ['Insufficient stock for product', 'الكمية المتاحة غير كافية للصنف'], [' in warehouse ', ' في المستودع '], ['requested', 'المطلوب'], ['available', 'المتاح'],
   ['Credit limit', 'حد الائتمان'], ['exceeded: open exposure', 'تم تجاوزه: الالتزامات المفتوحة'], ['+ this order', '+ هذا الطلب'],

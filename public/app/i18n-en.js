@@ -3439,5 +3439,485 @@ export const EN_PAIRS = [
 [
 "اسم الصنف أو كوده",
 "Item name or code"
+],
+[
+"كشف حساب من دفتر الأستاذ العام: الرصيد الافتتاحي، ثم كل حركة مرحَّلة في الفترة مع الرصيد بعدها. كل سطر يذكر المستند الذي ولَّد القيد.",
+"Account statement from the general ledger: the opening balance, then every posted movement in the period with the balance after it. Each line names the document that generated the entry."
+],
+[
+"عرض كشف الحساب",
+"Show statement"
+],
+[
+"كشف حساب",
+"Account ledger"
+],
+[
+"من تاريخ",
+"From date"
+],
+[
+"إلى تاريخ",
+"To date"
+],
+[
+" · الرصيد الافتتاحي: ",
+" · Opening balance: "
+],
+[
+" · الرصيد الختامي: ",
+" · Closing balance: "
+],
+[
+"رقم القيد",
+"Entry no."
+],
+[
+"المصدر",
+"Source"
+],
+[
+"بالعملة الأجنبية",
+"In foreign currency"
+],
+[
+"لا توجد حركات في هذه الفترة",
+"No movements in this period"
+],
+[
+"غير صحيح. الصيغة: التاريخ ; البيان ; المبلغ",
+"is not valid. Format: date ; description ; amount"
+],
+[
+"السطر ",
+"Line "
+],
+[
+"مطابقة: ",
+"Match: "
+],
+[
+"لا توجد حركة غير مطابَقة في الدفتر بنفس المبلغ. إن كانت عمولة أو فائدة مصرفية فسجِّلها من الكشف.",
+"No unmatched ledger movement has this amount. If it is a bank charge or interest, book it from the statement."
+],
+[
+"تمت المطابقة التلقائية",
+"Automatic matching done"
+],
+[
+"تمت المطابقة",
+"Matched"
+],
+[
+"تسجيل من الكشف: ",
+"Book from statement: "
+],
+[
+"تسجيل من الكشف",
+"Book from statement"
+],
+[
+"الحساب المقابل",
+"Counter account"
+],
+[
+"تسجيل ومطابقة",
+"Book and match"
+],
+[
+"تم تسجيل القيد ومطابقته",
+"Entry booked and matched"
+],
+[
+"رصيد الدفتر: ",
+"Ledger balance: "
+],
+[
+" · حركات في الدفتر لم تظهر في الكشف بعد: ",
+" · Ledger movements not on the statement yet: "
+],
+[
+" · سطور في الكشف غير مسجَّلة في الدفتر: ",
+" · Statement lines not in the ledger: "
+],
+[
+" · الرصيد المعدَّل: ",
+" · Adjusted balance: "
+],
+[
+" · رصيد الكشف الختامي: ",
+" · Statement closing balance: "
+],
+[
+"مطابقة تلقائية",
+"Auto-match"
+],
+[
+"اعتماد التسوية يقفل الكشف نهائياً. متابعة؟",
+"Approving the reconciliation locks the statement for good. Continue?"
+],
+[
+"تم اعتماد التسوية",
+"Reconciliation approved"
+],
+[
+"اعتماد التسوية",
+"Approve reconciliation"
+],
+[
+"سطور الكشف (سطر لكل حركة: التاريخ ; البيان ; المبلغ — السالب للمسحوبات)",
+"Statement lines (one per movement: date ; description ; amount — negative for withdrawals)"
+],
+[
+"سطور الكشف",
+"Statement lines"
+],
+[
+"غير مطابَق",
+"Unmatched"
+],
+[
+"مطابَق",
+"Matched"
+],
+[
+"القيد المقابل",
+"Matching entry"
+],
+[
+"تم فك المطابقة",
+"Match removed"
+],
+[
+"فك المطابقة",
+"Unmatch"
+],
+[
+"حركات في الدفتر لم تظهر في أي كشف بعد",
+"Ledger movements not on any statement yet"
+],
+[
+"لا توجد حركات معلَّقة",
+"No outstanding movements"
+],
+[
+"التسوية البنكية: أدخل كشف المصرف كما ورد، ثم طابق كل سطر مع حركته في دفتر الأستاذ. العمولات والفوائد التي لا يعرفها الدفتر تُسجَّل مباشرة من الكشف. المبالغ بعملة الحساب المصرفي.",
+"Bank reconciliation: enter the bank statement as received, then match each line with its movement in the general ledger. Charges and interest the ledger does not know are booked straight from the statement. Amounts are in the bank account's currency."
+],
+[
+"التسوية البنكية",
+"Bank reconciliation"
+],
+[
+"إدخال كشف مصرفي",
+"Enter a bank statement"
+],
+[
+"الحساب المصرفي",
+"Bank account"
+],
+[
+"رقم الكشف",
+"Statement no."
+],
+[
+"تاريخ الكشف",
+"Statement date"
+],
+[
+"الرصيد الافتتاحي",
+"Opening balance"
+],
+[
+"الرصيد الختامي",
+"Closing balance"
+],
+[
+"حفظ الكشف",
+"Save statement"
+],
+[
+"تم حفظ الكشف",
+"Statement saved"
+],
+[
+"تمت التسوية",
+"Reconciled"
+],
+[
+"لا توجد كشوف مصرفية بعد",
+"No bank statements yet"
+],
+[
+"مطابق",
+"Balanced"
+],
+[
+"فرق ",
+"Difference "
+],
+[
+"مطابقة",
+"Match"
+],
+[
+"كشف ",
+"Statement "
+],
+[
+"صافي خسارة فروق عملة: ",
+"Net exchange loss: "
+],
+[
+"صافي ربح فروق عملة: ",
+"Net exchange gain: "
+],
+[
+"تقييم فروق الصرف في نهاية الفترة: تُعاد قياس الأرصدة المفتوحة بالعملة الأجنبية (فواتير الموردين غير المسددة والحسابات المصرفية بالعملة الأجنبية) بسعر الإقفال، ويُرحَّل الفرق كقيد غير محقَّق ثم يُعكس تلقائياً في اليوم التالي. الفرق المحقَّق يُسجَّل عند السداد.",
+"Period-end exchange valuation: open foreign-currency balances (unpaid supplier invoices and foreign-currency bank accounts) are restated at the closing rate; the difference is posted as an unrealised entry and reversed automatically the next day. The realised difference is booked on payment."
+],
+[
+"إعادة تقييم العملات الأجنبية",
+"Foreign currency revaluation"
+],
+[
+"تاريخ الإقفال",
+"Closing date"
+],
+[
+"معاينة",
+"Preview"
+],
+[
+"لا توجد أرصدة مفتوحة بالعملة الأجنبية",
+"No open foreign-currency balances"
+],
+[
+"سيُرحَّل قيد إعادة التقييم وقيد عكسه في اليوم التالي. متابعة؟",
+"The revaluation entry and its reversal on the next day will be posted. Continue?"
+],
+[
+"تم ترحيل قيد إعادة التقييم وقيد عكسه",
+"Revaluation entry and its reversal posted"
+],
+[
+"ترحيل قيد إعادة التقييم",
+"Post revaluation entry"
+],
+[
+"عمليات إعادة التقييم السابقة",
+"Previous revaluations"
+],
+[
+"تاريخ العكس",
+"Reversal date"
+],
+[
+"لم تُجرَ أي إعادة تقييم بعد",
+"No revaluation has been run yet"
+],
+[
+"تقييم فروق العملة",
+"Exchange revaluation"
+],
+[
+"الرصيد بالعملة",
+"Balance in currency"
+],
+[
+"القيمة الدفترية",
+"Carrying value"
+],
+[
+"القيمة بسعر الإقفال",
+"Value at closing rate"
+],
+[
+"الفرق",
+"Difference"
+],
+[
+"دائم",
+"Permanent"
+],
+[
+"محدد المدة",
+"Fixed term"
+],
+[
+"تحت التجربة",
+"Probation"
+],
+[
+"دوام جزئي",
+"Part time"
+],
+[
+"ساري",
+"Active"
+],
+[
+"منتهٍ",
+"Ended"
+],
+[
+" · المدير: ",
+" · Manager: "
+],
+[
+" · عدد الموظفين: ",
+" · Employees: "
+],
+[
+"الهيكل التنظيمي: الإدارات في شكل شجرة، ولكل إدارة مدير، ولكل موظف إدارة ووظيفة ومدير مباشر. لا يُسمح بحلقات في التبعية.",
+"Organisation chart: departments form a tree, each with a manager; each employee has a department, a position and a direct manager. Loops in the reporting line are not allowed."
+],
+[
+"الهيكل التنظيمي",
+"Organisation chart"
+],
+[
+"لا توجد إدارات بعد",
+"No departments yet"
+],
+[
+"موظفون بلا إدارة",
+"Employees without a department"
+],
+[
+"إضافة إدارة",
+"Add a department"
+],
+[
+"اسم الإدارة",
+"Department name"
+],
+[
+"تتبع إدارة",
+"Reports to department"
+],
+[
+"مدير الإدارة",
+"Department manager"
+],
+[
+"تمت إضافة الإدارة",
+"Department added"
+],
+[
+"إضافة وظيفة",
+"Add a position"
+],
+[
+"المسمى الوظيفي",
+"Job title"
+],
+[
+"العدد المخطط",
+"Planned headcount"
+],
+[
+"تمت إضافة الوظيفة",
+"Position added"
+],
+[
+"تسكين موظف في الهيكل",
+"Place an employee in the chart"
+],
+[
+"المدير المباشر",
+"Direct manager"
+],
+[
+"الوظائف",
+"Positions"
+],
+[
+"المشغول / المخطط",
+"Filled / planned"
+],
+[
+"لا توجد وظائف بعد",
+"No positions yet"
+],
+[
+"الإدارة",
+"Department"
+],
+[
+"عقود العمل: كشف الرواتب يدفع لكل موظف ما ينص عليه العقد الساري في كل يوم من الشهر. الزيادة في الراتب عقد جديد؛ تفعيله ينهي العقد السابق في اليوم الذي قبله. لا يتداخل عقدان لنفس الموظف.",
+"Employment contracts: payroll pays each employee what the contract in force says for every day of the month. A raise is a new contract; activating it ends the previous one the day before. Two contracts of the same employee never overlap."
+],
+[
+"عقد جديد",
+"New contract"
+],
+[
+"رقم العقد",
+"Contract no."
+],
+[
+"نوع العقد",
+"Contract type"
+],
+[
+"تاريخ البداية",
+"Start date"
+],
+[
+"تاريخ النهاية (فارغ = غير محدد المدة)",
+"End date (empty = open-ended)"
+],
+[
+"علاوة شهرية ثابتة",
+"Fixed monthly allowance"
+],
+[
+"تفعيل العقد مباشرة",
+"Activate the contract now"
+],
+[
+"حفظ العقد",
+"Save contract"
+],
+[
+"تم حفظ العقد",
+"Contract saved"
+],
+[
+"غير محدد المدة",
+"Open-ended"
+],
+[
+"تم تفعيل العقد",
+"Contract activated"
+],
+[
+"تم إلغاء العقد",
+"Contract cancelled"
+],
+[
+"إنهاء العقد ",
+"End contract "
+],
+[
+"آخر يوم سريان",
+"Last day in force"
+],
+[
+"تم إنهاء العقد",
+"Contract ended"
+],
+[
+"إنهاء العقد",
+"End contract"
+],
+[
+"لا توجد عقود بعد",
+"No contracts yet"
+],
+[
+"العقود",
+"Contracts"
 ]
 ];

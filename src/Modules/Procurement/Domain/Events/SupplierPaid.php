@@ -19,5 +19,8 @@ final readonly class SupplierPaid implements DomainEvent
         public string $reference,
         /** Ledger account the money left from (cash till or a bank account); null = default bank. */
         public ?string $cashAccount = null,
+        /** Currency and amount actually paid (the invoice currency). */
+        public ?string $currency = null,
+        public ?Fixed $amount = null,
     ) {}
 }
