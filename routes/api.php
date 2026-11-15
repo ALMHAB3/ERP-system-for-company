@@ -22,6 +22,7 @@ use Modules\Procurement\Http\Controllers\PurchaseOrderController;
 use Modules\Reporting\Http\Controllers\ListController;
 use Modules\Reporting\Http\Controllers\ReportController;
 use Modules\Reporting\Http\Controllers\SalesSummaryController;
+use Modules\Reporting\Http\Controllers\SetupStatusController;
 use Modules\Reporting\Http\Controllers\ShipmentPreviewController;
 use Modules\Sales\Http\Controllers\CustomerController;
 use Modules\Sales\Http\Controllers\EInvoiceController;
@@ -44,6 +45,7 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
     Route::get('sales-orders', [ListController::class, 'salesOrders'])->middleware('permission:sales.create|sales.ship|sales.invoice')->name('sales_orders.index');
     Route::get('inventory/lots', [ListController::class, 'lots'])->middleware('permission:inventory.view')->name('inventory.lots');
     Route::get('admin/users', [ListController::class, 'users'])->middleware('permission:users.manage')->name('admin.users.index');
+    Route::get('admin/setup-status', SetupStatusController::class)->middleware('permission:users.manage')->name('admin.setup_status');
     Route::put('products/{product}', [ListController::class, 'updateProduct'])->whereNumber('product')->middleware('permission:master_data.manage')->name('products.update');
     Route::put('customers/{customer}', [ListController::class, 'updateCustomer'])->whereNumber('customer')->middleware('permission:master_data.manage')->name('customers.update');
     Route::delete('auth/token', [AuthController::class, 'revokeToken'])->name('auth.revoke');

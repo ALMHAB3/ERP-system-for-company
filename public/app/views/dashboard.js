@@ -7,8 +7,34 @@ const EXPIRY = { expired: 'منتهية', '0-30': '≤30 يوم', '31-60': '31�
 const STATUS = { open: 'قيد الشحن', costed: 'محتسبة التكلفة', received: 'مستلمة' };
 const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 
+// What the administrator still has to set up before real work. Disappears once everything is done.
+const SETUP = {
+  sample_data_removed: ['حذف البيانات التجريبية', 'على الخادم: ./scripts/go-live.sh (أو scripts\\go-live.ps1 على ويندوز). يحذف كل بيانات التجربة ويُبقي حساب المدير.'],
+  company_details: ['بيانات الشركة', 'الرقم الضريبي والعنوان والهاتف في ملف .env (COMPANY_TAX_ID و COMPANY_ADDRESS و COMPANY_PHONE) ثم docker compose up -d. تُطبع على كل فاتورة.'],
+  branches: ['الفروع والمستودعات', 'المستخدمون والتدقيق ← الفروع: أضف المستودع الرئيسي وأي فرع آخر.'],
+  users: ['المستخدمون والصلاحيات', 'المستخدمون والتدقيق ← المستخدمون: أضف حساباً لكل موظف يعمل على النظام بالدور المناسب.'],
+  exchange_rates: ['أسعار الصرف', 'المحاسبة ← أسعار الصرف: سجّل سعر كل عملة أجنبية مستخدمة.'],
+  bank_accounts: ['الحسابات المصرفية', 'المحاسبة ← الصندوق والحسابات المصرفية: أضف حسابات الشركة في المصارف.'],
+  products: ['الأصناف والأسعار', 'المخزون: أضف الأصناف وأسعار البيع، ثم أدخل أرصدة المخزون الافتتاحية بتسوية مخزون.'],
+  customers: ['العملاء', 'العملاء والديون: سجّل العملاء الذين يشترون بالأجل مع حد الائتمان ومدة السداد.'],
+  suppliers: ['الموردون', 'الموردون: سجّل الموردين وعملة كل منهم.'],
+  employees: ['الموظفون والعقود', 'الموارد البشرية: أنشئ الإدارات والوظائف ثم أضف الموظفين برواتبهم (يُنشأ عقد كل موظف تلقائياً).'],
+};
+async function setupCard() {
+  if (!can('users.manage')) return null;
+  const s = await get('admin/setup-status').catch(() => null);
+  if (!s || s.ready) return null;
+  const done = s.steps.filter((x) => x.done).length;
+  return h('div', { class: 'card' }, h('h3', null, 'تجهيز المنظومة للعمل', ' ', h('span', { class: 'badge warn ltr' }, done + ' / ' + s.steps.length)),
+    h('p', { class: 'hint' }, 'تظهر هذه القائمة لمدير النظام فقط، وتختفي عند اكتمال كل الخطوات.'),
+    h('ul', { class: 'checklist' }, s.steps.map((x) => h('li', { class: x.done ? 'ok' : '' },
+      h('span', { class: 'badge ' + (x.done ? 'ok' : 'warn') }, x.done ? 'تم' : 'مطلوب'), ' ', h('b', null, SETUP[x.key][0]),
+      x.done ? null : h('div', { class: 'muted' }, SETUP[x.key][1] + (x.key === 'exchange_rates' && s.missing_rates.length ? ' — ' + s.missing_rates.join('، ') : ''))))));
+}
+
 export default async function () {
-  if (!can('reports.view')) return h('div', { class: 'card' }, 'مرحباً ' + state.me.name + '. اختر قسماً من القائمة.');
+  const setup = await setupCard();
+  if (!can('reports.view')) return h('div', null, setup, h('div', { class: 'card' }, 'مرحباً ' + state.me.name + '. اختر قسماً من القائمة.'));
   const cur = state.lookups.currency;
   const safe = (p) => p.catch(() => null);
   const [d, ch, reorder, expiring, ar, ap] = await Promise.all([
@@ -34,7 +60,7 @@ export default async function () {
     hbars({ title: 'حالة الشحنات', items: Object.entries(ch.shipments_by_status).map(([k, v]) => ({ label: STATUS[k] || k, value: v })), colorOf: (it, i) => COLORS[i % COLORS.length], valueLabel: (i) => String(i.value) }),
   ];
 
-  return h('div', null,
+  return h('div', null, setup,
     h('div', { class: 'cards' },
       kpi('قيمة المخزون', money(d.inventory_value), cur),
       kpi('مبيعات هذا الشهر (صافي)', money(d.revenue_this_month), cur),

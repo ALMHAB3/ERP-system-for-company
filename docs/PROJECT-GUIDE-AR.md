@@ -179,7 +179,7 @@ docker compose exec app php artisan invoices:verify
 
 - **البيانات التجريبية** (14 شهراً: شحنات بعملات مختلفة، مبيعات نقداً/تحويلاً/ديناً، دفعات، مرتجعات، موظفون ورواتب) تظهر معها لافتة «بيانات تجريبية».
 - **حسابات التجربة** (كلمة المرور `Demo-Passw0rd-123`): `manager@` `finance@` `accountant@` `hr@` `purchasing@` `warehouse@` `sales@` `demo.test`.
-- بعد التجربة: `./scripts/reset-test-data.sh` يمسح كل شيء وينشئ نظاماً فارغاً (يطلب كتابة RESET). النسخ في `./backups` لا تُمس.
+- بعد التجربة: `./scripts/go-live.sh` (ويندوز: `scripts\go-live.ps1`) يأخذ نسخة احتياطية ثم يمسح كل البيانات التجريبية ويُبقي حساب المدير بنفس بياناته (يطلب كتابة RESET). بعدها تعرض لوحة المؤشرات قائمة «تجهيز المنظومة للعمل».
 - **قبل البيانات الحقيقية:** املأ `COMPANY_TAX_ID` و`COMPANY_ADDRESS` و`COMPANY_PHONE` في `.env`.
 
 سيناريوهات تجربة مفصلة: `docs/QUICKSTART.md`.

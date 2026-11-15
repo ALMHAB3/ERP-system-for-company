@@ -33,9 +33,10 @@ Run docker compose up -d db redis; Run docker compose run --rm app php artisan m
 Write-Host "`n5/6 First administrator"
 $e = Read-Host 'Administrator e-mail [admin@hubalreeh.example]'; if (-not $e) { $e = 'admin@hubalreeh.example' }
 Run docker compose run --rm app php artisan erp:create-admin $e
-Write-Host "`n6/6 Sample data (TEST data: start from an empty database before real data)"
-$l = Read-Host 'Load sample data and demo users now? [Y/n]'
-if (-not $l -or $l -match '^[Yy]') { Run docker compose run --rm app php artisan erp:demo-data --with-users; New-Item .demo-installed -ItemType File -Force | Out-Null }
+Write-Host "`n6/6 Sample data (only for trying the system). For REAL work answer N: the system starts empty and ready."
+Write-Host '    Y loads invented history and demo users; remove it later with scripts\go-live.ps1'
+$l = Read-Host 'Load sample data for a trial? [y/N]'
+if ($l -match '^[Yy]') { Run docker compose run --rm app php artisan erp:demo-data --with-users; New-Item .demo-installed -ItemType File -Force | Out-Null }
 Start-Sleep 3
 $ErrorActionPreference = 'Continue'   # docker prints progress on stderr; that is not a failure
 docker compose cp web:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt *> $null

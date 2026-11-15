@@ -3951,5 +3951,81 @@ export const EN_PAIRS = [
 [
 "تم حفظ بيانات حسابك",
 "Your account details were saved"
+],
+[
+"حذف البيانات التجريبية",
+"Remove the sample data"
+],
+[
+"على الخادم: ./scripts/go-live.sh (أو scripts\\go-live.ps1 على ويندوز). يحذف كل بيانات التجربة ويُبقي حساب المدير.",
+"On the server: ./scripts/go-live.sh (or scripts\\go-live.ps1 on Windows). Erases all trial data and keeps the administrator account."
+],
+[
+"بيانات الشركة",
+"Company details"
+],
+[
+"الرقم الضريبي والعنوان والهاتف في ملف .env (COMPANY_TAX_ID و COMPANY_ADDRESS و COMPANY_PHONE) ثم docker compose up -d. تُطبع على كل فاتورة.",
+"Tax number, address and phone in the .env file (COMPANY_TAX_ID, COMPANY_ADDRESS, COMPANY_PHONE), then docker compose up -d. Printed on every invoice."
+],
+[
+"المستخدمون والتدقيق ← الفروع: أضف المستودع الرئيسي وأي فرع آخر.",
+"Users & audit → Branches: add the main warehouse and any other branch."
+],
+[
+"المستخدمون والصلاحيات",
+"Users and permissions"
+],
+[
+"المستخدمون والتدقيق ← المستخدمون: أضف حساباً لكل موظف يعمل على النظام بالدور المناسب.",
+"Users & audit → Users: add an account with the right role for everyone who works on the system."
+],
+[
+"المحاسبة ← أسعار الصرف: سجّل سعر كل عملة أجنبية مستخدمة.",
+"Accounting → Exchange rates: enter the rate of every foreign currency in use."
+],
+[
+"الحسابات المصرفية",
+"Bank accounts"
+],
+[
+"المحاسبة ← الصندوق والحسابات المصرفية: أضف حسابات الشركة في المصارف.",
+"Accounting → Cash and bank accounts: add the company bank accounts."
+],
+[
+"الأصناف والأسعار",
+"Products and prices"
+],
+[
+"المخزون: أضف الأصناف وأسعار البيع، ثم أدخل أرصدة المخزون الافتتاحية بتسوية مخزون.",
+"Inventory: add the products and selling prices, then enter opening stock with a stock adjustment."
+],
+[
+"العملاء والديون: سجّل العملاء الذين يشترون بالأجل مع حد الائتمان ومدة السداد.",
+"Customers & debts: register customers who buy on credit with their credit limit and payment terms."
+],
+[
+"الموردون: سجّل الموردين وعملة كل منهم.",
+"Suppliers: register the suppliers and their currency."
+],
+[
+"الموظفون والعقود",
+"Employees and contracts"
+],
+[
+"الموارد البشرية: أنشئ الإدارات والوظائف ثم أضف الموظفين برواتبهم (يُنشأ عقد كل موظف تلقائياً).",
+"HR: create the departments and positions, then add the employees with their salaries (each contract is created automatically)."
+],
+[
+"تظهر هذه القائمة لمدير النظام فقط، وتختفي عند اكتمال كل الخطوات.",
+"Only the administrator sees this list; it disappears once every step is done."
+],
+[
+"مطلوب",
+"To do"
+],
+[
+"تجهيز المنظومة للعمل",
+"Getting the system ready"
 ]
 ];

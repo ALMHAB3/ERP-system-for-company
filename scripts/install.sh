@@ -41,10 +41,10 @@ say "5/6  First administrator"
 email=$(ask "  Administrator e-mail [admin@hubalreeh.example]:" "admin@hubalreeh.example")
 d compose run --rm app php artisan erp:create-admin "$email"
 
-say "6/6  Sample data"
-echo "  Loads 14 months of a believable company history (shipments in USD/EUR/CNY, cash/transfer/credit sales, payments,"
-echo "  returns...) so you can try every screen. It is TEST data: start from an empty database before real data."
-load=$(ask "  Load the sample data and demo users now? [Y/n]:" "Y")
+say "6/6  Sample data (only for trying the system)"
+echo "  For REAL work answer N: the system starts empty and ready."
+echo "  Y loads 14 months of invented history and demo users to try every screen; remove it later with ./scripts/go-live.sh"
+load=$(ask "  Load sample data for a trial? [y/N]:" "N")
 if [[ "$load" =~ ^[Yy] ]]; then d compose run --rm app php artisan erp:demo-data --with-users; touch .demo-installed; fi
 
 # the office-network certificate: devices must trust it once
