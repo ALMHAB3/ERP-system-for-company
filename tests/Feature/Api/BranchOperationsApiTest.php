@@ -164,4 +164,25 @@ final class BranchOperationsApiTest extends ApiTestCase
         $this->as($admin)->putJson("/api/admin/users/{$id}/access", ['roles' => ['branch_manager']])->assertUnprocessable();
         $this->as($admin)->putJson("/api/admin/users/{$id}/access", ['roles' => ['accountant']])->assertNoContent();   // the company accountant needs no branch
     }
+
+    public function test_each_branch_sees_only_its_stock_and_company_wide_roles_see_all(): void
+    {
+        $managerA = $this->userWith(['branch_manager'], [$this->a]);
+        $clerkB = $this->userWith(['warehouse_clerk'], [$this->b]);
+        $warehousesOf = fn (object $u) => collect($this->as($u)->getJson('/api/inventory/balances')->assertOk()->json('data'))->pluck('warehouse_id')->unique()->sort()->values()->all();
+
+        $this->assertSame([$this->a], $warehousesOf($managerA));
+        $this->assertSame([$this->b], $warehousesOf($clerkB));
+        $this->assertSame([$this->a, $this->b], $warehousesOf($this->finance));                       // company-wide role
+        $this->assertSame([$this->a, $this->b], $warehousesOf($this->userWith(['general_manager'])));
+        // a branch manager of the MAIN branch is still a branch role: main-branch staff do not see the other branches
+        $this->assertSame([$this->a], array_column($this->as($managerA)->getJson('/api/lookups')->json('warehouses'), 'id'));
+
+        $this->as($managerA)->getJson('/api/inventory/balances?warehouse_id='.$this->b)->assertForbidden();
+        $this->as($managerA)->getJson("/api/inventory/atp?warehouse_id={$this->b}&product_id={$this->product}")->assertForbidden();
+        $this->as($managerA)->postJson('/api/inventory/adjustments', ['warehouse_id' => $this->b, 'product_id' => $this->product, 'direction' => 'out', 'quantity' => '1', 'reason' => 'count'])->assertForbidden();
+        $this->as($managerA)->postJson('/api/inventory/transfers', ['from_warehouse_id' => $this->a, 'to_warehouse_id' => $this->b, 'product_id' => $this->product, 'quantity' => '1', 'reference' => 'TR-1'])->assertForbidden();
+        $this->assertSame(['MAIN'], collect($this->as($managerA)->getJson('/api/inventory/lots')->assertOk()->json('data'))->pluck('warehouse')->unique()->values()->all());
+        $this->assertSame(['BR2', 'MAIN'], collect($this->as($this->finance)->getJson('/api/inventory/lots')->json('data'))->pluck('warehouse')->unique()->sort()->values()->all());
+    }
 }
