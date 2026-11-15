@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Modules\Hr\Application;
 
-use Carbon\CarbonImmutable;
 use DateTimeImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -80,7 +79,6 @@ final class ContractService
                 }
             }
             $this->contracts->setStatus($contractId, ContractStatus::Active);
-            $this->syncEmployee($contract->employeeId);
             $this->audit->record('contract.activated', 'employee', $contract->employeeId, ['contract_id' => $contractId, 'reference' => $contract->reference], $userId);
         });
     }
@@ -113,22 +111,29 @@ final class ContractService
         });
     }
 
-    /** Keeps the salary shown on the employee card equal to the contract in force today (or the next one to start). */
-    private function syncEmployee(int $employeeId): void
+    /** The first contract of a new employee: permanent, from the hire date, active at once. */
+    public function hire(int $employeeId, string $code, DateTimeImmutable $hireDate, Fixed $baseSalary, Fixed $allowance, ?int $userId): int
     {
-        $today = CarbonImmutable::today();
-        $current = null;
-        foreach ($this->contracts->lockActive($employeeId) as $c) {
-            if ($c->daysWithin($today, $today) === 1) {
-                $current = $c;
-                break;
+        return $this->tx->run(function () use ($employeeId, $code, $hireDate, $baseSalary, $allowance, $userId): int {
+            $id = $this->draft($employeeId, $code.'-1', 'permanent', $hireDate, null, $baseSalary, $allowance, null, $userId);
+            $this->activate($id, $userId);
+
+            return $id;
+        });
+    }
+
+    /** An employee leaves on $lastDay: contracts running then end that day; contracts that had not started yet are cancelled. */
+    public function endEmployment(int $employeeId, DateTimeImmutable $lastDay, ?int $userId): void
+    {
+        $this->tx->run(function () use ($employeeId, $lastDay, $userId): void {
+            foreach ($this->contracts->lockActive($employeeId) as $c) {
+                if ($c->startDate->format('Y-m-d') > $lastDay->format('Y-m-d')) {
+                    $this->contracts->setStatus((int) $c->id, ContractStatus::Cancelled);
+                } elseif ($c->endDate === null || $c->endDate->format('Y-m-d') > $lastDay->format('Y-m-d')) {
+                    $this->contracts->setStatus((int) $c->id, ContractStatus::Ended, $lastDay);
+                }
             }
-            $current ??= $c;
-        }
-        if ($current !== null) {
-            DB::table('employees')->where('id', $employeeId)->update([
-                'base_salary' => $current->baseSalary->units, 'monthly_allowance' => $current->monthlyAllowance->units, 'updated_at' => now(),
-            ]);
-        }
+            $this->audit->record('contract.employment_ended', 'employee', $employeeId, ['last_day' => $lastDay->format('Y-m-d')], $userId);
+        });
     }
 }

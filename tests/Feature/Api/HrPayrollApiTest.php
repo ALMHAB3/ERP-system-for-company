@@ -39,7 +39,7 @@ final class HrPayrollApiTest extends ApiTestCase
 
     private function employee(string $code = 'E1', string $salary = '3000', string $hired = '2020-01-01'): int
     {
-        return $this->as($this->hr)->postJson('/api/hr/employees', ['code' => $code, 'name' => 'Ali '.$code, 'job_title' => 'Driver', 'hire_date' => $hired, 'base_salary' => $salary, 'warehouse_id' => $this->warehouse])->assertCreated()->json('id');
+        return $this->as($this->hr)->postJson('/api/hr/employees', ['code' => $code, 'name' => 'Ali '.$code, 'hire_date' => $hired, 'base_salary' => $salary, 'warehouse_id' => $this->warehouse])->assertCreated()->json('id');
     }
 
     public function test_only_hr_and_finance_see_salaries(): void
@@ -100,7 +100,9 @@ final class HrPayrollApiTest extends ApiTestCase
         $this->assertSame('150.0000', $lines['A1']['allowances']);
         $this->assertSame('2150.0000', $lines['A1']['net']);
         $this->assertSame('0.0000', $lines['A2']['allowances']);
-        $this->as($this->hr)->putJson("/api/hr/employees/{$with}", ['monthly_allowance' => null])->assertNoContent();   // removing it
+        $this->as($this->hr)->putJson("/api/hr/employees/{$with}", ['monthly_allowance' => '0'])->assertUnprocessable();   // pay is not on the card any more
+        // Removing it = a new contract without the allowance from the first of the month.
+        $this->as($this->hr)->postJson('/api/hr/contracts', ['employee_id' => $with, 'reference' => 'A1-2', 'type' => 'permanent', 'start_date' => $this->period.'-01', 'base_salary' => '2000', 'activate' => true])->assertCreated();
         $this->as($this->hr)->postJson("/api/hr/payroll/{$run}/recalculate")->assertNoContent();
         $this->assertSame('0.0000', collect($this->as($this->hr)->getJson("/api/hr/payroll/{$run}")->json('lines'))->keyBy('code')['A1']['allowances']);
     }
@@ -125,5 +127,26 @@ final class HrPayrollApiTest extends ApiTestCase
     {
         $e = $this->employee();
         $this->as($this->hr)->putJson('/api/hr/attendance', ['date' => CarbonImmutable::tomorrow()->toDateString(), 'records' => [['employee_id' => $e, 'status' => 'present']]])->assertUnprocessable();
+    }
+
+    public function test_pay_comes_only_from_contracts_and_leaving_ends_the_contract(): void
+    {
+        $paid = $this->employee('P1', '3000');
+        $this->as($this->hr)->postJson('/api/hr/employees', ['code' => 'N1', 'name' => 'No contract', 'hire_date' => '2020-01-01'])->assertCreated();
+        $this->as($this->hr)->putJson("/api/hr/employees/{$paid}", ['base_salary' => '9000'])->assertUnprocessable();
+        $this->as($this->finance)->getJson('/api/hr/employees')->assertOk();
+        $cards = collect($this->as($this->finance)->getJson('/api/hr/employees')->json('data'))->keyBy('code');
+        $this->assertSame(['P1-1', '3000.0000'], [$cards['P1']['contract'], $cards['P1']['base_salary']]);
+        $this->assertNull($cards['N1']['contract']);
+
+        $run = $this->as($this->hr)->postJson('/api/hr/payroll', ['period' => $this->period])->assertCreated()->json('id');
+        $this->assertSame(['P1'], collect($this->as($this->hr)->getJson("/api/hr/payroll/{$run}")->json('lines'))->pluck('code')->all());   // no contract, not on the payroll
+
+        $this->as($this->hr)->postJson("/api/hr/employees/{$paid}/terminate", ['terminated_on' => $this->period.'-10'])->assertNoContent();
+        $contract = collect($this->as($this->hr)->getJson('/api/hr/contracts?employee_id='.$paid)->json('data'))->first();
+        $this->assertSame(['ended', $this->period.'-10'], [$contract['status'], $contract['end_date']]);
+        $this->as($this->hr)->postJson("/api/hr/payroll/{$run}/recalculate")->assertNoContent();
+        $days = CarbonImmutable::createFromFormat('Y-m-d', $this->period.'-01')->daysInMonth;
+        $this->assertSame((string) Fixed::units(Fixed::mulDiv(30000000, 10, $days)), $this->as($this->hr)->getJson("/api/hr/payroll/{$run}")->json('lines.0.base'));
     }
 }

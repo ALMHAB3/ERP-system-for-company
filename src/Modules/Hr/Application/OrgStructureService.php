@@ -82,7 +82,7 @@ final class OrgStructureService
     {
         $staff = ['' => []];
         foreach ($this->departments->staff() as $e) {
-            $staff[(string) ($e->department_id ?? '')][] = ['id' => (int) $e->id, 'code' => $e->code, 'name' => $e->name, 'position' => $e->position ?? $e->job_title, 'manager_id' => $e->manager_id === null ? null : (int) $e->manager_id];
+            $staff[(string) ($e->department_id ?? '')][] = ['id' => (int) $e->id, 'code' => $e->code, 'name' => $e->name, 'position' => $e->position, 'manager_id' => $e->manager_id === null ? null : (int) $e->manager_id];
         }
         $children = [];
         foreach ($this->departments->all() as $d) {

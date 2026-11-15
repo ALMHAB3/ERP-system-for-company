@@ -59,6 +59,25 @@ final class DbContractRepository implements ContractRepository
         );
     }
 
+    public function current(array $employeeIds, DateTimeImmutable $today): array
+    {
+        $out = [];
+        $day = $today->format('Y-m-d');
+        $rows = $this->db->table('employment_contracts')->whereIn('employee_id', $employeeIds)->whereIn('status', [ContractStatus::Active->value, ContractStatus::Ended->value])
+            ->orderBy('start_date')->orderBy('id')->get();
+        foreach ($rows as $row) {
+            $c = $this->hydrate($row);
+            $inForce = $c->startDate->format('Y-m-d') <= $day && ($c->endDate === null || $c->endDate->format('Y-m-d') >= $day);
+            $chosen = $out[$c->employeeId] ?? null;
+            $chosenInForce = $chosen !== null && $chosen->startDate->format('Y-m-d') <= $day && ($chosen->endDate === null || $chosen->endDate->format('Y-m-d') >= $day);
+            if ($inForce || ! $chosenInForce) {
+                $out[$c->employeeId] = $c;   // later rows are newer, so the newest one wins unless an older one is the one in force
+            }
+        }
+
+        return $out;
+    }
+
     public function listing(?int $employeeId = null): array
     {
         return $this->db->table('employment_contracts as c')->join('employees as e', 'e.id', '=', 'c.employee_id')

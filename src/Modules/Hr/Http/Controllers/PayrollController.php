@@ -28,8 +28,8 @@ final class PayrollController extends ApiController
     {
         $r = DB::table('payroll_runs')->where('id', $run)->first() ?? abort(404);
         $f = fn ($v) => (string) Fixed::units((int) $v);
-        $lines = DB::table('payroll_lines as l')->join('employees as e', 'e.id', '=', 'l.employee_id')->where('l.payroll_run_id', $run)->orderBy('e.name')
-            ->get(['l.*', 'e.name', 'e.code', 'e.job_title'])->map(fn ($l) => [
+        $lines = DB::table('payroll_lines as l')->join('employees as e', 'e.id', '=', 'l.employee_id')->leftJoin('job_positions as p', 'p.id', '=', 'e.job_position_id')->where('l.payroll_run_id', $run)->orderBy('e.name')
+            ->get(['l.*', 'e.name', 'e.code', 'p.title as job_title'])->map(fn ($l) => [
                 'employee_id' => (int) $l->employee_id, 'code' => $l->code, 'name' => $l->name, 'job_title' => $l->job_title, 'base' => $f($l->base), 'allowances' => $f($l->allowances), 'bonuses' => $f($l->bonuses),
                 'absence_deduction' => $f($l->absence_deduction), 'absent_days' => (string) $l->absent_days, 'other_deductions' => $f($l->other_deductions), 'advance_repayment' => $f($l->advance_repayment), 'net' => $f($l->net),
             ]);

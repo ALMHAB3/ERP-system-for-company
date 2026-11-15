@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Api;
 
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\DB;
 use Modules\Shared\Domain\Fixed;
 
 /** Organisation chart, employment contracts, and payroll paying what the contracts say. */
@@ -19,9 +18,17 @@ final class OrgAndContractsApiTest extends ApiTestCase
         $this->hr = $this->userWith(['hr_manager']);
     }
 
-    private function employee(string $code, string $salary = '3000'): int
+    /** Without a salary the employee has no contract yet; with one, the first contract is opened from the hire date. */
+    private function employee(string $code, ?string $salary = null): int
     {
-        return $this->as($this->hr)->postJson('/api/hr/employees', ['code' => $code, 'name' => 'Emp '.$code, 'hire_date' => '2020-01-01', 'base_salary' => $salary])->assertCreated()->json('id');
+        $body = ['code' => $code, 'name' => 'Emp '.$code, 'hire_date' => '2020-01-01'] + ($salary === null ? [] : ['base_salary' => $salary]);
+
+        return $this->as($this->hr)->postJson('/api/hr/employees', $body)->assertCreated()->json('id');
+    }
+
+    private function card(int $employee): array
+    {
+        return collect($this->as($this->userWith(['finance_manager']))->getJson('/api/hr/employees')->json('data'))->firstWhere('id', $employee);
     }
 
     public function test_departments_form_a_tree_without_loops(): void
@@ -56,16 +63,15 @@ final class OrgAndContractsApiTest extends ApiTestCase
 
     public function test_contracts_never_overlap_and_a_new_one_takes_over(): void
     {
-        $e = $this->employee('E1', '1000');
+        $e = $this->employee('E1');
         $body = ['employee_id' => $e, 'reference' => 'CT-1', 'type' => 'permanent', 'start_date' => '2020-01-01', 'base_salary' => '3000', 'monthly_allowance' => '200'];
         $this->as($this->hr)->postJson('/api/hr/contracts', ['type' => 'fixed_term', 'reference' => 'CT-0'] + $body)->assertUnprocessable();   // fixed term needs an end
         $this->as($this->hr)->postJson('/api/hr/contracts', ['start_date' => '2019-01-01', 'reference' => 'CT-0'] + $body)->assertUnprocessable();   // before hire
         $first = $this->as($this->hr)->postJson('/api/hr/contracts', $body)->assertCreated()->json('id');
-        $this->assertSame(10000000, (int) DB::table('employees')->where('id', $e)->value('base_salary'));   // a draft changes nothing
+        $this->assertNull($this->card($e)['base_salary']);                                 // a draft pays nothing
         $this->as($this->hr)->postJson("/api/hr/contracts/{$first}/activate")->assertNoContent();
         $this->as($this->hr)->postJson("/api/hr/contracts/{$first}/activate")->assertUnprocessable();
-        $this->assertSame(30000000, (int) DB::table('employees')->where('id', $e)->value('base_salary'));   // the employee card follows the contract
-        $this->as($this->finance())->getJson('/api/hr/employees')->assertJsonPath('data.0.monthly_allowance', '200.0000');
+        $this->assertSame(['CT-1', '3000.0000', '200.0000'], [$this->card($e)['contract'], $this->card($e)['base_salary'], $this->card($e)['monthly_allowance']]);
 
         // Same start date: a real overlap, refused.
         $dup = $this->as($this->hr)->postJson('/api/hr/contracts', ['reference' => 'CT-DUP'] + $body)->assertCreated()->json('id');
@@ -78,7 +84,7 @@ final class OrgAndContractsApiTest extends ApiTestCase
         $this->assertSame(['ended', '2023-12-31'], [$rows['CT-1']['status'], $rows['CT-1']['end_date']]);
         $this->assertSame('active', $rows['CT-2']['status']);
         $this->assertSame('cancelled', $rows['CT-DUP']['status']);
-        $this->assertSame(40000000, (int) DB::table('employees')->where('id', $e)->value('base_salary'));
+        $this->assertSame(['CT-2', '4000.0000'], [$this->card($e)['contract'], $this->card($e)['base_salary']]);
 
         // A contract ending soon shows up in the expiry list.
         $temp = $this->employee('T1');
@@ -93,8 +99,8 @@ final class OrgAndContractsApiTest extends ApiTestCase
         $month = CarbonImmutable::today()->subMonth()->startOfMonth();
         $days = $month->daysInMonth;
         $raiseOn = $month->addDays(15)->format('Y-m-d');                                   // the 16th
-        $e = $this->employee('E1', '9999');                                               // the card value is ignored once contracts exist
-        $this->employee('E2', '2000');                                                    // no contract: paid from the card as before
+        $e = $this->employee('E1');
+        $this->employee('E2', '2000');                                                    // first contract opened with the employee
         $this->as($this->hr)->postJson('/api/hr/contracts', ['employee_id' => $e, 'reference' => 'CT-1', 'type' => 'permanent', 'start_date' => '2020-01-01', 'base_salary' => '3000', 'monthly_allowance' => '300', 'activate' => true])->assertCreated();
         $this->as($this->hr)->postJson('/api/hr/contracts', ['employee_id' => $e, 'reference' => 'CT-2', 'type' => 'permanent', 'start_date' => $raiseOn, 'base_salary' => '6000', 'activate' => true])->assertCreated();
 
@@ -106,16 +112,11 @@ final class OrgAndContractsApiTest extends ApiTestCase
         $this->assertSame('2000.0000', $lines['E2']['base']);
 
         // Ending the contract mid-month stops the pay on that day.
-        $third = $this->employee('E3', '1');
+        $third = $this->employee('E3');
         $c = $this->as($this->hr)->postJson('/api/hr/contracts', ['employee_id' => $third, 'reference' => 'CT-3', 'type' => 'permanent', 'start_date' => '2020-01-01', 'base_salary' => '3000', 'activate' => true])->assertCreated()->json('id');
         $this->as($this->hr)->postJson("/api/hr/contracts/{$c}/end", ['end_date' => $month->addDays(9)->format('Y-m-d')])->assertNoContent();
         $this->as($this->hr)->postJson("/api/hr/payroll/{$run}/recalculate")->assertNoContent();
         $lines = collect($this->as($this->hr)->getJson("/api/hr/payroll/{$run}")->json('lines'))->keyBy('code');
         $this->assertSame((string) Fixed::units(Fixed::mulDiv(30000000, 10, $days)), $lines['E3']['base']);
-    }
-
-    private function finance(): object
-    {
-        return $this->userWith(['finance_manager']);
     }
 }

@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Modules\Hr\Http\Controllers;
 
+use DateTimeImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Audit\Application\AuditLogger;
 use Modules\Finance\Application\CashAccounts;
+use Modules\Hr\Application\ContractService;
 use Modules\Hr\Application\PayrollService;
+use Modules\Hr\Domain\ContractRepository;
 use Modules\Shared\Domain\Fixed;
 use Modules\Shared\Http\ApiController;
 use Modules\Shared\Http\Decimal;
@@ -17,26 +20,42 @@ use Modules\Shared\Http\Decimal;
 /** Employees, daily attendance, leave requests and advances. */
 final class EmployeeController extends ApiController
 {
-    public function index(): JsonResponse
+    public function index(ContractRepository $contracts): JsonResponse
     {
-        $rows = DB::table('employees as e')->leftJoin('warehouses as w', 'w.id', '=', 'e.warehouse_id')->leftJoin('users as u', 'u.id', '=', 'e.user_id')->orderBy('e.status')->orderBy('e.name')
-            ->get(['e.*', 'w.name as branch', 'u.email as login'])
-            ->map(fn ($e) => [
-                'id' => (int) $e->id, 'code' => $e->code, 'name' => $e->name, 'job_title' => $e->job_title, 'department' => $e->department, 'national_id' => $e->national_id, 'phone' => $e->phone,
-                'warehouse_id' => $e->warehouse_id ? (int) $e->warehouse_id : null, 'branch' => $e->branch, 'user_id' => $e->user_id ? (int) $e->user_id : null, 'login' => $e->login,
-                'hire_date' => $e->hire_date, 'base_salary' => (string) Fixed::units((int) $e->base_salary), 'monthly_allowance' => (string) Fixed::units((int) $e->monthly_allowance), 'status' => $e->status, 'terminated_on' => $e->terminated_on, 'notes' => $e->notes,
-                'advance_balance' => (string) Fixed::units((int) DB::table('employee_advances')->where('employee_id', $e->id)->sum('balance')),
-            ]);
+        $rows = DB::table('employees as e')->leftJoin('warehouses as w', 'w.id', '=', 'e.warehouse_id')->leftJoin('users as u', 'u.id', '=', 'e.user_id')
+            ->leftJoin('departments as d', 'd.id', '=', 'e.department_id')->leftJoin('job_positions as p', 'p.id', '=', 'e.job_position_id')->leftJoin('employees as m', 'm.id', '=', 'e.manager_id')
+            ->orderBy('e.status')->orderBy('e.name')
+            ->get(['e.*', 'w.name as branch', 'u.email as login', 'd.name as department', 'p.title as job_title', 'm.name as manager']);
+        // Pay is read from the contract in force, never stored on the card.
+        $current = $contracts->current($rows->pluck('id')->map(fn ($id) => (int) $id)->all(), new DateTimeImmutable('today'));
+        $advances = DB::table('employee_advances')->groupBy('employee_id')->selectRaw('employee_id, SUM(balance) as balance')->pluck('balance', 'employee_id');
 
-        return response()->json(['data' => $rows]);
+        return response()->json(['data' => $rows->map(function ($e) use ($current, $advances) {
+            $c = $current[(int) $e->id] ?? null;
+
+            return [
+                'id' => (int) $e->id, 'code' => $e->code, 'name' => $e->name, 'national_id' => $e->national_id, 'phone' => $e->phone,
+                'department_id' => $e->department_id ? (int) $e->department_id : null, 'department' => $e->department,
+                'job_position_id' => $e->job_position_id ? (int) $e->job_position_id : null, 'job_title' => $e->job_title,
+                'manager_id' => $e->manager_id ? (int) $e->manager_id : null, 'manager' => $e->manager,
+                'warehouse_id' => $e->warehouse_id ? (int) $e->warehouse_id : null, 'branch' => $e->branch, 'user_id' => $e->user_id ? (int) $e->user_id : null, 'login' => $e->login,
+                'hire_date' => $e->hire_date, 'status' => $e->status, 'terminated_on' => $e->terminated_on, 'notes' => $e->notes,
+                'contract' => $c?->reference, 'base_salary' => $c === null ? null : (string) $c->baseSalary, 'monthly_allowance' => $c === null ? null : (string) $c->monthlyAllowance,
+                'advance_balance' => (string) Fixed::units((int) ($advances[$e->id] ?? 0)),
+            ];
+        })->values()]);
     }
 
-    public function store(Request $request, AuditLogger $audit): JsonResponse
+    /** A new employee. When a salary is given, their first contract (permanent, from the hire date) is created and activated with it. */
+    public function store(Request $request, AuditLogger $audit, ContractService $contracts): JsonResponse
     {
         $d = $this->rules($request, true);
-        $id = DB::transaction(function () use ($d, $audit) {
+        $id = DB::transaction(function () use ($d, $audit, $contracts, $request) {
             $id = DB::table('employees')->insertGetId($this->row($d) + ['code' => $d['code'], 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
             $audit->record('employee.created', 'employee', $id, ['code' => $d['code'], 'name' => $d['name']]);
+            if (isset($d['base_salary'])) {
+                $contracts->hire($id, $d['code'], new DateTimeImmutable($d['hire_date']), Decimal::of($d['base_salary']), Decimal::of($d['monthly_allowance'] ?? '0'), $this->userId($request));
+            }
 
             return $id;
         });
@@ -44,23 +63,28 @@ final class EmployeeController extends ApiController
         return response()->json(['id' => $id], 201);
     }
 
+    /** Card details only. Pay changes through a new contract; the place in the chart through the assignment endpoint. */
     public function update(Request $request, int $employee, AuditLogger $audit): JsonResponse
     {
         abort_unless(DB::table('employees')->where('id', $employee)->exists(), 404);
         $d = $this->rules($request, false, $employee);
         DB::transaction(function () use ($d, $employee, $audit) {
             DB::table('employees')->where('id', $employee)->update($this->row($d) + ['updated_at' => now()]);
-            $audit->record('employee.updated', 'employee', $employee, array_diff_key($d, ['base_salary' => 1]) + (isset($d['base_salary']) ? ['base_salary' => 'changed'] : []));
+            $audit->record('employee.updated', 'employee', $employee, $d);
         });
 
         return response()->json(null, 204);
     }
 
-    public function terminate(Request $request, int $employee, AuditLogger $audit): JsonResponse
+    /** Ends the service: the employee's running contracts end on the same day. */
+    public function terminate(Request $request, int $employee, AuditLogger $audit, ContractService $contracts): JsonResponse
     {
         $d = $request->validate(['terminated_on' => ['required', 'date_format:Y-m-d']]);
-        abort_unless(DB::table('employees')->where('id', $employee)->where('status', 'active')->update(['status' => 'terminated', 'terminated_on' => $d['terminated_on'], 'updated_at' => now()]) === 1, 404);
-        $audit->record('employee.terminated', 'employee', $employee, $d);
+        DB::transaction(function () use ($d, $employee, $audit, $contracts, $request) {
+            abort_unless(DB::table('employees')->where('id', $employee)->where('status', 'active')->update(['status' => 'terminated', 'terminated_on' => $d['terminated_on'], 'updated_at' => now()]) === 1, 404);
+            $contracts->endEmployment($employee, new DateTimeImmutable($d['terminated_on']), $this->userId($request));
+            $audit->record('employee.terminated', 'employee', $employee, $d);
+        });
 
         return response()->json(null, 204);
     }
@@ -104,7 +128,7 @@ final class EmployeeController extends ApiController
     {
         $d = $request->validate(['employee_id' => ['required', 'integer', 'exists:employees,id'], 'type' => ['required', 'in:annual,sick,unpaid,other'],
             'from_date' => ['required', 'date_format:Y-m-d'], 'to_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:from_date'], 'reason' => ['nullable', 'string', 'max:250']]);
-        $days = (int) (new \DateTimeImmutable($d['from_date']))->diff(new \DateTimeImmutable($d['to_date']))->days + 1;
+        $days = (int) (new DateTimeImmutable($d['from_date']))->diff(new DateTimeImmutable($d['to_date']))->days + 1;
         $id = DB::table('leave_requests')->insertGetId($d + ['days' => $days, 'status' => 'pending', 'created_at' => now()]);
         $audit->record('leave.requested', 'employee', $d['employee_id'], ['leave_id' => $id, 'days' => $days]);
 
@@ -146,24 +170,20 @@ final class EmployeeController extends ApiController
 
         return $request->validate([
             'code' => $creating ? ['required', 'string', 'max:30', 'unique:employees,code'] : ['prohibited'],
-            'name' => [$req, 'string', 'max:200'], 'job_title' => ['nullable', 'string', 'max:120'], 'department' => ['nullable', 'string', 'max:120'],
-            'national_id' => ['nullable', 'string', 'max:40'], 'phone' => ['nullable', 'string', 'max:40'], 'notes' => ['nullable', 'string', 'max:250'],
+            'name' => [$req, 'string', 'max:200'], 'national_id' => ['nullable', 'string', 'max:40'], 'phone' => ['nullable', 'string', 'max:40'], 'notes' => ['nullable', 'string', 'max:250'],
             'warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'], 'user_id' => ['nullable', 'integer', 'exists:users,id'],
-            'hire_date' => [$req, 'date_format:Y-m-d'], 'base_salary' => [$req, Decimal::RULE], 'monthly_allowance' => ['nullable', Decimal::RULE],
+            'department_id' => $creating ? ['nullable', 'integer', 'exists:departments,id'] : ['prohibited'],
+            'job_position_id' => $creating ? ['nullable', 'integer', 'exists:job_positions,id'] : ['prohibited'],
+            'hire_date' => [$req, 'date_format:Y-m-d'],
+            // Salary only opens the first contract; afterwards it changes through a new contract.
+            'base_salary' => $creating ? ['nullable', Decimal::RULE] : ['prohibited'],
+            'monthly_allowance' => $creating ? ['nullable', Decimal::RULE] : ['prohibited'],
         ]);
     }
 
     /** @param array<string,mixed> $d @return array<string,mixed> */
     private function row(array $d): array
     {
-        $row = array_diff_key($d, ['code' => 1]);
-        if (isset($row['base_salary'])) {
-            $row['base_salary'] = Decimal::of($row['base_salary'])->units;
-        }
-        if (array_key_exists('monthly_allowance', $row)) {
-            $row['monthly_allowance'] = $row['monthly_allowance'] === null ? 0 : Decimal::of($row['monthly_allowance'])->units;   // empty = no allowance
-        }
-
-        return $row;
+        return array_diff_key($d, ['code' => 1, 'base_salary' => 1, 'monthly_allowance' => 1]);
     }
 }

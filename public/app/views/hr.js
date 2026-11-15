@@ -12,27 +12,40 @@ const branchOptions = () => [{ value: '', label: '— بدون —' }, ...opts.w
 
 function employees() {
   return panel(async (refresh) => {
-    const list = (await get('hr/employees')).data;
-    const fields = (e) => [
+    const [list, deps] = await Promise.all([get('hr/employees'), get('hr/departments')]);
+    const depOptions = [{ value: '', label: '— بدون —' }, ...deps.data.map((d) => ({ value: d.id, label: d.name }))];
+    const posOptions = [{ value: '', label: '— بدون —' }, ...deps.positions.map((p) => ({ value: p.id, label: p.title + (p.department ? ' — ' + p.department : '') }))];
+    const card = (e) => [
       ...(e ? [] : [{ name: 'code', label: 'رقم الموظف', type: 'text', required: true }]),
-      { name: 'name', label: 'الاسم', type: 'text', required: true, value: e?.name }, { name: 'job_title', label: 'الوظيفة', type: 'text', value: e?.job_title || '' },
-      { name: 'department', label: 'القسم', type: 'text', value: e?.department || '' }, { name: 'phone', label: 'الهاتف', type: 'text', value: e?.phone || '' },
+      { name: 'name', label: 'الاسم', type: 'text', required: true, value: e?.name }, { name: 'phone', label: 'الهاتف', type: 'text', value: e?.phone || '' },
       { name: 'national_id', label: 'الرقم الوطني / الهوية', type: 'text', value: e?.national_id || '' },
       { name: 'warehouse_id', label: 'الفرع', type: 'select', options: branchOptions(), value: e?.warehouse_id ?? '' },
       { name: 'hire_date', label: 'تاريخ التعيين', type: 'date', required: true, value: e?.hire_date || today() },
-      { name: 'base_salary', label: 'الراتب الأساسي الشهري (' + state.lookups.currency + ')', type: 'number', required: true, value: e ? e.base_salary.replace(/\.?0+$/, '') : '' },
-      { name: 'monthly_allowance', label: 'علاوة شهرية ثابتة (اتركها فارغة إن كان لا يتحصل على علاوة)', type: 'number', value: e && Number(e.monthly_allowance) ? e.monthly_allowance.replace(/\.?0+$/, '') : '' },
     ];
-    const body = (v) => ({ ...v, warehouse_id: v.warehouse_id ? Number(v.warehouse_id) : null });
+    // Department, position and pay are set once here; afterwards they change from the organisation chart and the contracts tabs.
+    const hiring = [
+      { name: 'department_id', label: 'الإدارة', type: 'select', options: depOptions }, { name: 'job_position_id', label: 'الوظيفة', type: 'select', options: posOptions },
+      { name: 'base_salary', label: 'الراتب الأساسي الشهري (' + state.lookups.currency + ') — يُنشئ عقد العمل الأول', type: 'number' },
+      { name: 'monthly_allowance', label: 'علاوة شهرية ثابتة (اتركها فارغة إن كان لا يتحصل على علاوة)', type: 'number' },
+    ];
+    const n = (v) => (v ? Number(v) : null);
     return h('div', null,
-      can('hr.manage') ? h('div', { class: 'card' }, h('h3', null, 'إضافة موظف'), form(fields(), 'إضافة', async (v, f) => { await post('hr/employees', body(v)); toast('تمت إضافة الموظف', 'ok'); f.reset(); refresh(); })) : null,
-      table([{ label: 'الرقم', key: 'code' }, { label: 'الاسم', key: 'name' }, { label: 'الوظيفة', render: (e) => e.job_title || '—' }, { label: 'الفرع', render: (e) => e.branch || '—' },
-        { label: 'التعيين', key: 'hire_date' }, { label: 'الراتب', num: true, render: (e) => money(e.base_salary) }, { label: 'العلاوة الشهرية', num: true, render: (e) => (Number(e.monthly_allowance) ? money(e.monthly_allowance) : '—') }, { label: 'سلف مستحقة', num: true, render: (e) => (Number(e.advance_balance) ? money(e.advance_balance) : '—') },
+      can('hr.manage') ? h('div', { class: 'card' }, h('h3', null, 'إضافة موظف'),
+        h('p', { class: 'hint' }, 'الراتب يُحفظ في عقد العمل، لا في بطاقة الموظف. إدخال الراتب هنا يُنشئ عقداً دائماً يبدأ من تاريخ التعيين؛ أي تغيير لاحق في الراتب يكون بعقد جديد من تبويب العقود.'),
+        form([...card(), ...hiring], 'إضافة', async (v, f) => {
+          await post('hr/employees', { ...v, warehouse_id: n(v.warehouse_id), department_id: n(v.department_id), job_position_id: n(v.job_position_id), base_salary: v.base_salary || null, monthly_allowance: v.monthly_allowance || null });
+          toast('تمت إضافة الموظف', 'ok'); f.reset(); refresh();
+        })) : null,
+      table([{ label: 'الرقم', key: 'code' }, { label: 'الاسم', key: 'name' }, { label: 'الإدارة', render: (e) => e.department || '—' }, { label: 'الوظيفة', render: (e) => e.job_title || '—' },
+        { label: 'المدير المباشر', render: (e) => e.manager || '—' }, { label: 'الفرع', render: (e) => e.branch || '—' }, { label: 'التعيين', key: 'hire_date' },
+        { label: 'العقد', render: (e) => e.contract || h('span', { class: 'badge warn' }, 'بلا عقد') },
+        { label: 'الراتب', num: true, render: (e) => (e.base_salary === null ? '—' : money(e.base_salary)) }, { label: 'العلاوة الشهرية', num: true, render: (e) => (Number(e.monthly_allowance) ? money(e.monthly_allowance) : '—') },
+        { label: 'سلف مستحقة', num: true, render: (e) => (Number(e.advance_balance) ? money(e.advance_balance) : '—') },
         { label: 'الحالة', render: (e) => h('span', { class: 'badge ' + (e.status === 'active' ? 'ok' : 'bad') }, e.status === 'active' ? 'على رأس العمل' : 'منتهي الخدمة') },
         { label: '', render: (e) => (can('hr.manage') && e.status === 'active' ? h('div', { class: 'row-actions' },
-          h('button', { class: 'btn secondary small', onclick: () => { const m = modal('تعديل ' + e.name, form(fields(e), 'حفظ', async (v) => { await put('hr/employees/' + e.id, body(v)); toast('تم الحفظ', 'ok'); m.close(); refresh(); })); } }, 'تعديل'),
-          h('button', { class: 'btn danger small', onclick: () => { const m = modal('إنهاء خدمة ' + e.name, form([{ name: 'terminated_on', label: 'تاريخ انتهاء الخدمة', type: 'date', value: today(), required: true }], 'إنهاء الخدمة', async (v) => { await post(`hr/employees/${e.id}/terminate`, v); toast('تم', 'ok'); m.close(); refresh(); })); } }, 'إنهاء الخدمة')) : null) },
-      ], list, 'لا يوجد موظفون بعد', { csv: 'employees' }));
+          h('button', { class: 'btn secondary small', onclick: () => { const m = modal('تعديل ' + e.name, form(card(e), 'حفظ', async (v) => { await put('hr/employees/' + e.id, { ...v, warehouse_id: n(v.warehouse_id) }); toast('تم الحفظ', 'ok'); m.close(); refresh(); })); } }, 'تعديل'),
+          h('button', { class: 'btn danger small', onclick: () => { const m = modal('إنهاء خدمة ' + e.name, h('div', null, h('p', { class: 'hint' }, 'ينتهي معه عقد العمل الساري في التاريخ نفسه.'), form([{ name: 'terminated_on', label: 'تاريخ انتهاء الخدمة', type: 'date', value: today(), required: true }], 'إنهاء الخدمة', async (v) => { await post(`hr/employees/${e.id}/terminate`, v); toast('تم إنهاء الخدمة', 'ok'); m.close(); refresh(); }))); } }, 'إنهاء الخدمة')) : '') },
+      ], list.data, 'لا يوجد موظفون بعد', { csv: 'employees' }));
   });
 }
 

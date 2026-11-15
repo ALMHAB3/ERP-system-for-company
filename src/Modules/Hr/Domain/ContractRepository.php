@@ -27,6 +27,14 @@ interface ContractRepository
 
     public function setStatus(int $id, ContractStatus $status, ?DateTimeImmutable $endDate = null): void;
 
+    /**
+     * The contract that sets each employee's pay today: the one in force today, else the latest active or ended one.
+     *
+     * @param  list<int>  $employeeIds
+     * @return array<int,Contract> employee id => contract
+     */
+    public function current(array $employeeIds, DateTimeImmutable $today): array;
+
     /** @return list<array<string,mixed>> every contract with the employee's name, newest first */
     public function listing(?int $employeeId = null): array;
 

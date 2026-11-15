@@ -15,6 +15,8 @@ use Modules\Finance\Application\ExchangeRates;
 use Modules\Finance\Application\JournalService;
 use Modules\Finance\Domain\JournalEntryData;
 use Modules\Finance\Domain\JournalLineData;
+use Modules\Hr\Application\ContractService;
+use Modules\Hr\Application\OrgStructureService;
 use Modules\Hr\Application\PayrollService;
 use Modules\Identity\Domain\AccessRepository;
 use Modules\Import\Application\LandedCostService;
@@ -363,7 +365,10 @@ final class DemoDataCommand extends Command
         $hired = CarbonImmutable::today()->subYears(2)->toDateString();
         foreach ([['E001', 'أحمد المبروك', 'مندوب مبيعات', 'المبيعات', 3500, $wh], ['E002', 'سالم الفيتوري', 'محاسب', 'المالية', 4200, $wh], ['E003', 'مفتاح الزروق', 'أمين مخزن', 'المخازن', 3000, $wh],
             ['E004', 'عمر بن علي', 'سائق', 'التوصيل', 2400, $wh], ['E005', 'خالد الشريف', 'عامل تحميل', 'المخازن', 2000, $branch], ['E006', 'يوسف الترهوني', 'مسؤول مشتريات', 'المشتريات', 3800, $wh]] as [$code, $name, $job, $dep, $salary, $w]) {
-            DB::table('employees')->insert(['code' => $code, 'name' => $name, 'job_title' => $job, 'department' => $dep, 'warehouse_id' => $w, 'hire_date' => $hired, 'base_salary' => $salary * Fixed::FACTOR, 'monthly_allowance' => in_array($code, ['E004', 'E005'], true) ? 150 * Fixed::FACTOR : 0, 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
+            $depId = DB::table('departments')->where('name', $dep)->value('id') ?? app(OrgStructureService::class)->createDepartment($dep, null, null);
+            $posId = DB::table('job_positions')->where('title', $job)->where('department_id', $depId)->value('id') ?? app(OrgStructureService::class)->createPosition($job, (int) $depId, 1);
+            $id = DB::table('employees')->insertGetId(['code' => $code, 'name' => $name, 'department_id' => $depId, 'job_position_id' => $posId, 'warehouse_id' => $w, 'hire_date' => $hired, 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
+            app(ContractService::class)->hire($id, $code, new DateTimeImmutable($hired), Fixed::fromWhole($salary), Fixed::fromWhole(in_array($code, ['E004', 'E005'], true) ? 150 : 0), null);
         }
         $ids = DB::table('employees')->pluck('id')->all();
         $payroll = app(PayrollService::class);
