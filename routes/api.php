@@ -47,6 +47,7 @@ Route::middleware(['auth:sanctum', 'throttle:api', AuditWriteRequests::class])->
     Route::put('products/{product}', [ListController::class, 'updateProduct'])->whereNumber('product')->middleware('permission:master_data.manage')->name('products.update');
     Route::put('customers/{customer}', [ListController::class, 'updateCustomer'])->whereNumber('customer')->middleware('permission:master_data.manage')->name('customers.update');
     Route::delete('auth/token', [AuthController::class, 'revokeToken'])->name('auth.revoke');
+    Route::put('me/account', [AuthController::class, 'updateAccount'])->middleware('throttle:login')->name('me.account');
 
     Route::middleware('permission:users.manage')->prefix('admin')->group(function () {
         Route::post('users', [UserAdminController::class, 'store'])->name('admin.users.store');

@@ -7,6 +7,7 @@ namespace Modules\Identity;
 use Illuminate\Support\ServiceProvider;
 use Modules\Identity\Application\AccessControl;
 use Modules\Identity\Console\CreateAdminCommand;
+use Modules\Identity\Console\SetCredentialsCommand;
 use Modules\Identity\Domain\AccessRepository;
 use Modules\Identity\Infrastructure\DbAccessRepository;
 
@@ -22,7 +23,7 @@ final class IdentityServiceProvider extends ServiceProvider
     {
         $this->loadMigrationsFrom(__DIR__.'/Database/migrations');
         if ($this->app->runningInConsole()) {
-            $this->commands([CreateAdminCommand::class]);
+            $this->commands([CreateAdminCommand::class, SetCredentialsCommand::class]);
         }
     }
 }

@@ -1,4 +1,4 @@
-import { h, state, api, get, post, toast, can, form, skeleton, enter, stagger } from './ui.js';
+import { h, state, api, get, post, put, toast, can, form, modal, skeleton, enter, stagger } from './ui.js';
 import { lang, setLang, startI18n } from './i18n.js';
 import dashboard from './views/dashboard.js';
 import inventory from './views/inventory.js';
@@ -67,6 +67,26 @@ function loginScreen() {
     })));
 }
 
+// The signed-in user changes their own name, login e-mail or password (always confirmed with the current password).
+function account() {
+  const m = modal('حسابي', h('div', null,
+    h('p', { class: 'hint' }, 'لتغيير الاسم أو البريد الإلكتروني (اسم الدخول) أو كلمة المرور أدخل كلمة المرور الحالية. اترك كلمة المرور الجديدة فارغة إن لم ترد تغييرها. تغيير كلمة المرور يُخرج حسابك من الأجهزة الأخرى.'),
+    form([
+      { name: 'name', label: 'الاسم', type: 'text', required: true, value: state.me.name, wide: true },
+      { name: 'email', label: 'البريد الإلكتروني (اسم الدخول)', type: 'text', required: true, value: state.me.email, wide: true },
+      { name: 'password', label: 'كلمة المرور الجديدة (12 حرفاً+، حروف كبيرة وصغيرة وأرقام)', type: 'password', wide: true },
+      { name: 'password_confirmation', label: 'تأكيد كلمة المرور الجديدة', type: 'password', wide: true },
+      { name: 'current_password', label: 'كلمة المرور الحالية', type: 'password', required: true, wide: true },
+    ], 'حفظ', async (v) => {
+      if (v.password !== v.password_confirmation) throw new Error('كلمة المرور الجديدة وتأكيدها غير متطابقين');
+      const body = { current_password: v.current_password, name: v.name, email: v.email };
+      if (v.password) Object.assign(body, { password: v.password, password_confirmation: v.password_confirmation });
+      const r = await put('me/account', body);
+      Object.assign(state.me, r);
+      toast('تم حفظ بيانات حسابك', 'ok'); m.close(); start();
+    })));
+}
+
 async function render() {
   const allowed = SECTIONS.filter((s) => can(...s.perms));
   const id = (location.hash.replace('#/', '') || 'dashboard').split('?')[0];
@@ -90,7 +110,7 @@ async function start() {
   root.replaceChildren(h('div', { class: 'layout' },
     h('nav', { class: 'side' }, companyName('h1'),
       allowed.map((s) => h('a', { href: '#/' + s.id, 'data-id': s.id }, icon(s.id), s.label)),
-      h('div', { class: 'who' }, h('div', null, h('b', null, state.me.name), h('br'), h('span', { class: 'ltr' }, state.me.email)), h('div', { class: 'row' }, langButton(), ' ',
+      h('div', { class: 'who' }, h('div', null, h('b', null, state.me.name), h('br'), h('span', { class: 'ltr' }, state.me.email)), h('div', { class: 'row' }, langButton(), ' ', h('button', { class: 'btn secondary small', onclick: account }, 'حسابي'), ' ',
         h('button', { class: 'btn secondary small', onclick: async () => { try { await api('DELETE', 'auth/token'); } catch {} sessionStorage.removeItem('erp_token'); location.hash = ''; location.reload(); } }, 'تسجيل الخروج')))),
     h('main', { id: 'main' }, state.lookups.demo ? h('div', { class: 'banner' }, 'هذا النظام يحتوي بيانات تجريبية للتجربة فقط. ابدأ من قاعدة بيانات فارغة قبل إدخال البيانات الحقيقية.') : null)));
   if (!listening) { window.addEventListener('hashchange', render); listening = true; }

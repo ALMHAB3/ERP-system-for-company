@@ -3919,5 +3919,37 @@ export const EN_PAIRS = [
 [
 "العقود",
 "Contracts"
+],
+[
+"حسابي",
+"My account"
+],
+[
+"لتغيير الاسم أو البريد الإلكتروني (اسم الدخول) أو كلمة المرور أدخل كلمة المرور الحالية. اترك كلمة المرور الجديدة فارغة إن لم ترد تغييرها. تغيير كلمة المرور يُخرج حسابك من الأجهزة الأخرى.",
+"To change your name, e-mail (login) or password, enter your current password. Leave the new password empty to keep it. Changing the password signs your account out on other devices."
+],
+[
+"البريد الإلكتروني (اسم الدخول)",
+"E-mail (login)"
+],
+[
+"كلمة المرور الجديدة (12 حرفاً+، حروف كبيرة وصغيرة وأرقام)",
+"New password (12+ characters, upper and lower case and digits)"
+],
+[
+"تأكيد كلمة المرور الجديدة",
+"Confirm the new password"
+],
+[
+"كلمة المرور الحالية",
+"Current password"
+],
+[
+"كلمة المرور الجديدة وتأكيدها غير متطابقين",
+"The new password and its confirmation do not match"
+],
+[
+"تم حفظ بيانات حسابك",
+"Your account details were saved"
 ]
 ];

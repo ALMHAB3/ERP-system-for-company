@@ -21,6 +21,9 @@ const AR_EXACT = new Map(Object.entries({
 const AR_PREFIX = [['Bank - ', 'مصرف - ']];
 // Server messages (only inside toasts and error boxes), fragment-replaced
 const AR_MSG = [
+  ['The current password is not correct.', 'كلمة المرور الحالية غير صحيحة.'], ['Nothing to change.', 'لا يوجد ما يُغيَّر.'],
+  ['The password field confirmation does not match.', 'تأكيد كلمة المرور غير مطابق.'], ['The password field and current password must be different.', 'كلمة المرور الجديدة يجب أن تختلف عن الحالية.'],
+  ['The email has already been taken.', 'هذا البريد الإلكتروني مستخدم لحساب آخر.'],
   ['The opening balance must equal the closing balance of the previous statement', 'الرصيد الافتتاحي يجب أن يساوي الرصيد الختامي للكشف السابق'],
   ['The statement does not add up: opening', 'الكشف غير متوازن: الرصيد الافتتاحي'], ['+ movements', '+ الحركات'], ['is not the closing balance', 'لا يساوي الرصيد الختامي'],
   ['statement line(s) are not matched yet.', 'سطر/سطور في الكشف لم تُطابَق بعد.'], ['This statement is already reconciled and can no longer be changed.', 'تمت تسوية هذا الكشف ولا يمكن تعديله.'],
