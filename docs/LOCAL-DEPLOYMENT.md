@@ -72,9 +72,12 @@ docker compose run --rm app php artisan inventory:reconcile && docker compose ru
 
 ## 5. التحديث إلى إصدار جديد
 
+أمر واحد يأخذ نسخة احتياطية ثم يحمّل التحديث ويبنيه ويطبّق تعديلات قاعدة البيانات ويعيد التشغيل:
 ```bash
-docker compose exec backup sh /backup.sh        # نسخة قبل التحديث دائماً
-git pull && docker compose build && docker compose up -d   # خدمة migrate تطبق التعديلات تلقائياً
+./scripts/update.sh                                              # لينكس / ماك
+```
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\update.ps1      # ويندوز (أو انقر مرتين على launcher\Update-ERP.bat)
 ```
 
 ## 6. المراقبة اليومية
