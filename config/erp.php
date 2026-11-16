@@ -3,7 +3,13 @@
 return [
     // The company's name. It is Arabic in every language of the interface (never translated).
     // An .env written in the wrong encoding turns Arabic into '?': never show that, fall back to the real name.
-    'company_name' => str_contains((string) env('COMPANY_NAME', ''), '?') || env('COMPANY_NAME', '') === '' ? 'شركة هب الريح لعوازل الأسطح ومواد البناء' : env('COMPANY_NAME'),
+    'company_name' => (static function (): string {
+        $name = trim((string) env('COMPANY_NAME', ''));
+        // A wrong file encoding turns Arabic into '?' or into Latin junk such as "Ø´Ø±ÙƒØ©": never show that.
+        $garbled = $name === '' || str_contains($name, '?') || ! mb_check_encoding($name, 'UTF-8') || preg_match('/[ÃÂØÙ][\x{0080}-\x{00FF}\x{0152}-\x{2122}]/u', $name);
+
+        return $garbled ? 'شركة هب الريح لعوازل الأسطح ومواد البناء' : $name;
+    })(),
     // Printed on every invoice (e-invoice seller block). Fill in the real registration data before real use.
     'company' => ['tax_id' => env('COMPANY_TAX_ID', ''), 'address' => env('COMPANY_ADDRESS', ''), 'phone' => env('COMPANY_PHONE', '')],
     // Payroll: absence is deducted as base salary / 30 per day.

@@ -2,9 +2,9 @@
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 function Rand { -join ((48..57)+(65..90)+(97..122) | Get-Random -Count 28 | ForEach-Object { [char]$_ }) }
-function GetEnv($k) { if (Test-Path .env) { $l = Select-String -Path .env -Pattern "^$k=" | Select-Object -First 1; if ($l) { return $l.Line.Substring($k.Length + 1) } }; return '' }
+function GetEnv($k) { if (Test-Path .env) { $l = Select-String -Path .env -Encoding UTF8 -Pattern "^$k=" | Select-Object -First 1; if ($l) { return $l.Line.Substring($k.Length + 1) } }; return '' }
 function SetEnv($k, $v) {
-  $lines = if (Test-Path .env) { Get-Content .env } else { @() }
+  $lines = if (Test-Path .env) { Get-Content .env -Encoding UTF8 } else { @() }   # PowerShell 5.1 reads ANSI by default: that garbles Arabic
   if ($lines | Where-Object { $_ -match "^$k=" }) { $lines = $lines | ForEach-Object { if ($_ -match "^$k=") { "$k=$v" } else { $_ } } } else { $lines += "$k=$v" }
   [IO.File]::WriteAllLines((Join-Path (Get-Location) '.env'), [string[]]$lines, (New-Object Text.UTF8Encoding($false)))   # UTF-8 without BOM: the Arabic company name must survive
 }
