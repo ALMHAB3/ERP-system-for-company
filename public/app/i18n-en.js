@@ -4195,5 +4195,45 @@ export const EN_PAIRS = [
 [
 "— كل الفروع حسب الدور —",
 "— all branches, as the role allows —"
+],
+[
+"الشحن",
+"Freight"
+],
+[
+"التأمين",
+"Insurance"
+],
+[
+"التخليص ومصاريف الميناء",
+"Clearance and port charges"
+],
+[
+"مصاريف أخرى",
+"Other charges"
+],
+[
+"أدخل أصناف الفاتورة، ثم مصاريف الشحنة كما دفعتها: الشحن والتأمين والجمارك والتخليص، كل منها مبلغ واحد بالدينار. يوزّع النظام المصاريف على الأصناف تلقائياً ويحسب التكلفة الفعلية لكل وحدة. رقم الدفعة يُعطى تلقائياً.",
+"Enter the invoice items, then the shipment expenses as you paid them: freight, insurance, customs and clearance, each as one amount in dinar. The system spreads the expenses over the items and works out the real cost of each unit. Lot numbers are assigned automatically."
+],
+[
+"الأصناف",
+"Items"
+],
+[
+") — اختياري",
+") — optional"
+],
+[
+"توزيع المصاريف على الأصناف",
+"Spread the expenses over the items"
+],
+[
+"حسب قيمة الصنف (الأنسب غالباً)",
+"By item value (usually best)"
+],
+[
+"الجمارك %",
+"Customs %"
 ]
 ];

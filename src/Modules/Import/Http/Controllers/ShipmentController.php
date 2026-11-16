@@ -35,7 +35,7 @@ final class ShipmentController extends ApiController
             'lines.*.unit_price' => ['required', Decimal::RULE],
             'lines.*.volume_cbm' => ['nullable', Decimal::RULE],
             'lines.*.weight_kg' => ['nullable', Decimal::RULE],
-            'lines.*.duty_rate' => ['required', Decimal::RULE],
+            'lines.*.duty_rate' => ['nullable', Decimal::RULE],   // legacy: customs as a % per line; normally customs is the CUSTOMS amount below
             'lines.*.lot_no' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9._-]+$/'],
             'lines.*.expiry_date' => ['nullable', 'date_format:Y-m-d'],
             'lines.*.sale_price' => ['nullable', Decimal::RULE],
@@ -59,7 +59,7 @@ final class ShipmentController extends ApiController
                 null, $l['product_id'], Decimal::of($l['quantity']), Decimal::of($l['unit_price']),
                 isset($l['volume_cbm']) ? Decimal::of($l['volume_cbm']) : Fixed::zero(),
                 isset($l['weight_kg']) ? Decimal::of($l['weight_kg']) : Fixed::zero(),
-                Decimal::of($l['duty_rate']),
+                Decimal::of($l['duty_rate'] ?? '0'),
                 $l['lot_no'] ?? null,
                 isset($l['expiry_date']) ? new \DateTimeImmutable($l['expiry_date']) : null,
             ), $d['lines']),

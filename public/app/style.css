@@ -96,6 +96,7 @@ form.f{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));ga
 .subrows{border:1px dashed #c3cedb;border-radius:var(--radius);padding:var(--s3);display:flex;flex-direction:column;gap:var(--s3);background:#fafbfd}
 .subrow{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--s2);align-items:end;padding-bottom:var(--s3);border-bottom:1px solid var(--line)}
 .subrow:last-child{border-bottom:0;padding-bottom:0}
+.subrow .field:has(.searchbox){grid-column:span 2}.subrow .searchbox,.subrow .searchbox input{width:100%;max-width:none}   /* the item name needs room */
 .formbar{grid-column:1/-1;display:flex;gap:var(--s2);align-items:center}
 .toolbar{display:flex;gap:var(--s3);align-items:end;flex-wrap:wrap;margin-bottom:var(--s3)}
 .toolbar .field{min-width:180px}

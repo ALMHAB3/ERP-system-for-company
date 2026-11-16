@@ -1,19 +1,23 @@
 import { prices, suggestions } from './sales.js';
-import { h, get, post, form, table, tabs, panel, act, can, modal, money, qty, pct, rateFromPercent, badge, toast, opts, refItems, currencyFields, state } from '../ui.js';
+import { h, get, post, form, table, tabs, panel, act, can, modal, money, qty, pct, badge, toast, opts, refItems, currencyFields, state } from '../ui.js';
 
 const BASIS = [['volume', 'حسب الحجم (CBM)'], ['weight', 'حسب الوزن (كجم)'], ['value', 'حسب القيمة'], ['quantity', 'حسب الكمية']].map(([value, label]) => ({ value, label }));
+// The shipment's expenses, each one amount in the base currency, spread over the items automatically.
+const COSTS = [['FREIGHT', 'الشحن'], ['INSURANCE', 'التأمين'], ['CUSTOMS', 'الجمارك'], ['CLEARANCE', 'التخليص ومصاريف الميناء'], ['OTHER', 'مصاريف أخرى']];
+const costLabel = (code) => COSTS.find(([c]) => c === code)?.[1] || code;
+const costList = (v) => COSTS.filter(([code]) => v['cost_' + code] && Number(v['cost_' + code]) > 0).map(([code]) => ({ code, amount: v['cost_' + code], basis: v.basis || 'value', in_customs_value: false }));
 
 function details(s) {
   return h('div', null,
     h('p', null, 'العملة: ', s.currency, ' · سعر الصرف: ', money(s.exchange_rate), ' · الحالة: ', badge(s.status)),
     h('h4', null, 'البنود'),
     table([
-      { label: 'الصنف', render: (l) => l.sku + ' — ' + l.name }, { label: 'الدفعة', render: (l) => l.lot_no || '(تلقائي)' }, { label: 'الانتهاء', render: (l) => l.expiry_date || '—' },
-      { label: 'الكمية', num: true, render: (l) => qty(l.quantity) }, { label: 'سعر الشراء', num: true, render: (l) => money(l.unit_price) }, { label: 'سعر البيع', num: true, render: (l) => (l.sale_price ? money(l.sale_price) : '—') }, { label: 'الجمارك', num: true, render: (l) => pct(l.duty_rate) },
+      { label: 'الصنف', render: (l) => l.sku + ' — ' + l.name }, ...(s.lines.some((l) => l.expiry_date) ? [{ label: 'الانتهاء', render: (l) => l.expiry_date || '—' }] : []),
+      { label: 'الكمية', num: true, render: (l) => qty(l.quantity) }, { label: 'سعر الشراء', num: true, render: (l) => money(l.unit_price) }, { label: 'سعر البيع', num: true, render: (l) => (l.sale_price ? money(l.sale_price) : '—') }, ...(s.lines.some((l) => Number(l.duty_rate)) ? [{ label: 'الجمارك %', num: true, render: (l) => pct(l.duty_rate) }] : []),
       { label: 'التكلفة الفعلية', num: true, render: (l) => (l.landed_total ? money(l.landed_total) : '—') }, { label: 'تكلفة الوحدة', num: true, render: (l) => (l.landed_unit ? money(l.landed_unit) : '—') },
     ], s.lines),
     h('h4', null, 'مصاريف الشحنة (بالعملة الأساسية)'),
-    table([{ label: 'البند', key: 'code' }, { label: 'المبلغ', num: true, render: (c) => money(c.amount) }, { label: 'التوزيع', render: (c) => BASIS.find((b) => b.value === c.basis)?.label }, { label: 'ضمن القيمة الجمركية', render: (c) => (c.in_customs_value ? 'نعم' : 'لا') }], s.costs, 'لا توجد مصاريف'));
+    table([{ label: 'البند', render: (c) => costLabel(c.code) }, { label: 'المبلغ', num: true, render: (c) => money(c.amount) }, { label: 'التوزيع', render: (c) => BASIS.find((b) => b.value === c.basis)?.label }, ...(s.costs.some((c) => c.in_customs_value) ? [{ label: 'ضمن القيمة الجمركية', render: (c) => (c.in_customs_value ? 'نعم' : 'لا') }] : [])], s.costs, 'لا توجد مصاريف'));
 }
 
 function list() {
@@ -53,8 +57,8 @@ function preview(f) {
     try {
       const r = await post('shipments/preview', {
         currency: v.currency, exchange_rate: v.exchange_rate || undefined, margin_pct: margin.value.trim() || undefined,
-        lines: rows.map(({ l }) => ({ quantity: l.quantity, unit_price: l.unit_price, volume_cbm: l.volume_cbm || undefined, weight_kg: l.weight_kg || undefined, duty_rate: rateFromPercent(l.duty_pct || '0') })),
-        costs: (v.costs || []).filter((c) => c.code && c.amount).map((c) => ({ code: c.code.toUpperCase(), amount: c.amount, basis: c.basis, in_customs_value: !!c.in_customs_value })),
+        lines: rows.map(({ l }) => ({ quantity: l.quantity, unit_price: l.unit_price })),
+        costs: costList(v),
       });
       out.replaceChildren(
         table([
@@ -75,30 +79,27 @@ function preview(f) {
 }
 
 function createForm() {
-  return h('div', null, h('p', { class: 'hint' }, 'أدخل بنود الفاتورة التجارية ثم المصاريف. الشحن والتأمين يُحسبان ضمن القيمة الجمركية (CIF). الرسم الجمركي يُدخل كنسبة مئوية لكل بند حسب بند التعرفة.'),
+  const money0 = (code, label) => ({ name: 'cost_' + code, label: label + ' (' + state.lookups.currency + ')', type: 'number' });
+  return h('div', null, h('p', { class: 'hint' }, 'أدخل أصناف الفاتورة، ثم مصاريف الشحنة كما دفعتها: الشحن والتأمين والجمارك والتخليص، كل منها مبلغ واحد بالدينار. يوزّع النظام المصاريف على الأصناف تلقائياً ويحسب التكلفة الفعلية لكل وحدة. رقم الدفعة يُعطى تلقائياً.'),
     form([
       { name: 'reference', label: 'مرجع الشحنة / رقم الحاوية', type: 'text', required: true },
-      ...currencyFields('USD', 'سعر الصرف إلى الدينار الليبي'),
-      { name: 'lines', label: 'بنود الفاتورة التجارية', type: 'rows', fields: [
+      ...currencyFields('USD', 'سعر الصرف إلى ' + state.lookups.currency),
+      { name: 'lines', label: 'الأصناف', type: 'rows', fields: [
         { name: 'product_id', label: 'الصنف', type: 'ref', items: refItems.products(), required: true, onChange: (label, bag) => {
           const p = state.lookups.products.find((x) => x.sku + ' — ' + x.name === label.trim());   // only products that expire ask for an expiry date
           bag.expiry_date.input.closest('.field').hidden = !p?.has_expiry; bag.expiry_date.f.required = !!p?.has_expiry;
         } },
         { name: 'quantity', label: 'الكمية', type: 'number', required: true }, { name: 'unit_price', label: 'سعر الشراء للوحدة (بعملة الشحنة)', type: 'number', required: true },
-        { name: 'volume_cbm', label: 'الحجم CBM', type: 'number' }, { name: 'weight_kg', label: 'الوزن كجم', type: 'number' },
-        { name: 'duty_pct', label: 'الرسم الجمركي %', type: 'number', value: '0', required: true },
-        { name: 'sale_price', label: 'سعر البيع للوحدة بالدينار (يُعتمد عند الاستلام)', type: 'number' },
-        { name: 'lot_no', label: 'رقم دفعة المورد', type: 'text' }, { name: 'expiry_date', label: 'تاريخ انتهاء الصلاحية', type: 'date', hidden: true },
+        { name: 'sale_price', label: 'سعر البيع للوحدة (' + state.lookups.currency + ') — اختياري', type: 'number' },
+        { name: 'expiry_date', label: 'تاريخ انتهاء الصلاحية', type: 'date', hidden: true },
       ] },
-      { name: 'costs', label: 'المصاريف (بالعملة الأساسية)', type: 'rows', min: 0, fields: [
-        { name: 'code', label: 'البند (FREIGHT, INSURANCE, PORT…)', type: 'text', required: true }, { name: 'amount', label: 'المبلغ', type: 'number', required: true },
-        { name: 'basis', label: 'التوزيع', type: 'select', options: BASIS }, { name: 'in_customs_value', label: 'ضمن القيمة الجمركية', type: 'checkbox' },
-      ] },
+      money0('FREIGHT', 'الشحن'), money0('INSURANCE', 'التأمين'), money0('CUSTOMS', 'الجمارك'), money0('CLEARANCE', 'التخليص ومصاريف الميناء'), money0('OTHER', 'مصاريف أخرى'),
+      { name: 'basis', label: 'توزيع المصاريف على الأصناف', type: 'select', value: 'value', options: [{ value: 'value', label: 'حسب قيمة الصنف (الأنسب غالباً)' }, { value: 'quantity', label: 'حسب الكمية' }] },
     ], 'إنشاء الشحنة', async (v, f) => {
       await post('shipments', {
         reference: v.reference, currency: v.currency, exchange_rate: v.exchange_rate || undefined,
-        lines: v.lines.map((l) => ({ product_id: Number(l.product_id), quantity: l.quantity, unit_price: l.unit_price, volume_cbm: l.volume_cbm, weight_kg: l.weight_kg, duty_rate: rateFromPercent(l.duty_pct), sale_price: l.sale_price || undefined, lot_no: l.lot_no, expiry_date: l.expiry_date || undefined })),
-        costs: v.costs.map((c) => ({ code: c.code.toUpperCase(), amount: c.amount, basis: c.basis, in_customs_value: !!c.in_customs_value })),
+        lines: v.lines.map((l) => ({ product_id: Number(l.product_id), quantity: l.quantity, unit_price: l.unit_price, sale_price: l.sale_price || undefined, expiry_date: l.expiry_date || undefined })),
+        costs: costList(v),
       });
       toast('تم إنشاء الشحنة. الخطوة التالية: احتساب التكلفة الفعلية من قائمة الشحنات.', 'ok'); f.reset();
     }));
